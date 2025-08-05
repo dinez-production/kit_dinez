@@ -15,8 +15,12 @@ import { eq, desc } from "drizzle-orm";
 export interface IStorage {
   // Users
   getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByRegisterNumber(registerNumber: string): Promise<User | undefined>;
+  getUserByStaffId(staffId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, user: Partial<InsertUser>): Promise<User>;
+  deleteAllUsers(): Promise<void>;
   
   // Categories
   getCategories(): Promise<Category[]>;
@@ -52,9 +56,21 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
+  async getUserByEmail(email: string): Promise<User | undefined> {
     const db = getDb();
-    const [user] = await db.select().from(users).where(eq(users.username, username));
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
+  }
+
+  async getUserByRegisterNumber(registerNumber: string): Promise<User | undefined> {
+    const db = getDb();
+    const [user] = await db.select().from(users).where(eq(users.registerNumber, registerNumber));
+    return user || undefined;
+  }
+
+  async getUserByStaffId(staffId: string): Promise<User | undefined> {
+    const db = getDb();
+    const [user] = await db.select().from(users).where(eq(users.staffId, staffId));
     return user || undefined;
   }
 
@@ -65,6 +81,21 @@ export class DatabaseStorage implements IStorage {
       .values(insertUser)
       .returning();
     return user;
+  }
+
+  async updateUser(id: number, updateData: Partial<InsertUser>): Promise<User> {
+    const db = getDb();
+    const [user] = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async deleteAllUsers(): Promise<void> {
+    const db = getDb();
+    await db.delete(users);
   }
 
   // Categories

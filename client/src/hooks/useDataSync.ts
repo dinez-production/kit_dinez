@@ -115,7 +115,8 @@ export function useAuthSync() {
     isAdmin: user?.role === 'admin' || user?.role === 'super_admin',
     isSuperAdmin: user?.role === 'super_admin',
     isCanteenOwner: user?.role === 'canteen_owner',
-    isStudent: user?.role === 'student' || !user?.role,
+    isStudent: user?.role === 'student',
+    isStaff: user?.role === 'staff',
     hasRole: (role: string) => user?.role === role,
   };
 }

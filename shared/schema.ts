@@ -5,9 +5,25 @@ import { z } from "zod";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  role: text("role").notNull().default("student"),
+  email: text("email").notNull().unique(),
+  name: text("name").notNull(),
+  phoneNumber: text("phone_number"),
+  role: text("role").notNull(), // "student" or "staff"
+  
+  // For students
+  registerNumber: text("register_number").unique(),
+  department: text("department"),
+  joiningYear: integer("joining_year"),
+  passingOutYear: integer("passing_out_year"),
+  currentStudyYear: integer("current_study_year"),
+  isPassed: boolean("is_passed").default(false),
+  
+  // For staff
+  staffId: text("staff_id").unique(),
+  
+  // Profile completion status
+  isProfileComplete: boolean("is_profile_complete").default(false),
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -95,10 +111,56 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
 
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+  email: true,
+  name: true,
+  phoneNumber: true,
   role: true,
+  registerNumber: true,
+  department: true,
+  joiningYear: true,
+  passingOutYear: true,
+  currentStudyYear: true,
+  isPassed: true,
+  staffId: true,
+  isProfileComplete: true,
 });
+
+// Profile completion schema for new users
+export const profileCompletionSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  phoneNumber: z.string().min(10, "Phone number must be at least 10 digits"),
+  role: z.enum(["student", "staff"], { required_error: "Role is required" }),
+  
+  // Student fields (conditional)
+  registerNumber: z.string().optional(),
+  department: z.string().optional(),
+  passingOutYear: z.number().optional(),
+  
+  // Staff fields (conditional)
+  staffId: z.string().optional(),
+}).refine((data) => {
+  if (data.role === "student") {
+    return data.registerNumber && data.department && data.passingOutYear;
+  }
+  if (data.role === "staff") {
+    return data.staffId;
+  }
+  return false;
+}, {
+  message: "Please fill all required fields for your role",
+});
+
+// Validation for register number format
+export const registerNumberSchema = z.string().regex(
+  /^7115\d{2}[A-Za-z]{3}\d{3}$/,
+  "Register number must be in format: 7115XXABC123 (7115 + year + department + roll number)"
+);
+
+// Validation for staff ID format
+export const staffIdSchema = z.string().regex(
+  /^\d{6}$/,
+  "Staff ID must be 6 digits (e.g., 000001)"
+);
 
 export const insertCategorySchema = createInsertSchema(categories).pick({
   name: true,

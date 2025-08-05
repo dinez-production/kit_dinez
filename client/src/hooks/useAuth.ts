@@ -55,6 +55,14 @@ export function useAuth() {
     return user?.role === 'canteen_owner';
   };
 
+  const isStudent = () => {
+    return user?.role === 'student';
+  };
+
+  const isStaff = () => {
+    return user?.role === 'staff';
+  };
+
   const hasRole = (role: string) => {
     return user?.role === role;
   };
@@ -68,6 +76,8 @@ export function useAuth() {
     isAdmin,
     isSuperAdmin,
     isCanteenOwner,
+    isStudent,
+    isStaff,
     hasRole,
     isAuthenticated: !!user
   };

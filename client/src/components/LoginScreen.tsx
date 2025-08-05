@@ -4,84 +4,24 @@ import { Card, CardContent } from "@/components/ui/card";
 import { signInWithGoogle, signInWithGoogleRedirect, handleGoogleRedirect } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
+import ProfileSetupScreen from "./ProfileSetupScreen";
 
 export default function LoginScreen() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [needsProfileSetup, setNeedsProfileSetup] = useState<{
+    email: string;
+    name: string;
+  } | null>(null);
 
-  // Enhanced authentication with user creation and role sync
+  // Handle Google OAuth redirect result
   useEffect(() => {
     handleGoogleRedirect()
       .then(async (result) => {
         if (result) {
           toast({ title: "Google sign-in successful!" });
-          
-          // Check if user exists and get role, create if doesn't exist
-          try {
-            let response = await fetch(`/api/users/by-username/${result.user.email}`);
-            let userRole = 'student';
-            let userId = result.user.uid;
-            
-            if (response.ok) {
-              const userData = await response.json();
-              userRole = userData.role;
-              userId = userData.id;
-            } else if (response.status === 404) {
-              // User doesn't exist, create new user
-              
-              // Determine role based on email for special accounts
-              if (result.user.email === 'kitcanteen1@gmail.com') {
-                userRole = 'super_admin';
-              } else if (result.user.email === 'kitcanteenowner@gmail.com') {
-                userRole = 'canteen_owner';
-              }
-              
-              const createResponse = await fetch('/api/users', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  username: result.user.email,
-                  password: 'oauth_user', // Placeholder for OAuth users
-                  role: userRole
-                })
-              });
-              
-              if (createResponse.ok) {
-                const newUser = await createResponse.json();
-                userId = newUser.id;
-              }
-            }
-            
-            // Store user data with actual role from database
-            localStorage.setItem('user', JSON.stringify({
-              id: userId,
-              name: result.user.displayName,
-              email: result.user.email,
-              role: userRole
-            }));
-            
-            // Redirect based on role with enhanced messaging
-            if (userRole === 'super_admin') {
-              toast({ title: "Welcome Super Admin!", description: "Access to all system controls" });
-              setLocation('/admin');
-            } else if (userRole === 'canteen_owner') {
-              toast({ title: "Welcome Canteen Owner!", description: "Manage your canteen operations" });
-              setLocation('/canteen-owner-dashboard');
-            } else {
-              toast({ title: "Welcome Student!", description: "Explore delicious menu options" });
-              setLocation('/home');
-            }
-          } catch (error) {
-            // Error in authentication flow - default to student role if API fails
-            localStorage.setItem('user', JSON.stringify({
-              id: result.user.uid,
-              name: result.user.displayName,
-              email: result.user.email,
-              role: 'student'
-            }));
-            setLocation('/home');
-          }
+          await handleUserAuthentication(result.user);
         }
       })
       .catch((error) => {
@@ -93,6 +33,127 @@ export default function LoginScreen() {
       });
   }, []);
 
+  const handleUserAuthentication = async (user: any) => {
+    try {
+      // Check if user exists in database
+      const userResponse = await fetch(`/api/users/by-email/${user.email}`);
+      
+      if (userResponse.ok) {
+        // User exists, check if profile is complete
+        const userData = await userResponse.json();
+        
+        if (userData.isProfileComplete) {
+          // Profile is complete, login normally
+          const userDisplayData = {
+            id: userData.id,
+            name: userData.name,
+            email: userData.email,
+            role: userData.role,
+            phoneNumber: userData.phoneNumber,
+            ...(userData.role === "student" && {
+              registerNumber: userData.registerNumber,
+              department: userData.department,
+              currentStudyYear: userData.currentStudyYear,
+              isPassed: userData.isPassed,
+            }),
+            ...(userData.role === "staff" && {
+              staffId: userData.staffId,
+            }),
+          };
+          
+          localStorage.setItem('user', JSON.stringify(userDisplayData));
+          
+          // Redirect based on role
+          if (userData.role === 'super_admin') {
+            toast({ title: "Welcome Super Admin!", description: "Access to all system controls" });
+            setLocation("/admin");
+          } else if (userData.role === 'canteen_owner') {
+            toast({ title: "Welcome Canteen Owner!", description: "Manage your canteen operations" });
+            setLocation("/canteen-owner-dashboard");
+          } else {
+            toast({ title: `Welcome ${userData.role === 'staff' ? 'Staff' : 'Student'}!`, description: "Explore delicious menu options" });
+            setLocation("/home");
+          }
+        } else {
+          // Profile exists but incomplete, redirect to setup
+          setNeedsProfileSetup({
+            email: user.email,
+            name: user.displayName || '',
+          });
+        }
+      } else if (userResponse.status === 404) {
+        // User doesn't exist - check for special admin accounts
+        if (user.email === 'kitcanteen1@gmail.com') {
+          // Create super admin
+          const adminUser = {
+            email: user.email,
+            name: user.displayName || 'Super Admin',
+            phoneNumber: '',
+            role: 'super_admin',
+            isProfileComplete: true,
+          };
+          
+          const createResponse = await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(adminUser)
+          });
+          
+          if (createResponse.ok) {
+            const newUser = await createResponse.json();
+            localStorage.setItem('user', JSON.stringify({
+              id: newUser.id,
+              name: newUser.name,
+              email: newUser.email,
+              role: newUser.role,
+            }));
+            toast({ title: "Welcome Super Admin!", description: "Access to all system controls" });
+            setLocation("/admin");
+          }
+        } else if (user.email === 'kitcanteenowner@gmail.com') {
+          // Create canteen owner
+          const ownerUser = {
+            email: user.email,
+            name: user.displayName || 'Canteen Owner',
+            phoneNumber: '',
+            role: 'canteen_owner',
+            isProfileComplete: true,
+          };
+          
+          const createResponse = await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(ownerUser)
+          });
+          
+          if (createResponse.ok) {
+            const newUser = await createResponse.json();
+            localStorage.setItem('user', JSON.stringify({
+              id: newUser.id,
+              name: newUser.name,
+              email: newUser.email,
+              role: newUser.role,
+            }));
+            toast({ title: "Welcome Canteen Owner!", description: "Manage your canteen operations" });
+            setLocation("/canteen-owner-dashboard");
+          }
+        } else {
+          // New regular user - needs profile setup
+          setNeedsProfileSetup({
+            email: user.email,
+            name: user.displayName || '',
+          });
+        }
+      }
+    } catch (error) {
+      toast({
+        title: "Authentication Error",
+        description: "Failed to authenticate user. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
@@ -100,72 +161,7 @@ export default function LoginScreen() {
       
       if (result.user) {
         toast({ title: "Successfully signed in!" });
-        
-        // Enhanced user authentication and role management (same as above)
-        try {
-          let response = await fetch(`/api/users/by-username/${result.user.email}`);
-          let userRole = 'student';
-          let userId = result.user.uid;
-          
-          if (response.ok) {
-            const userData = await response.json();
-            userRole = userData.role;
-            userId = userData.id;
-          } else if (response.status === 404) {
-            // User doesn't exist, create new user
-            
-            // Determine role based on email for special accounts
-            if (result.user.email === 'kitcanteen1@gmail.com') {
-              userRole = 'super_admin';
-            } else if (result.user.email === 'kitcanteenowner@gmail.com') {
-              userRole = 'canteen_owner';
-            }
-            
-            const createResponse = await fetch('/api/users', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                username: result.user.email,
-                password: 'oauth_user',
-                role: userRole
-              })
-            });
-            
-            if (createResponse.ok) {
-              const newUser = await createResponse.json();
-              userId = newUser.id;
-            }
-          }
-          
-          // Store user data with actual role from database
-          localStorage.setItem('user', JSON.stringify({
-            id: userId,
-            name: result.user.displayName,
-            email: result.user.email,
-            role: userRole
-          }));
-          
-          // Redirect based on role
-          if (userRole === 'super_admin') {
-            toast({ title: "Welcome Super Admin!", description: "Access to all system controls" });
-            setLocation("/admin");
-          } else if (userRole === 'canteen_owner') {
-            toast({ title: "Welcome Canteen Owner!", description: "Manage your canteen operations" });
-            setLocation("/canteen-owner-dashboard");
-          } else {
-            toast({ title: "Welcome Student!", description: "Explore delicious menu options" });
-            setLocation("/home");
-          }
-        } catch (error) {
-          // Error in authentication flow - default to student role if API fails
-          localStorage.setItem('user', JSON.stringify({
-            id: result.user.uid,
-            name: result.user.displayName,
-            email: result.user.email,
-            role: 'student'
-          }));
-          setLocation("/home");
-        }
+        await handleUserAuthentication(result.user);
       }
     } catch (error: any) {
       // Google sign-in error - handle specific error cases
@@ -207,6 +203,20 @@ export default function LoginScreen() {
       setIsLoading(false);
     }
   };
+
+  // Show profile setup screen if needed
+  if (needsProfileSetup) {
+    return (
+      <ProfileSetupScreen
+        userEmail={needsProfileSetup.email}
+        userName={needsProfileSetup.name}
+        onComplete={(userData) => {
+          setNeedsProfileSetup(null);
+          // User will be redirected by ProfileSetupScreen
+        }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

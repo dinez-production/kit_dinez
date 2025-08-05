@@ -1,46 +1,158 @@
 /**
- * Generates a unique 12-digit numeric order ID
- * Format: 123456789012 (12 digits total)
- * Uses only numbers for better compatibility and easier identification
+ * Utility functions for user management and academic calculations
  */
-export function generateOrderId(): string {
-  // Generate 8 random digits
-  let result = '';
-  for (let i = 0; i < 8; i++) {
-    result += Math.floor(Math.random() * 10).toString();
+
+// Generate unique 12-digit order number
+export function generateOrderNumber(): string {
+  // Use 8 random digits + 4 timestamp-based digits for uniqueness
+  const randomPart = Math.floor(Math.random() * 100000000).toString().padStart(8, '0');
+  const timestampPart = Date.now().toString().slice(-4);
+  return randomPart + timestampPart;
+}
+
+// Calculate current study year based on joining year and passing out year
+export function calculateCurrentStudyYear(joiningYear: number, passingOutYear: number): number {
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth() + 1; // JavaScript months are 0-based
+  
+  // Academic year runs from June to next June
+  let academicYear = currentYear;
+  if (currentMonth >= 6) {
+    // If current month is June or later, we're in the academic year starting this year
+    academicYear = currentYear;
+  } else {
+    // If current month is before June, we're still in the academic year that started last year
+    academicYear = currentYear - 1;
   }
   
-  // Add 4 digits from timestamp for uniqueness
-  const timestamp = Date.now();
-  const timestampPart = (timestamp % 10000).toString().padStart(4, '0');
+  // Calculate study year based on academic year and joining year
+  const studyYear = academicYear - joiningYear + 1;
   
-  return result + timestampPart;
+  // Ensure study year is within valid range
+  return Math.max(1, Math.min(studyYear, passingOutYear - joiningYear + 1));
 }
 
-/**
- * Validates if a string is a valid 12-digit numeric order ID
- */
-export function isValidOrderId(orderId: string): boolean {
-  const pattern = /^[0-9]{12}$/;
-  return pattern.test(orderId);
+// Check if student has passed out
+export function isStudentPassed(joiningYear: number, passingOutYear: number): boolean {
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth() + 1;
+  
+  // Academic year runs from June to next June
+  let academicYear = currentYear;
+  if (currentMonth >= 6) {
+    academicYear = currentYear;
+  } else {
+    academicYear = currentYear - 1;
+  }
+  
+  return academicYear > passingOutYear;
 }
 
-/**
- * Formats order ID with highlighted last 4 digits for display
- * Returns object with formatted parts for UI highlighting
- */
-export function formatOrderIdDisplay(orderId: string): { 
-  prefix: string; 
-  suffix: string; 
-  full: string 
+// Validate register number format
+export function validateRegisterNumber(registerNumber: string): {
+  isValid: boolean;
+  joiningYear?: number;
+  department?: string;
+  rollNumber?: string;
+  error?: string;
 } {
-  if (!orderId || orderId.length !== 12) {
-    return { prefix: orderId || '', suffix: '', full: orderId || '' };
+  const regex = /^7115(\d{2})([A-Za-z]{3})(\d{3})$/;
+  const match = registerNumber.match(regex);
+  
+  if (!match) {
+    return {
+      isValid: false,
+      error: "Register number must be in format: 7115XXABC123 (7115 + year + department + roll number)"
+    };
+  }
+  
+  const [, yearPart, department, rollNumber] = match;
+  const joiningYear = 2000 + parseInt(yearPart);
+  const currentYear = new Date().getFullYear();
+  
+  // Validate year is reasonable (not in future, not too old)
+  if (joiningYear > currentYear || joiningYear < 2000) {
+    return {
+      isValid: false,
+      error: `Invalid joining year: ${joiningYear}. Must be between 2000 and ${currentYear}.`
+    };
   }
   
   return {
-    prefix: orderId.slice(0, 8),
-    suffix: orderId.slice(8, 12),
+    isValid: true,
+    joiningYear,
+    department: department.toUpperCase(),
+    rollNumber
+  };
+}
+
+// Validate staff ID format
+export function validateStaffId(staffId: string): { isValid: boolean; error?: string } {
+  const regex = /^\d{6}$/;
+  
+  if (!regex.test(staffId)) {
+    return {
+      isValid: false,
+      error: "Staff ID must be exactly 6 digits (e.g., 000001)"
+    };
+  }
+  
+  return { isValid: true };
+}
+
+// Department mapping for better display
+export const DEPARTMENTS = {
+  'CSE': 'Computer Science and Engineering',
+  'ECE': 'Electronics and Communication Engineering',
+  'EEE': 'Electrical and Electronics Engineering',
+  'MECH': 'Mechanical Engineering',
+  'CIVIL': 'Civil Engineering',
+  'IT': 'Information Technology',
+  'BME': 'Biomedical Engineering',
+  'CHEM': 'Chemical Engineering',
+  'AERO': 'Aeronautical Engineering',
+  'AUTO': 'Automobile Engineering',
+  'PROD': 'Production Engineering',
+  'TEXT': 'Textile Technology',
+  'FT': 'Fashion Technology',
+  'AGRI': 'Agricultural Engineering',
+  'FOOD': 'Food Technology',
+  'BIO': 'Biotechnology',
+  'MBA': 'Master of Business Administration',
+  'MCA': 'Master of Computer Applications',
+  'MSC': 'Master of Science',
+  'BAD': 'Bachelor of Architecture and Design',
+} as const;
+
+// Get department full name
+export function getDepartmentFullName(code: string): string {
+  return DEPARTMENTS[code.toUpperCase() as keyof typeof DEPARTMENTS] || code.toUpperCase();
+}
+
+// Get study year display text
+export function getStudyYearDisplay(studyYear: number): string {
+  const ordinals = ['', '1st', '2nd', '3rd', '4th', '5th'];
+  return ordinals[studyYear] || `${studyYear}th`;
+}
+
+// Format order ID display with highlighted last 4 digits for visual identification
+export function formatOrderIdDisplay(orderId: string): { 
+  prefix: string; 
+  highlighted: string; 
+  full: string;
+} {
+  if (!orderId || orderId.length < 4) {
+    return { prefix: orderId || '', highlighted: '', full: orderId || '' };
+  }
+  
+  const prefix = orderId.slice(0, -4);
+  const highlighted = orderId.slice(-4);
+  
+  return {
+    prefix,
+    highlighted,
     full: orderId
   };
 }

@@ -8,7 +8,7 @@ import {
   insertOrderSchema, 
   insertNotificationSchema 
 } from "@shared/schema";
-import { generateOrderId } from "@shared/utils";
+import { generateOrderNumber } from "@shared/utils";
 
 // Store SSE connections for real-time notifications
 const sseConnections = new Set<any>();
@@ -68,13 +68,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/users/by-username/:username", async (req, res) => {
+  app.get("/api/users/by-email/:email", async (req, res) => {
     try {
-      const user = await storage.getUserByUsername(req.params.username);
+      const user = await storage.getUserByEmail(req.params.email);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
       res.json(user);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/users/by-register/:registerNumber", async (req, res) => {
+    try {
+      const user = await storage.getUserByRegisterNumber(req.params.registerNumber);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/users/by-staff/:staffId", async (req, res) => {
+    try {
+      const user = await storage.getUserByStaffId(req.params.staffId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/users/:id", async (req, res) => {
+    try {
+      const user = await storage.updateUser(parseInt(req.params.id), req.body);
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/users/all", async (req, res) => {
+    try {
+      await storage.deleteAllUsers();
+      res.json({ message: "All users deleted successfully" });
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
     }
@@ -194,9 +236,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/orders", async (req, res) => {
     try {
-      // Generate unique 12-digit alphanumeric order ID for both orderNumber and barcode
-      const orderNumber = generateOrderId();
-      const barcode = generateOrderId();
+      // Generate unique 12-digit numeric order ID for both orderNumber and barcode
+      const orderNumber = generateOrderNumber();
+      const barcode = generateOrderNumber();
       
       const orderData = { ...req.body, orderNumber, barcode };
       const validatedData = insertOrderSchema.parse(orderData);
@@ -303,8 +345,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Find order by barcode or order number
       let order = await storage.getOrderByBarcode(barcode);
       
-      // If not found by barcode, try to find by order number (12-digit alphanumeric format)
-      if (!order && barcode.match(/^[A-Z0-9]{12}$/)) {
+      // If not found by barcode, try to find by order number (12-digit numeric format)
+      if (!order && barcode.match(/^\d{12}$/)) {
         order = await storage.getOrderByOrderNumber(barcode);
       }
       
