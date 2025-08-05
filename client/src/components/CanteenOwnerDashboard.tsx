@@ -58,6 +58,9 @@ export default function CanteenOwnerDashboard() {
   const [scanError, setScanError] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Search state for orders
+  const [searchQuery, setSearchQuery] = useState("");
+
   // Enhanced security check - redirect if not authenticated OR not canteen owner
   useEffect(() => {
     if (!isAuthenticated || !isCanteenOwner) {
@@ -195,6 +198,34 @@ export default function CanteenOwnerDashboard() {
     }
   });
 
+
+  // Filter orders based on search query
+  const filteredOrders = (orders as any[]).filter((order: any) => {
+    if (!searchQuery) return true;
+    
+    const query = searchQuery.toLowerCase();
+    const orderNumber = order.orderNumber?.toLowerCase() || '';
+    const customerName = order.customerName?.toLowerCase() || '';
+    const orderId = order.id?.toString().toLowerCase() || '';
+    
+    // Parse items to search within them
+    let itemsText = '';
+    if (order.items && typeof order.items === 'string') {
+      try {
+        const parsedItems = JSON.parse(order.items);
+        if (Array.isArray(parsedItems)) {
+          itemsText = parsedItems.map((item: any) => item.name).join(' ').toLowerCase();
+        }
+      } catch {
+        itemsText = order.items.toLowerCase();
+      }
+    }
+    
+    return orderNumber.includes(query) || 
+           customerName.includes(query) || 
+           orderId.includes(query) ||
+           itemsText.includes(query);
+  });
 
   const stats = [
     { title: "Today's Orders", value: orders.length.toString(), icon: ShoppingBag, trend: "+12%" },
@@ -860,9 +891,19 @@ export default function CanteenOwnerDashboard() {
           <TabsContent value="orders" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Clock className="w-5 h-5" />
-                  Order Management
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Clock className="w-5 h-5" />
+                    Order Management
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      placeholder="Search orders by ID, customer, or items..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-80"
+                    />
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -874,7 +915,12 @@ export default function CanteenOwnerDashboard() {
                   
                   <TabsContent value="online">
                     <div className="space-y-4">
-                      {(orders as any[]).map((order: any) => (
+                      {filteredOrders.length === 0 && searchQuery ? (
+                        <div className="text-center py-8">
+                          <p className="text-muted-foreground">No orders found matching "{searchQuery}"</p>
+                        </div>
+                      ) : (
+                        filteredOrders.map((order: any) => (
                         <div key={order.id} className="p-4 border rounded-lg space-y-3">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {/* Order Info */}
@@ -989,7 +1035,8 @@ export default function CanteenOwnerDashboard() {
                             </div>
                           </div>
                         </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                   </TabsContent>
                   
@@ -1206,7 +1253,7 @@ export default function CanteenOwnerDashboard() {
                                     <>
                                       {formatted.prefix}
                                       <span className="bg-primary/20 text-primary font-bold px-1 rounded">
-                                        {formatted.suffix}
+                                        {formatted.highlighted}
                                       </span>
                                     </>
                                   );
