@@ -186,7 +186,7 @@ export default function OrderStatusPage() {
                 <>
                   {formatted.prefix}
                   <span className="bg-white/20 text-white font-bold px-1 rounded">
-                    {formatted.suffix}
+                    {formatted.highlighted}
                   </span>
                 </>
               );

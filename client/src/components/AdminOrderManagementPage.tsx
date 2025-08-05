@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import type { Order } from "@shared/schema";
+import { formatOrderIdDisplay } from "@shared/utils";
 import { 
   Search, 
   Filter, 
@@ -196,7 +197,19 @@ export default function AdminOrderManagementPage() {
                       {/* Order Header */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
-                          <h3 className="font-semibold text-foreground">{order.orderNumber}</h3>
+                          <h3 className="font-semibold text-foreground">
+                            {(() => {
+                              const formatted = formatOrderIdDisplay(order.orderNumber);
+                              return (
+                                <>
+                                  {formatted.prefix}
+                                  <span className="bg-primary/20 text-primary font-bold px-1 rounded ml-1">
+                                    {formatted.highlighted}
+                                  </span>
+                                </>
+                              );
+                            })()}
+                          </h3>
                           <Badge variant={getStatusColor(order.status) as any} className="flex items-center space-x-1">
                             <StatusIcon className="w-3 h-3" />
                             <span className="capitalize">{order.status}</span>

@@ -818,7 +818,7 @@ export default function CanteenOwnerDashboard() {
                                 <>
                                   {formatted.prefix}
                                   <span className="bg-primary/20 text-primary font-bold px-1 rounded">
-                                    {formatted.suffix}
+                                    {formatted.highlighted}
                                   </span>
                                 </>
                               );

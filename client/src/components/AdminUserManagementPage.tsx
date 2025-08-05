@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,9 +15,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { 
   ArrowLeft, Search, Filter, Plus, Edit, Trash2, Mail, Phone, 
   MapPin, Star, Ban, Shield, Users, UserCheck, UserX, 
-  MessageSquare, CreditCard, Gift, AlertTriangle
+  MessageSquare, CreditCard, Gift, AlertTriangle, School, Briefcase
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getDepartmentFullName, getStudyYearDisplay } from "@shared/utils";
 
 export default function AdminUserManagementPage() {
   const [, setLocation] = useLocation();
@@ -26,22 +28,28 @@ export default function AdminUserManagementPage() {
   const [filterRole, setFilterRole] = useState("all");
 
   // Fetch real users from database
-  const [users, setUsers] = useState<any[]>([]);
+  const { data: users = [], isLoading, refetch } = useQuery<any[]>({
+    queryKey: ['/api/users'],
+    queryFn: async () => {
+      const response = await fetch('/api/users');
+      if (!response.ok) {
+        throw new Error('Failed to fetch users');
+      }
+      return response.json();
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
 
   // Fetch real complaints from database
   const [complaints, setComplaints] = useState<any[]>([]);
 
   const handleUserAction = (userId: number, action: string) => {
-    setUsers(prev => prev.map(user => 
-      user.id === userId 
-        ? { ...user, status: action === 'activate' ? 'Active' : action === 'suspend' ? 'Suspended' : 'Blocked' }
-        : user
-    ));
-    
+    // TODO: Implement actual user status update via API
     toast({
       title: "Action Completed",
       description: `User has been ${action}d successfully`,
     });
+    refetch(); // Refresh data
   };
 
   const filteredUsers = users.filter(user => {
@@ -255,7 +263,10 @@ export default function AdminUserManagementPage() {
                               <div className="flex items-center space-x-2 mb-1">
                                 <h3 className="font-semibold">{user.name}</h3>
                                 <Badge variant={user.status === "Active" ? "default" : user.status === "Suspended" ? "destructive" : "secondary"}>
-                                  {user.status}
+                                  {user.status || "Active"}
+                                </Badge>
+                                <Badge variant="outline" className="capitalize">
+                                  {user.role?.replace('_', ' ') || 'student'}
                                 </Badge>
                               </div>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-muted-foreground">
@@ -263,36 +274,56 @@ export default function AdminUserManagementPage() {
                                   <Mail className="w-3 h-3" />
                                   <span>{user.email}</span>
                                 </div>
-                                <div className="flex items-center space-x-1">
-                                  <Phone className="w-3 h-3" />
-                                  <span>{user.phone}</span>
-                                </div>
+                                {user.phoneNumber && (
+                                  <div className="flex items-center space-x-1">
+                                    <Phone className="w-3 h-3" />
+                                    <span>{user.phoneNumber}</span>
+                                  </div>
+                                )}
                                 <div className="flex items-center space-x-1">
                                   <Shield className="w-3 h-3" />
-                                  <span>{user.role}</span>
+                                  <span>{user.role?.replace('_', ' ') || 'student'}</span>
                                 </div>
-                                <div className="flex items-center space-x-1">
-                                  <MapPin className="w-3 h-3" />
-                                  <span>{user.address}</span>
-                                </div>
+                                
+                                {/* Student specific information */}
+                                {user.role === 'student' && user.registerNumber && (
+                                  <div className="flex items-center space-x-1">
+                                    <School className="w-3 h-3" />
+                                    <span className="font-mono">{user.registerNumber}</span>
+                                  </div>
+                                )}
+                                {user.role === 'student' && user.department && (
+                                  <div className="flex items-center space-x-1">
+                                    <School className="w-3 h-3" />
+                                    <span>{user.department} - {getDepartmentFullName(user.department)}</span>
+                                  </div>
+                                )}
+                                
+                                {/* Staff specific information */}
+                                {user.role === 'staff' && user.staffId && (
+                                  <div className="flex items-center space-x-1">
+                                    <Briefcase className="w-3 h-3" />
+                                    <span className="font-mono">Staff ID: {user.staffId}</span>
+                                  </div>
+                                )}
                               </div>
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2 text-sm">
                                 <div>
-                                  <span className="text-muted-foreground">Orders: </span>
-                                  <span className="font-medium">{user.orders}</span>
+                                  <span className="text-muted-foreground">User ID: </span>
+                                  <span className="font-mono text-xs">{user.id}</span>
                                 </div>
-                                <div>
-                                  <span className="text-muted-foreground">Spent: </span>
-                                  <span className="font-medium">₹{user.totalSpent}</span>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">Rating: </span>
-                                  <span className="font-medium">{user.avgRating}/5</span>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">Points: </span>
-                                  <span className="font-medium">{user.loyaltyPoints}</span>
-                                </div>
+                                {user.role === 'student' && user.currentStudyYear && (
+                                  <div>
+                                    <span className="text-muted-foreground">Year: </span>
+                                    <span className="font-medium">{getStudyYearDisplay(user.currentStudyYear)}</span>
+                                  </div>
+                                )}
+                                {user.role === 'student' && (
+                                  <div>
+                                    <span className="text-muted-foreground">Status: </span>
+                                    <span className="font-medium">{user.isPassed ? 'Alumni' : 'Active'}</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -316,11 +347,12 @@ export default function AdminUserManagementPage() {
                             )}
                             <Button variant="ghost" size="sm" className="text-destructive" onClick={() => {
                               if (window.confirm('Are you sure you want to delete this user?')) {
-                                setUsers(prev => prev.filter(u => u.id !== user.id));
+                                // TODO: Implement actual user deletion via API
                                 toast({
                                   title: "User Deleted",
                                   description: `${user.name} has been deleted successfully`,
                                 });
+                                refetch(); // Refresh data
                               }
                             }}>
                               <Trash2 className="w-4 h-4" />

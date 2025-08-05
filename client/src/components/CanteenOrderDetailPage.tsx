@@ -18,6 +18,7 @@ import {
   Loader2
 } from "lucide-react";
 import type { Order } from "@shared/schema";
+import { formatOrderIdDisplay } from "@shared/utils";
 
 export default function CanteenOrderDetailPage() {
   const [, setLocation] = useLocation();
@@ -151,7 +152,19 @@ export default function CanteenOrderDetailPage() {
             </Button>
             <div>
               <h1 className="text-xl font-bold">Order Details</h1>
-              <p className="text-sm text-muted-foreground">Order #{orderDetails.orderNumber || orderDetails.id}</p>
+              <p className="text-sm text-muted-foreground">
+                Order #{(() => {
+                  const formatted = formatOrderIdDisplay(orderDetails.orderNumber || orderDetails.id.toString());
+                  return (
+                    <>
+                      {formatted.prefix}
+                      <span className="bg-primary/20 text-primary font-bold px-1 rounded ml-1">
+                        {formatted.highlighted}
+                      </span>
+                    </>
+                  );
+                })()}
+              </p>
             </div>
           </div>
           <Badge className={getStatusColor(orderDetails.status)}>

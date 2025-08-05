@@ -10,6 +10,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ArrowLeft, Edit, Clock, Star, LogOut, ChevronRight } from "lucide-react";
 import BottomNavigation from "./BottomNavigation";
 import { queryClient } from "@/lib/queryClient";
+import UserProfileDisplay from "./UserProfileDisplay";
+import { formatOrderIdDisplay } from "@shared/utils";
 
 export default function ProfilePage() {
   const [, setLocation] = useLocation();
@@ -24,43 +26,29 @@ export default function ProfilePage() {
       return;
     }
   }, [isAuthenticated, setLocation]);
-  const [userInfo, setUserInfo] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    studentId: "",
-    course: "",
-    role: ""
-  });
+  const [userInfo, setUserInfo] = useState<any>(null);
 
   // Get user data from localStorage
   useEffect(() => {
     const userData = localStorage.getItem('user');
     if (userData) {
       const user = JSON.parse(userData);
-      setUserInfo({
-        name: user.name || "User",
-        email: user.email || "",
-        phone: user.phone || "",
-        studentId: user.studentId || "",
-        course: user.course || "",
-        role: user.role || "student"
-      });
+      setUserInfo(user);
     }
   }, []);
 
   // Fetch user's orders to calculate stats
   const { data: orders = [] } = useQuery({
     queryKey: ['/api/orders'],
-    enabled: !!userInfo.email, // Only fetch when we have user email
+    enabled: !!userInfo?.email, // Only fetch when we have user email
   });
 
   // Calculate user statistics from orders - filter by current user
   const userOrders = (orders as any[]).filter((order: any) => {
-    const currentUserId = userInfo.email ? JSON.parse(localStorage.getItem('user') || '{}').id : null;
+    const currentUserId = userInfo?.email ? JSON.parse(localStorage.getItem('user') || '{}').id : null;
     return order.customerId === currentUserId || 
-           order.customerName === userInfo.name ||
-           order.customerName?.toLowerCase().includes(userInfo.name?.toLowerCase() || '');
+           order.customerName === userInfo?.name ||
+           order.customerName?.toLowerCase().includes(userInfo?.name?.toLowerCase() || '');
   });
 
   const stats = {
@@ -70,13 +58,17 @@ export default function ProfilePage() {
     avgRating: 0
   };
 
-  // Use userOrders as orderHistory for displaying recent orders
-  const orderHistory = userOrders.slice(0, 3).map((order: any) => ({
-    id: order.orderNumber || order.id,
-    date: new Date(order.createdAt || Date.now()).toLocaleDateString(),
-    total: order.amount || 0,
-    status: order.status || 'completed'
-  }));
+  // Use userOrders as orderHistory for displaying recent orders with formatted order numbers
+  const orderHistory = userOrders.slice(0, 3).map((order: any) => {
+    const formatted = formatOrderIdDisplay(order.orderNumber || order.id);
+    return {
+      id: order.orderNumber || order.id,
+      formattedId: formatted,
+      date: new Date(order.createdAt || Date.now()).toLocaleDateString(),
+      total: order.amount || 0,
+      status: order.status || 'completed'
+    };
+  });
 
   const handleSave = () => {
     setIsEditing(false);
@@ -118,13 +110,13 @@ export default function ProfilePage() {
         <div className="flex items-center space-x-4 mt-6">
           <Avatar className="w-20 h-20">
             <AvatarFallback className="bg-white text-primary text-2xl font-bold">
-              {userInfo.name ? userInfo.name.split(' ').map(n => n[0]).join('') : 'U'}
+              {userInfo?.name ? userInfo.name.split(' ').map(n => n[0]).join('') : 'U'}
             </AvatarFallback>
           </Avatar>
           <div className="text-white">
-            <h2 className="text-xl font-bold">{userInfo.name || "User"}</h2>
-            <p className="text-white/80 capitalize">{userInfo.role ? userInfo.role.replace('_', ' ') : 'Student'}</p>
-            <p className="text-white/80 text-sm">{userInfo.email}</p>
+            <h2 className="text-xl font-bold">{userInfo?.name || "User"}</h2>
+            <p className="text-white/80 capitalize">{userInfo?.role ? userInfo.role.replace('_', ' ') : 'Student'}</p>
+            <p className="text-white/80 text-sm">{userInfo?.email}</p>
           </div>
         </div>
       </div>
@@ -146,63 +138,8 @@ export default function ProfilePage() {
           </Card>
         </div>
 
-        {/* Personal Information */}
-        <Card className="shadow-card">
-          <CardContent className="p-4">
-            <h3 className="font-semibold mb-4">Personal Information</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm text-muted-foreground">Name</label>
-                {isEditing ? (
-                  <Input
-                    value={userInfo.name}
-                    onChange={(e) => setUserInfo({...userInfo, name: e.target.value})}
-                    className="mt-1"
-                  />
-                ) : (
-                  <p className="font-medium">{userInfo.name}</p>
-                )}
-              </div>
-              
-              <div>
-                <label className="text-sm text-muted-foreground">Email</label>
-                {isEditing ? (
-                  <Input
-                    value={userInfo.email}
-                    onChange={(e) => setUserInfo({...userInfo, email: e.target.value})}
-                    className="mt-1"
-                  />
-                ) : (
-                  <p className="font-medium">{userInfo.email}</p>
-                )}
-              </div>
-              
-              <div>
-                <label className="text-sm text-muted-foreground">Phone</label>
-                {isEditing ? (
-                  <Input
-                    value={userInfo.phone}
-                    onChange={(e) => setUserInfo({...userInfo, phone: e.target.value})}
-                    className="mt-1"
-                  />
-                ) : (
-                  <p className="font-medium">{userInfo.phone}</p>
-                )}
-              </div>
-
-              {isEditing && (
-                <div className="flex space-x-3 pt-2">
-                  <Button variant="food" onClick={handleSave} className="flex-1">
-                    Save Changes
-                  </Button>
-                  <Button variant="outline" onClick={() => setIsEditing(false)} className="flex-1">
-                    Cancel
-                  </Button>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Personal Information - Use new profile display component */}
+        {userInfo && <UserProfileDisplay user={userInfo} />}
 
         {/* Favorites */}
         <Card className="shadow-card">
@@ -238,7 +175,12 @@ export default function ProfilePage() {
                       <Clock className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <p className="font-medium">Order #{order.id}</p>
+                      <p className="font-medium">
+                        Order #{order.formattedId.prefix}
+                        <span className="bg-primary/20 text-primary font-bold px-1 rounded ml-1">
+                          {order.formattedId.highlighted}
+                        </span>
+                      </p>
                       <p className="text-sm text-muted-foreground">{order.date}</p>
                     </div>
                   </div>
