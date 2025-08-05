@@ -19,6 +19,10 @@ interface CartItem {
 export default function CartPage() {
   const [, setLocation] = useLocation();
   const { cart, updateQuantity, removeFromCart, getTotalPrice, getTotalItems, clearCart } = useCart();
+  
+  // Debug cart data
+  console.log("Cart data in CartPage:", cart);
+  console.log("Cart length:", cart.length);
 
   // Fetch menu items in case we need to display them
   const { data: menuItems = [], isLoading } = useQuery<MenuItem[]>({

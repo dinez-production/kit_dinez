@@ -96,6 +96,13 @@ export default function DishDetailPage() {
   const handleAddToCart = () => {
     if (!dish) return;
     
+    console.log("Adding to cart:", {
+      id: dish.id,
+      name: dish.name,
+      price: dish.price + getAddonPrice(),
+      quantity: quantity
+    });
+    
     // Add the item to cart with the selected quantity
     for (let i = 0; i < quantity; i++) {
       addToCart({

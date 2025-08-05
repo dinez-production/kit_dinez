@@ -31,20 +31,28 @@ export function useCart() {
   }, [cart]);
 
   const addToCart = (item: { id: number; name: string; price: number }) => {
+    console.log("useCart addToCart called with:", item);
+    console.log("Current cart before adding:", cart);
+    
     setCart(prevCart => {
+      console.log("Previous cart in setter:", prevCart);
       const existingItem = prevCart.find(cartItem => cartItem.id === item.id);
       
+      let newCart;
       if (existingItem) {
         // Update quantity if item already exists
-        return prevCart.map(cartItem =>
+        newCart = prevCart.map(cartItem =>
           cartItem.id === item.id
             ? { ...cartItem, quantity: cartItem.quantity + 1 }
             : cartItem
         );
       } else {
         // Add new item to cart
-        return [...prevCart, { ...item, quantity: 1 }];
+        newCart = [...prevCart, { ...item, quantity: 1 }];
       }
+      
+      console.log("New cart after adding:", newCart);
+      return newCart;
     });
 
     toast({
