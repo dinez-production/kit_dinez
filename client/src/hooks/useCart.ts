@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 export interface CartItem {
@@ -8,47 +8,58 @@ export interface CartItem {
   quantity: number;
 }
 
+const CART_STORAGE_KEY = 'kit-canteen-cart';
+
 export function useCart() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const { toast } = useToast();
 
-  // Load cart from localStorage on component mount
+  // Load cart from localStorage on mount
   useEffect(() => {
-    const savedCart = localStorage.getItem('kit-canteen-cart');
-    if (savedCart) {
+    const loadCart = () => {
       try {
-        setCart(JSON.parse(savedCart));
+        const savedCart = localStorage.getItem(CART_STORAGE_KEY);
+        if (savedCart) {
+          const parsedCart = JSON.parse(savedCart);
+          console.log("Loading cart from localStorage:", parsedCart);
+          setCart(parsedCart);
+        }
       } catch (error) {
-        // Failed to parse cart from localStorage - clear corrupted data
-        localStorage.removeItem('kit-canteen-cart');
+        console.error("Failed to load cart from localStorage:", error);
+        localStorage.removeItem(CART_STORAGE_KEY);
       }
-    }
+    };
+    
+    loadCart();
   }, []);
 
-  // Save cart to localStorage whenever cart changes
+  // Save cart to localStorage and trigger custom event when cart changes
   useEffect(() => {
-    localStorage.setItem('kit-canteen-cart', JSON.stringify(cart));
+    console.log("Saving cart to localStorage:", cart);
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+    
+    // Dispatch custom event to sync across components
+    window.dispatchEvent(new CustomEvent('cartUpdated', { detail: cart }));
   }, [cart]);
 
-  const addToCart = (item: { id: number; name: string; price: number }) => {
-    console.log("useCart addToCart called with:", item);
-    console.log("Current cart before adding:", cart);
+  const addToCart = useCallback((item: { id: number; name: string; price: number }) => {
+    console.log("Adding to cart:", item);
     
-    setCart(prevCart => {
-      console.log("Previous cart in setter:", prevCart);
-      const existingItem = prevCart.find(cartItem => cartItem.id === item.id);
+    setCart(currentCart => {
+      console.log("Current cart in addToCart:", currentCart);
+      const existingItemIndex = currentCart.findIndex(cartItem => cartItem.id === item.id);
       
-      let newCart;
-      if (existingItem) {
-        // Update quantity if item already exists
-        newCart = prevCart.map(cartItem =>
-          cartItem.id === item.id
+      let newCart: CartItem[];
+      if (existingItemIndex >= 0) {
+        // Item exists, increment quantity
+        newCart = currentCart.map((cartItem, index) =>
+          index === existingItemIndex
             ? { ...cartItem, quantity: cartItem.quantity + 1 }
             : cartItem
         );
       } else {
-        // Add new item to cart
-        newCart = [...prevCart, { ...item, quantity: 1 }];
+        // New item, add to cart
+        newCart = [...currentCart, { ...item, quantity: 1 }];
       }
       
       console.log("New cart after adding:", newCart);
@@ -59,63 +70,66 @@ export function useCart() {
       title: "Added to Cart",
       description: `${item.name} added to your cart`,
     });
-  };
+  }, [toast]);
 
-  const removeFromCart = (itemId: number) => {
-    setCart(prevCart => prevCart.filter(item => item.id !== itemId));
+  const removeFromCart = useCallback((itemId: number) => {
+    setCart(currentCart => currentCart.filter(item => item.id !== itemId));
     toast({
       title: "Item Removed",
       description: "Item has been removed from your cart",
     });
-  };
+  }, [toast]);
 
-  const updateQuantity = (itemId: number, newQuantity: number) => {
+  const updateQuantity = useCallback((itemId: number, newQuantity: number) => {
     if (newQuantity <= 0) {
       removeFromCart(itemId);
       return;
     }
 
-    setCart(prevCart =>
-      prevCart.map(item =>
+    setCart(currentCart =>
+      currentCart.map(item =>
         item.id === itemId
           ? { ...item, quantity: newQuantity }
           : item
       )
     );
-  };
+  }, [removeFromCart]);
 
-  const decreaseQuantity = (itemId: number) => {
-    const item = cart.find(cartItem => cartItem.id === itemId);
-    if (item) {
-      if (item.quantity > 1) {
-        updateQuantity(itemId, item.quantity - 1);
-      } else {
-        removeFromCart(itemId);
+  const decreaseQuantity = useCallback((itemId: number) => {
+    setCart(currentCart => {
+      const item = currentCart.find(cartItem => cartItem.id === itemId);
+      if (item) {
+        if (item.quantity > 1) {
+          return currentCart.map(cartItem =>
+            cartItem.id === itemId
+              ? { ...cartItem, quantity: cartItem.quantity - 1 }
+              : cartItem
+          );
+        } else {
+          return currentCart.filter(cartItem => cartItem.id !== itemId);
+        }
       }
-    }
-  };
+      return currentCart;
+    });
+  }, []);
 
-  const getCartQuantity = (itemId: number) => {
+  const getCartQuantity = useCallback((itemId: number) => {
     const item = cart.find(cartItem => cartItem.id === itemId);
     return item ? item.quantity : 0;
-  };
+  }, [cart]);
 
-  const getTotalItems = () => {
+  const getTotalItems = useCallback(() => {
     return cart.reduce((total, item) => total + item.quantity, 0);
-  };
+  }, [cart]);
 
-  const getTotalPrice = () => {
+  const getTotalPrice = useCallback(() => {
     return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
-  };
+  }, [cart]);
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     setCart([]);
-    localStorage.removeItem('kit-canteen-cart');
-    toast({
-      title: "Cart Cleared",
-      description: "All items have been removed from your cart",
-    });
-  };
+    localStorage.removeItem(CART_STORAGE_KEY);
+  }, []);
 
   return {
     cart,

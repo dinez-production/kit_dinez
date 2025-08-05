@@ -21,8 +21,7 @@ export default function CartPage() {
   const { cart, updateQuantity, removeFromCart, getTotalPrice, getTotalItems, clearCart } = useCart();
   
   // Debug cart data
-  console.log("Cart data in CartPage:", cart);
-  console.log("Cart length:", cart.length);
+  console.log("CartPage - cart data:", cart, "length:", cart.length);
 
   // Fetch menu items in case we need to display them
   const { data: menuItems = [], isLoading } = useQuery<MenuItem[]>({
