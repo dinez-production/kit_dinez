@@ -40,6 +40,9 @@ export default function HomeScreen() {
   const [vegFilter, setVegFilter] = useState<"all" | "veg" | "non-veg">("all");
   const { addToCart, getCartQuantity } = useCart();
 
+  // Debug log to see current vegFilter state
+  console.log("Current vegFilter state:", vegFilter);
+
   // Enhanced queries with real-time synchronization
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
     queryKey: ['/api/categories'],
@@ -183,22 +186,30 @@ export default function HomeScreen() {
             <Button
               variant={vegFilter === "all" ? "secondary" : "ghost"}
               size="sm"
-              onClick={() => setVegFilter("all")}
+              onClick={() => {
+                console.log("All button clicked, current vegFilter:", vegFilter);
+                setVegFilter("all");
+              }}
               className={cn(
                 "text-white/80 border-white/20",
                 vegFilter === "all" && "bg-white/20 text-white"
               )}
+              data-testid="filter-all"
             >
               All
             </Button>
             <Button
               variant={vegFilter === "veg" ? "secondary" : "ghost"}
               size="sm"
-              onClick={() => setVegFilter("veg")}
+              onClick={() => {
+                console.log("Veg button clicked, current vegFilter:", vegFilter);
+                setVegFilter("veg");
+              }}
               className={cn(
                 "text-white/80 border-white/20",
                 vegFilter === "veg" && "bg-green-600 text-white border-green-600"
               )}
+              data-testid="filter-veg"
             >
               <div className="w-2 h-2 bg-green-600 rounded-full mr-1" />
               Veg
@@ -206,11 +217,15 @@ export default function HomeScreen() {
             <Button
               variant={vegFilter === "non-veg" ? "secondary" : "ghost"}
               size="sm"
-              onClick={() => setVegFilter("non-veg")}
+              onClick={() => {
+                console.log("Non-Veg button clicked, current vegFilter:", vegFilter);
+                setVegFilter("non-veg");
+              }}
               className={cn(
                 "text-white/80 border-white/20",
                 vegFilter === "non-veg" && "bg-red-600 text-white border-red-600"
               )}
+              data-testid="filter-non-veg"
             >
               <div className="w-2 h-2 bg-red-600 rounded-full mr-1" />
               Non-Veg
