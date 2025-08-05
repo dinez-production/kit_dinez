@@ -68,6 +68,17 @@ export default function HomeScreen() {
 
   const isLoading = categoriesLoading || menuItemsLoading;
 
+  // Filter items based on search query
+  const filteredItems = searchQuery.trim() 
+    ? menuItems.filter(item => 
+        item.available && (
+          item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          item.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          categories.find(cat => cat.id === item.categoryId)?.name.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      )
+    : [];
+
   // Get trending items from database
   const trendingItems = menuItems
     .filter(item => item.available)
@@ -159,28 +170,122 @@ export default function HomeScreen() {
       </div>
 
       <div className="px-4 space-y-6 -mt-3">
-        {/* Quick Stats */}
-        <Card className="bg-white shadow-lg">
-          <CardContent className="p-4">
-            <div className="grid grid-cols-4 gap-4">
-              {quickStats.map((stat, index) => {
-                const IconComponent = stat.icon;
-                return (
-                  <div key={index} className="text-center">
-                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
-                      <IconComponent className="w-5 h-5 text-primary" />
-                    </div>
-                    <p className="text-sm font-semibold">{stat.label}</p>
-                    <p className="text-xs text-muted-foreground">{stat.sublabel}</p>
-                  </div>
-                );
-              })}
+        {/* Search Results */}
+        {searchQuery.trim() && (
+          <div className="animate-fade-in">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">
+                Search Results for "{searchQuery}"
+              </h2>
+              {filteredItems.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {filteredItems.length} item{filteredItems.length !== 1 ? 's' : ''} found
+                </p>
+              )}
             </div>
-          </CardContent>
-        </Card>
+            
+            {filteredItems.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No items found</h3>
+                  <p className="text-muted-foreground mb-4">
+                    We couldn't find any items matching "{searchQuery}"
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setSearchQuery("")}
+                  >
+                    Clear Search
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {filteredItems.map((item) => (
+                  <Card 
+                    key={item.id} 
+                    className="shadow-card hover-scale transition-all duration-300 cursor-pointer" 
+                    onClick={() => setLocation(`/dish/${item.id}`)}
+                  >
+                    <CardContent className="p-4 flex items-center space-x-4">
+                      <div className="w-16 h-16 bg-gradient-to-br from-primary to-primary/80 rounded-lg flex-shrink-0 flex items-center justify-center">
+                        <span className="text-2xl">🍽️</span>
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <h3 className="font-semibold">{item.name}</h3>
+                          {!item.available && (
+                            <Badge variant="secondary" className="bg-red-100 text-red-700">
+                              Unavailable
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          {item.description || "Delicious item from our menu"}
+                        </p>
+                        <div className="flex items-center space-x-3">
+                          <span className="text-sm text-muted-foreground">
+                            {categories.find(cat => cat.id === item.categoryId)?.name || "Uncategorized"}
+                          </span>
+                          <div className="flex items-center space-x-1">
+                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                            <span className="text-sm">4.5</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-bold">₹{item.price}</p>
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addToCart({
+                              id: item.id,
+                              name: item.name,
+                              price: item.price
+                            });
+                          }}
+                          disabled={!item.available}
+                        >
+                          {getCartQuantity(item.id) > 0 
+                            ? `ADD (${getCartQuantity(item.id)})` 
+                            : 'ADD'
+                          }
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* Categories */}
-        {displayCategories.length > 0 && (
+        {/* Quick Stats - Hidden when searching */}
+        {!searchQuery.trim() && (
+          <Card className="bg-white shadow-lg">
+            <CardContent className="p-4">
+              <div className="grid grid-cols-4 gap-4">
+                {quickStats.map((stat, index) => {
+                  const IconComponent = stat.icon;
+                  return (
+                    <div key={index} className="text-center">
+                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
+                        <IconComponent className="w-5 h-5 text-primary" />
+                      </div>
+                      <p className="text-sm font-semibold">{stat.label}</p>
+                      <p className="text-xs text-muted-foreground">{stat.sublabel}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Categories - Hidden when searching */}
+        {!searchQuery.trim() && displayCategories.length > 0 && (
           <div>
             <h2 className="text-xl font-bold mb-4">Categories</h2>
             <div className="grid grid-cols-4 gap-4">
@@ -205,8 +310,8 @@ export default function HomeScreen() {
           </div>
         )}
 
-        {/* Trending Now */}
-        {trendingItems.length > 0 && (
+        {/* Trending Now - Hidden when searching */}
+        {!searchQuery.trim() && trendingItems.length > 0 && (
           <div className="animate-fade-in">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold flex items-center">
@@ -261,8 +366,8 @@ export default function HomeScreen() {
           </div>
         )}
 
-        {/* Quick Picks */}
-        {quickPickItems.length > 0 && (
+        {/* Quick Picks - Hidden when searching */}
+        {!searchQuery.trim() && quickPickItems.length > 0 && (
           <div className="animate-slide-up">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">Quick Picks</h2>
@@ -323,35 +428,37 @@ export default function HomeScreen() {
           </div>
         )}
 
-        {/* Customer Reviews */}
-        <div>
-          <h2 className="text-xl font-bold mb-4 flex items-center">
-            <Heart className="w-5 h-5 mr-2 text-red-500" />
-            What Our Customers Say
-          </h2>
-          <div className="space-y-3">
-            {reviews.map((review, index) => (
-              <Card key={index} className="shadow-sm">
-                <CardContent className="p-4">
-                  <div className="flex items-start space-x-3">
-                    <div className="text-2xl">{review.avatar}</div>
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <h4 className="font-medium">{review.name}</h4>
-                        <div className="flex">
-                          {[...Array(review.rating)].map((_, i) => (
-                            <Star key={i} className="w-4 h-4 text-yellow-500 fill-current" />
-                          ))}
+        {/* Customer Reviews - Hidden when searching */}
+        {!searchQuery.trim() && (
+          <div>
+            <h2 className="text-xl font-bold mb-4 flex items-center">
+              <Heart className="w-5 h-5 mr-2 text-red-500" />
+              What Our Customers Say
+            </h2>
+            <div className="space-y-3">
+              {reviews.map((review, index) => (
+                <Card key={index} className="shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-start space-x-3">
+                      <div className="text-2xl">{review.avatar}</div>
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <h4 className="font-medium">{review.name}</h4>
+                          <div className="flex">
+                            {[...Array(review.rating)].map((_, i) => (
+                              <Star key={i} className="w-4 h-4 text-yellow-500 fill-current" />
+                            ))}
+                          </div>
                         </div>
+                        <p className="text-sm text-muted-foreground">{review.comment}</p>
                       </div>
-                      <p className="text-sm text-muted-foreground">{review.comment}</p>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <BottomNavigation currentPage="home" />
