@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 export interface CartItem {
@@ -8,45 +8,48 @@ export interface CartItem {
   quantity: number;
 }
 
+interface CartContextType {
+  cart: CartItem[];
+  addToCart: (item: { id: number; name: string; price: number }) => void;
+  removeFromCart: (itemId: number) => void;
+  updateQuantity: (itemId: number, newQuantity: number) => void;
+  decreaseQuantity: (itemId: number) => void;
+  getCartQuantity: (itemId: number) => number;
+  getTotalItems: () => number;
+  getTotalPrice: () => number;
+  clearCart: () => void;
+}
+
+const CartContext = createContext<CartContextType | undefined>(undefined);
+
 const CART_STORAGE_KEY = 'kit-canteen-cart';
 
-export function useCart() {
+export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const { toast } = useToast();
 
   // Load cart from localStorage on mount
   useEffect(() => {
-    const loadCart = () => {
-      try {
-        const savedCart = localStorage.getItem(CART_STORAGE_KEY);
-        if (savedCart) {
-          const parsedCart = JSON.parse(savedCart);
-          console.log("Loading cart from localStorage:", parsedCart);
-          setCart(parsedCart);
-        }
-      } catch (error) {
-        console.error("Failed to load cart from localStorage:", error);
-        localStorage.removeItem(CART_STORAGE_KEY);
+    try {
+      const savedCart = localStorage.getItem(CART_STORAGE_KEY);
+      if (savedCart) {
+        const parsedCart = JSON.parse(savedCart);
+
+        setCart(parsedCart);
       }
-    };
-    
-    loadCart();
+    } catch (error) {
+      console.error("Failed to load cart from localStorage:", error);
+      localStorage.removeItem(CART_STORAGE_KEY);
+    }
   }, []);
 
-  // Save cart to localStorage and trigger custom event when cart changes
+  // Save cart to localStorage whenever cart changes
   useEffect(() => {
-    console.log("Saving cart to localStorage:", cart);
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
-    
-    // Dispatch custom event to sync across components
-    window.dispatchEvent(new CustomEvent('cartUpdated', { detail: cart }));
   }, [cart]);
 
   const addToCart = useCallback((item: { id: number; name: string; price: number }) => {
-    console.log("Adding to cart:", item);
-    
     setCart(currentCart => {
-      console.log("Current cart in addToCart:", currentCart);
       const existingItemIndex = currentCart.findIndex(cartItem => cartItem.id === item.id);
       
       let newCart: CartItem[];
@@ -62,7 +65,6 @@ export function useCart() {
         newCart = [...currentCart, { ...item, quantity: 1 }];
       }
       
-      console.log("New cart after adding:", newCart);
       return newCart;
     });
 
@@ -131,7 +133,7 @@ export function useCart() {
     localStorage.removeItem(CART_STORAGE_KEY);
   }, []);
 
-  return {
+  const value: CartContextType = {
     cart,
     addToCart,
     removeFromCart,
@@ -142,4 +144,18 @@ export function useCart() {
     getTotalPrice,
     clearCart,
   };
+
+  return (
+    <CartContext.Provider value={value}>
+      {children}
+    </CartContext.Provider>
+  );
+}
+
+export function useCart() {
+  const context = useContext(CartContext);
+  if (context === undefined) {
+    throw new Error('useCart must be used within a CartProvider');
+  }
+  return context;
 }

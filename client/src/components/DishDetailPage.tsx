@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Plus, Minus, Star, Clock } from "lucide-react";
-import { useCart } from "@/hooks/useCart";
+import { useCart } from "@/contexts/CartContext";
 import type { MenuItem } from "@shared/schema";
 
 export default function DishDetailPage() {
@@ -96,7 +96,7 @@ export default function DishDetailPage() {
   const handleAddToCart = () => {
     if (!dish) return;
     
-    console.log("DishDetailPage - Adding to cart:", dish.name, "x", quantity);
+
     
     // Add the item to cart with the selected quantity
     for (let i = 0; i < quantity; i++) {

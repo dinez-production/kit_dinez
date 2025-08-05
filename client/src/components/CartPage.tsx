@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useCart } from "@/hooks/useCart";
+import { useCart } from "@/contexts/CartContext";
 import { ArrowLeft, Plus, Minus, Trash2, ShoppingCart, Loader2 } from "lucide-react";
 import BottomNavigation from "./BottomNavigation";
 import type { MenuItem } from "@shared/schema";
@@ -20,8 +20,7 @@ export default function CartPage() {
   const [, setLocation] = useLocation();
   const { cart, updateQuantity, removeFromCart, getTotalPrice, getTotalItems, clearCart } = useCart();
   
-  // Debug cart data
-  console.log("CartPage - cart data:", cart, "length:", cart.length);
+
 
   // Fetch menu items in case we need to display them
   const { data: menuItems = [], isLoading } = useQuery<MenuItem[]>({
