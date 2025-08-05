@@ -179,19 +179,18 @@ export default function OrderStatusPage() {
         </div>
         <div className="text-center">
           <h1 className="text-2xl font-bold text-white mb-2">Order Status</h1>
-          <p className="text-white/80">
-            Order #{(() => {
+          <div className="flex items-center justify-center text-white/80">
+            <span>Order #{(() => {
               const formatted = formatOrderIdDisplay(orderDetails.orderNumber);
-              return (
-                <>
-                  {formatted.prefix}
-                  <span className="bg-white/20 text-white font-bold px-1 rounded">
-                    {formatted.highlighted}
-                  </span>
-                </>
-              );
-            })()}
-          </p>
+              return formatted.prefix;
+            })()}</span>
+            <span className="bg-white/20 text-white font-bold px-1 rounded ml-0">
+              {(() => {
+                const formatted = formatOrderIdDisplay(orderDetails.orderNumber);
+                return formatted.highlighted;
+              })()}
+            </span>
+          </div>
         </div>
       </div>
 

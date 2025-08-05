@@ -811,19 +811,18 @@ export default function CanteenOwnerDashboard() {
                     >
                       <div className="flex-1">
                         <div className="flex items-center space-x-2">
-                          <span className="font-medium">
-                            #{(() => {
+                          <div className="flex items-center font-medium">
+                            <span>#{(() => {
                               const formatted = formatOrderIdDisplay(order.orderNumber || order.id.toString());
-                              return (
-                                <>
-                                  {formatted.prefix}
-                                  <span className="bg-primary/20 text-primary font-bold px-1 rounded">
-                                    {formatted.highlighted}
-                                  </span>
-                                </>
-                              );
-                            })()}
-                          </span>
+                              return formatted.prefix;
+                            })()}</span>
+                            <span className="bg-primary/20 text-primary font-bold px-1 rounded ml-0">
+                              {(() => {
+                                const formatted = formatOrderIdDisplay(order.orderNumber || order.id.toString());
+                                return formatted.highlighted;
+                              })()}
+                            </span>
+                          </div>
                           <Badge className={getOrderStatusColor(order.status)}>
                             {getOrderStatusText(order.status)}
                           </Badge>
@@ -885,19 +884,18 @@ export default function CanteenOwnerDashboard() {
                                 onClick={() => setLocation(`/canteen-order-detail/${order.id}`)}
                               >
                                 <div className="flex items-center space-x-3">
-                                  <span className="font-semibold">
-                                    #{(() => {
+                                  <div className="flex items-center font-semibold">
+                                    <span>#{(() => {
                                       const formatted = formatOrderIdDisplay(order.orderNumber || order.id.toString());
-                                      return (
-                                        <>
-                                          {formatted.prefix}
-                                          <span className="bg-primary/20 text-primary font-bold px-1 rounded">
-                                            {formatted.suffix}
-                                          </span>
-                                        </>
-                                      );
-                                    })()}
-                                  </span>
+                                      return formatted.prefix;
+                                    })()}</span>
+                                    <span className="bg-primary/20 text-primary font-bold px-1 rounded ml-0">
+                                      {(() => {
+                                        const formatted = formatOrderIdDisplay(order.orderNumber || order.id.toString());
+                                        return formatted.highlighted;
+                                      })()}
+                                    </span>
+                                  </div>
                                   <Badge className={getOrderStatusColor(order.status)}>
                                     {getOrderStatusText(order.status)}
                                   </Badge>
@@ -1157,7 +1155,19 @@ export default function CanteenOwnerDashboard() {
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <div>
                             <span className="font-medium">Order #:</span>
-                            <span className="ml-2">{scanResult.order?.orderNumber}</span>
+                            <div className="inline-flex items-center ml-2">
+                              {(() => {
+                                const formatted = formatOrderIdDisplay(scanResult.order?.orderNumber || '');
+                                return (
+                                  <>
+                                    <span>{formatted.prefix}</span>
+                                    <span className="bg-primary/20 text-primary font-bold px-1 rounded ml-0">
+                                      {formatted.highlighted}
+                                    </span>
+                                  </>
+                                );
+                              })()}
+                            </div>
                           </div>
                           <div>
                             <span className="font-medium">Customer:</span>

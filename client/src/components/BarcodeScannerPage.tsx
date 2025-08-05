@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ArrowLeft, CheckCircle, Plus, Trash2, ShoppingCart, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { formatOrderIdDisplay } from "../../../shared/utils";
 
 export default function BarcodeScannerPage() {
   const [, setLocation] = useLocation();
@@ -151,28 +152,42 @@ export default function BarcodeScannerPage() {
               <Label htmlFor="orderId">Order ID</Label>
               <Input
                 id="orderId"
-                placeholder="e.g., A1B2C3D4E5F6"
+                placeholder="e.g., 123456789012"
                 value={orderId}
-                onChange={(e) => setOrderId(e.target.value.toUpperCase())}
+                onChange={(e) => setOrderId(e.target.value.replace(/[^0-9]/g, ''))}
                 maxLength={12}
               />
             </div>
 
             {orderId && (
               <Alert className={
-                /^[A-Z0-9]{12}$/.test(orderId) 
+                /^[0-9]{12}$/.test(orderId) 
                   ? "border-green-500/50 text-green-600 dark:border-green-500 [&>svg]:text-green-600"
                   : "border-amber-500/50 text-amber-600 dark:border-amber-500 [&>svg]:text-amber-600"
               }>
-                {/^[A-Z0-9]{12}$/.test(orderId) ? (
+                {/^[0-9]{12}$/.test(orderId) ? (
                   <CheckCircle className="h-4 w-4" />
                 ) : (
                   <AlertTriangle className="h-4 w-4" />
                 )}
                 <AlertDescription>
-                  {/^[A-Z0-9]{12}$/.test(orderId) 
-                    ? `Valid Order ID: ${orderId}`
-                    : `Invalid format. Expected 12 characters (A-Z, 0-9): ${orderId.length}/12`
+                  {/^[0-9]{12}$/.test(orderId) 
+                    ? (
+                        <div className="flex items-center">
+                          <span>Valid Order ID: </span>
+                          <span>{(() => {
+                            const formatted = formatOrderIdDisplay(orderId);
+                            return formatted.prefix;
+                          })()}</span>
+                          <span className="bg-green-500/20 text-green-700 font-bold px-1 rounded ml-0">
+                            {(() => {
+                              const formatted = formatOrderIdDisplay(orderId);
+                              return formatted.highlighted;
+                            })()}
+                          </span>
+                        </div>
+                      )
+                    : `Invalid format. Expected 12 digits (0-9): ${orderId.length}/12`
                   }
                 </AlertDescription>
               </Alert>
