@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Plus, Minus, Star, Clock } from "lucide-react";
+import { useCart } from "@/hooks/useCart";
 import type { MenuItem } from "@shared/schema";
 
 export default function DishDetailPage() {
@@ -12,6 +13,7 @@ export default function DishDetailPage() {
   const { dishId } = useParams();
   const [quantity, setQuantity] = useState(1);
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+  const { addToCart } = useCart();
 
   // Fetch the specific dish from the database
   const { data: dish, isLoading, error } = useQuery<MenuItem>({
@@ -92,7 +94,18 @@ export default function DishDetailPage() {
   const totalPrice = (dish.price + getAddonPrice()) * quantity;
 
   const handleAddToCart = () => {
-    // In real app, this would update cart state/context
+    if (!dish) return;
+    
+    // Add the item to cart with the selected quantity
+    for (let i = 0; i < quantity; i++) {
+      addToCart({
+        id: dish.id,
+        name: dish.name,
+        price: dish.price + getAddonPrice()
+      });
+    }
+    
+    // Navigate to cart page after adding
     setLocation("/cart");
   };
 
