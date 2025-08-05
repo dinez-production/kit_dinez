@@ -20,6 +20,7 @@ export interface IStorage {
   getUserByStaffId(staffId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<InsertUser>): Promise<User>;
+  updateUserEmail(id: number, email: string): Promise<User | undefined>;
   deleteAllUsers(): Promise<void>;
   
   // Categories
@@ -91,6 +92,16 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return user;
+  }
+
+  async updateUserEmail(id: number, email: string): Promise<User | undefined> {
+    const db = getDb();
+    const [user] = await db
+      .update(users)
+      .set({ email })
+      .where(eq(users.id, id))
+      .returning();
+    return user || undefined;
   }
 
   async deleteAllUsers(): Promise<void> {

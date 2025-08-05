@@ -52,9 +52,10 @@ interface ProfileSetupScreenProps {
   userEmail: string;
   userName: string;
   onComplete: (userData: any) => void;
+  onBackToLogin: () => void;
 }
 
-export default function ProfileSetupScreen({ userEmail, userName, onComplete }: ProfileSetupScreenProps) {
+export default function ProfileSetupScreen({ userEmail, userName, onComplete, onBackToLogin }: ProfileSetupScreenProps) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -98,7 +99,7 @@ export default function ProfileSetupScreen({ userEmail, userName, onComplete }: 
         if (existingUser.ok) {
           toast({
             title: "Registration Number Already Exists",
-            description: "This register number is already registered. Please login instead.",
+            description: "This register number is already registered. Please use 'Forgot Email' or click 'Back to Login' to sign in with your existing account.",
             variant: "destructive",
           });
           setIsSubmitting(false);
@@ -111,7 +112,7 @@ export default function ProfileSetupScreen({ userEmail, userName, onComplete }: 
         if (existingUser.ok) {
           toast({
             title: "Staff ID Already Exists",
-            description: "This staff ID is already registered. Please login instead.",
+            description: "This staff ID is already registered. Please use 'Forgot Email' or click 'Back to Login' to sign in with your existing account.",
             variant: "destructive",
           });
           setIsSubmitting(false);
@@ -407,14 +408,26 @@ export default function ProfileSetupScreen({ userEmail, userName, onComplete }: 
                   </div>
                 )}
 
-                <Button 
-                  type="submit" 
-                  className="w-full" 
-                  size="lg" 
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? "Setting up..." : "Complete Setup"}
-                </Button>
+                <div className="flex gap-3">
+                  <Button 
+                    type="button"
+                    variant="outline"
+                    onClick={onBackToLogin}
+                    className="flex-1"
+                    size="lg"
+                    disabled={isSubmitting}
+                  >
+                    Back to Login
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    className="flex-1" 
+                    size="lg" 
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Setting up..." : "Complete Setup"}
+                  </Button>
+                </div>
               </form>
             </Form>
           </CardContent>

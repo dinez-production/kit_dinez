@@ -5,11 +5,13 @@ import { signInWithGoogle, signInWithGoogleRedirect, handleGoogleRedirect } from
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 import ProfileSetupScreen from "./ProfileSetupScreen";
+import ForgotEmailScreen from "./ForgotEmailScreen";
 
 export default function LoginScreen() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [showForgotEmail, setShowForgotEmail] = useState(false);
   const [needsProfileSetup, setNeedsProfileSetup] = useState<{
     email: string;
     name: string;
@@ -204,6 +206,15 @@ export default function LoginScreen() {
     }
   };
 
+  // Show forgot email screen if requested
+  if (showForgotEmail) {
+    return (
+      <ForgotEmailScreen 
+        onBackToLogin={() => setShowForgotEmail(false)}
+      />
+    );
+  }
+
   // Show profile setup screen if needed
   if (needsProfileSetup) {
     return (
@@ -214,6 +225,7 @@ export default function LoginScreen() {
           setNeedsProfileSetup(null);
           // User will be redirected by ProfileSetupScreen
         }}
+        onBackToLogin={() => setNeedsProfileSetup(null)}
       />
     );
   }
@@ -255,6 +267,16 @@ export default function LoginScreen() {
                 </svg>
 {isLoading ? "Signing in..." : "Continue with College Email"}
               </Button>
+              
+              <div className="mt-4 text-center">
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setShowForgotEmail(true)}
+                  className="text-primary hover:text-primary/80"
+                >
+                  Forgot your email? Click here
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
