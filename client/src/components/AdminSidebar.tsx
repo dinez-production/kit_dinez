@@ -18,7 +18,8 @@ import {
   Globe,
   Star,
   Clock,
-  DollarSign
+  DollarSign,
+  AlertTriangle
 } from "lucide-react";
 
 import {
@@ -58,6 +59,7 @@ const systemItems = [
   { title: "System Settings", url: "/admin/system-settings", icon: Settings },
   { title: "Admin Access", url: "/admin/admin-access", icon: Shield },
   { title: "Database Management", url: "/admin/database", icon: Database },
+  { title: "Login Issues", url: "/admin/login-issues", icon: AlertTriangle },
 ];
 
 export function AdminSidebar() {

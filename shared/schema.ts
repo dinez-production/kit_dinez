@@ -77,6 +77,22 @@ export const notifications = pgTable("notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const loginIssues = pgTable("login_issues", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email"),
+  phoneNumber: text("phone_number"),
+  registerNumber: text("register_number"),
+  staffId: text("staff_id"),
+  issueType: text("issue_type").notNull(), // "forgot_password", "account_locked", "email_changed", "other"
+  description: text("description").notNull(),
+  status: text("status").notNull().default("pending"), // "pending", "in_progress", "resolved"
+  adminNotes: text("admin_notes"),
+  resolvedBy: text("resolved_by"),
+  resolvedAt: timestamp("resolved_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations
 export const categoriesRelations = relations(categories, ({ many }) => ({
   menuItems: many(menuItems),
@@ -194,6 +210,17 @@ export const insertNotificationSchema = createInsertSchema(notifications).pick({
   read: true,
 });
 
+export const insertLoginIssueSchema = createInsertSchema(loginIssues).pick({
+  name: true,
+  email: true,
+  phoneNumber: true,
+  registerNumber: true,
+  staffId: true,
+  issueType: true,
+  description: true,
+  status: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -209,3 +236,6 @@ export type Order = typeof orders.$inferSelect;
 
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
+
+export type InsertLoginIssue = z.infer<typeof insertLoginIssueSchema>;
+export type LoginIssue = typeof loginIssues.$inferSelect;

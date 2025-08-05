@@ -6,7 +6,8 @@ import {
   insertCategorySchema, 
   insertMenuItemSchema, 
   insertOrderSchema, 
-  insertNotificationSchema 
+  insertNotificationSchema,
+  insertLoginIssueSchema
 } from "@shared/schema";
 import { generateOrderNumber } from "@shared/utils";
 
@@ -467,6 +468,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
         activeMenuItems,
         averageOrderValue
       });
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Login Issues endpoints
+  app.get("/api/login-issues", async (req, res) => {
+    try {
+      const issues = await storage.getLoginIssues();
+      res.json(issues);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/login-issues/:id", async (req, res) => {
+    try {
+      const issue = await storage.getLoginIssue(parseInt(req.params.id));
+      if (!issue) {
+        return res.status(404).json({ message: "Login issue not found" });
+      }
+      res.json(issue);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/login-issues", async (req, res) => {
+    try {
+      const validatedData = insertLoginIssueSchema.parse(req.body);
+      const issue = await storage.createLoginIssue(validatedData);
+      res.status(201).json(issue);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/login-issues/:id", async (req, res) => {
+    try {
+      const issueId = parseInt(req.params.id);
+      const { status, adminNotes, resolvedBy } = req.body;
+      
+      const updateData: any = {};
+      if (status) updateData.status = status;
+      if (adminNotes !== undefined) updateData.adminNotes = adminNotes;
+      if (resolvedBy !== undefined) updateData.resolvedBy = resolvedBy;
+      if (status === "resolved") updateData.resolvedAt = new Date();
+
+      const updatedIssue = await storage.updateLoginIssue(issueId, updateData);
+      res.json(updatedIssue);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/login-issues/:id", async (req, res) => {
+    try {
+      await storage.deleteLoginIssue(parseInt(req.params.id));
+      res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
     }

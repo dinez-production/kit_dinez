@@ -40,6 +40,7 @@ import AdminFeedbackManagementPage from "./components/AdminFeedbackManagementPag
 import AdminReviewManagementPage from "./components/AdminReviewManagementPage";
 import AdminAccessPage from "./components/AdminAccessPage";
 import AdminDatabasePage from "./components/AdminDatabasePage";
+import AdminLoginIssues from "./pages/AdminLoginIssues";
 import CanteenOwnerDashboard from "./components/CanteenOwnerDashboard";
 import ViewAllQuickPicksPage from "./components/ViewAllQuickPicksPage";
 import HelpSupportPage from "./components/HelpSupportPage";
@@ -163,6 +164,9 @@ const App = () => (
           </Route>
           <Route path="/admin/database">
             <AdminLayout><AdminDatabasePage /></AdminLayout>
+          </Route>
+          <Route path="/admin/login-issues">
+            <AdminLayout><AdminLoginIssues /></AdminLayout>
           </Route>
           <Route path="/quick-picks" component={ViewAllQuickPicksPage} />
           <Route path="/help-support" component={HelpSupportPage} />

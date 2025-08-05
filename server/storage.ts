@@ -1,10 +1,11 @@
 import { 
-  users, categories, menuItems, orders, notifications,
+  users, categories, menuItems, orders, notifications, loginIssues,
   type User, type InsertUser,
   type Category, type InsertCategory,
   type MenuItem, type InsertMenuItem,
   type Order, type InsertOrder,
-  type Notification, type InsertNotification
+  type Notification, type InsertNotification,
+  type LoginIssue, type InsertLoginIssue
 } from "@shared/schema";
 import { db as getDb } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -47,6 +48,13 @@ export interface IStorage {
   createNotification(notification: InsertNotification): Promise<Notification>;
   updateNotification(id: number, notification: Partial<InsertNotification>): Promise<Notification>;
   deleteNotification(id: number): Promise<void>;
+  
+  // Login Issues
+  getLoginIssues(): Promise<LoginIssue[]>;
+  getLoginIssue(id: number): Promise<LoginIssue | undefined>;
+  createLoginIssue(issue: InsertLoginIssue): Promise<LoginIssue>;
+  updateLoginIssue(id: number, issue: Partial<LoginIssue>): Promise<LoginIssue>;
+  deleteLoginIssue(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -236,6 +244,42 @@ export class DatabaseStorage implements IStorage {
   async deleteNotification(id: number): Promise<void> {
     const db = getDb();
     await db.delete(notifications).where(eq(notifications.id, id));
+  }
+
+  // Login Issues
+  async getLoginIssues(): Promise<LoginIssue[]> {
+    const db = getDb();
+    return await db.select().from(loginIssues).orderBy(desc(loginIssues.createdAt));
+  }
+
+  async getLoginIssue(id: number): Promise<LoginIssue | undefined> {
+    const db = getDb();
+    const [issue] = await db.select().from(loginIssues).where(eq(loginIssues.id, id));
+    return issue || undefined;
+  }
+
+  async createLoginIssue(issue: InsertLoginIssue): Promise<LoginIssue> {
+    const db = getDb();
+    const [newIssue] = await db
+      .insert(loginIssues)
+      .values(issue)
+      .returning();
+    return newIssue;
+  }
+
+  async updateLoginIssue(id: number, updateData: Partial<LoginIssue>): Promise<LoginIssue> {
+    const db = getDb();
+    const [updatedIssue] = await db
+      .update(loginIssues)
+      .set(updateData)
+      .where(eq(loginIssues.id, id))
+      .returning();
+    return updatedIssue;
+  }
+
+  async deleteLoginIssue(id: number): Promise<void> {
+    const db = getDb();
+    await db.delete(loginIssues).where(eq(loginIssues.id, id));
   }
 }
 
