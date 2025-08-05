@@ -6,11 +6,12 @@ export interface CartItem {
   name: string;
   price: number;
   quantity: number;
+  isVegetarian: boolean;
 }
 
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (item: { id: number; name: string; price: number }) => void;
+  addToCart: (item: { id: number; name: string; price: number; isVegetarian: boolean }) => void;
   removeFromCart: (itemId: number) => void;
   updateQuantity: (itemId: number, newQuantity: number) => void;
   decreaseQuantity: (itemId: number) => void;
@@ -48,7 +49,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
   }, [cart]);
 
-  const addToCart = useCallback((item: { id: number; name: string; price: number }) => {
+  const addToCart = useCallback((item: { id: number; name: string; price: number; isVegetarian: boolean }) => {
     setCart(currentCart => {
       const existingItemIndex = currentCart.findIndex(cartItem => cartItem.id === item.id);
       

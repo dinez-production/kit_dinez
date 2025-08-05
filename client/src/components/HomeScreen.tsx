@@ -9,6 +9,8 @@ import { useCart } from "@/contexts/CartContext";
 import { useAuthSync } from "@/hooks/useDataSync";
 import { Search, MapPin, Filter, Utensils, Coffee, Cookie, Pizza, Star, Clock, Flame, ThumbsUp, Users, Zap, ChefHat, Heart, Loader2 } from "lucide-react";
 import BottomNavigation from "./BottomNavigation";
+import { VegIndicator } from "@/components/ui/VegIndicator";
+import { cn } from "@/lib/utils";
 import type { MenuItem, Category } from "@shared/schema";
 
 export default function HomeScreen() {
@@ -35,6 +37,7 @@ export default function HomeScreen() {
   }
   const [activeTab, setActiveTab] = useState("delivery");
   const [searchQuery, setSearchQuery] = useState("");
+  const [vegFilter, setVegFilter] = useState<"all" | "veg" | "non-veg">("all");
   const { addToCart, getCartQuantity } = useCart();
 
   // Enhanced queries with real-time synchronization
@@ -68,15 +71,21 @@ export default function HomeScreen() {
 
   const isLoading = categoriesLoading || menuItemsLoading;
 
-  // Filter items based on search query
+  // Filter items based on search query and veg/non-veg filter
   const filteredItems = searchQuery.trim() 
-    ? menuItems.filter(item => 
-        item.available && (
+    ? menuItems.filter(item => {
+        const matchesSearch = item.available && (
           item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           item.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
           categories.find(cat => cat.id === item.categoryId)?.name.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-      )
+        );
+        
+        const matchesVegFilter = vegFilter === "all" || 
+          (vegFilter === "veg" && item.isVegetarian) ||
+          (vegFilter === "non-veg" && !item.isVegetarian);
+          
+        return matchesSearch && matchesVegFilter;
+      })
     : [];
 
   // Get trending items from database
@@ -158,14 +167,55 @@ export default function HomeScreen() {
         </div>
 
         {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60 w-5 h-5" />
-          <Input
-            placeholder="Search for food..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/60"
-          />
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60 w-5 h-5" />
+            <Input
+              placeholder="Search for food..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/60"
+            />
+          </div>
+          
+          {/* Veg/Non-Veg Filter */}
+          <div className="flex gap-2">
+            <Button
+              variant={vegFilter === "all" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setVegFilter("all")}
+              className={cn(
+                "text-white/80 border-white/20",
+                vegFilter === "all" && "bg-white/20 text-white"
+              )}
+            >
+              All
+            </Button>
+            <Button
+              variant={vegFilter === "veg" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setVegFilter("veg")}
+              className={cn(
+                "text-white/80 border-white/20",
+                vegFilter === "veg" && "bg-green-600 text-white border-green-600"
+              )}
+            >
+              <div className="w-2 h-2 bg-green-600 rounded-full mr-1" />
+              Veg
+            </Button>
+            <Button
+              variant={vegFilter === "non-veg" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setVegFilter("non-veg")}
+              className={cn(
+                "text-white/80 border-white/20",
+                vegFilter === "non-veg" && "bg-red-600 text-white border-red-600"
+              )}
+            >
+              <div className="w-2 h-2 bg-red-600 rounded-full mr-1" />
+              Non-Veg
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -215,6 +265,7 @@ export default function HomeScreen() {
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-1">
                           <h3 className="font-semibold">{item.name}</h3>
+                          <VegIndicator isVegetarian={item.isVegetarian} size="sm" />
                           {!item.available && (
                             <Badge variant="secondary" className="bg-red-100 text-red-700">
                               Unavailable
@@ -243,7 +294,8 @@ export default function HomeScreen() {
                             addToCart({
                               id: item.id,
                               name: item.name,
-                              price: item.price
+                              price: item.price,
+                              isVegetarian: item.isVegetarian
                             });
                           }}
                           disabled={!item.available}
@@ -332,6 +384,7 @@ export default function HomeScreen() {
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-1">
                         <h3 className="font-semibold">{item.name}</h3>
+                        <VegIndicator isVegetarian={menuItems.find(mi => mi.id.toString() === item.id)?.isVegetarian ?? true} size="sm" />
                         <Badge variant="secondary" className="bg-orange-100 text-orange-700">
                           🔥 Trending
                         </Badge>
@@ -349,7 +402,8 @@ export default function HomeScreen() {
                           addToCart({
                             id: parseInt(item.id),
                             name: item.name,
-                            price: item.price
+                            price: item.price,
+                            isVegetarian: menuItems.find(mi => mi.id.toString() === item.id)?.isVegetarian ?? true
                           });
                         }}
                       >
@@ -383,7 +437,10 @@ export default function HomeScreen() {
                       <Utensils className="w-8 h-8 text-white" />
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-semibold mb-1">{item.name}</h3>
+                      <div className="flex items-center space-x-2 mb-1">
+                        <h3 className="font-semibold">{item.name}</h3>
+                        <VegIndicator isVegetarian={menuItems.find(mi => mi.id.toString() === item.id)?.isVegetarian ?? true} size="sm" />
+                      </div>
                       <div className="flex items-center space-x-3">
                         <div className="flex items-center">
                           <Clock className="w-4 h-4 text-muted-foreground" />
@@ -400,7 +457,8 @@ export default function HomeScreen() {
                           addToCart({
                             id: parseInt(item.id),
                             name: item.name,
-                            price: item.price
+                            price: item.price,
+                            isVegetarian: menuItems.find(mi => mi.id.toString() === item.id)?.isVegetarian ?? true
                           });
                         }}
                       >

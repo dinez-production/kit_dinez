@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { VegIndicator } from "@/components/ui/VegIndicator";
 import type { MenuItem, Category } from "@shared/schema";
 import { 
   Plus, 
@@ -32,6 +33,7 @@ export default function AdminMenuManagementPage() {
     description: "",
     stock: "",
     available: true,
+    isVegetarian: true,
     addOns: "[]"
   });
   const [addOns, setAddOns] = useState<Array<{ name: string; price: string }>>([]);
@@ -110,6 +112,7 @@ export default function AdminMenuManagementPage() {
       description: item.description || "",
       stock: item.stock.toString(),
       available: item.available,
+      isVegetarian: item.isVegetarian,
       addOns: item.addOns || "[]"
     });
     
@@ -146,6 +149,7 @@ export default function AdminMenuManagementPage() {
       description: editForm.description,
       stock: parseInt(editForm.stock),
       available: editForm.available,
+      isVegetarian: editForm.isVegetarian,
       addOns: JSON.stringify(addOns.filter(addon => addon.name && addon.price))
     };
     
@@ -218,8 +222,11 @@ export default function AdminMenuManagementPage() {
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-start">
                   <div>
-                    <CardTitle className="text-lg">{item.name}</CardTitle>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <CardTitle className="text-lg">{item.name}</CardTitle>
+                      <VegIndicator isVegetarian={item.isVegetarian} size="sm" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
                       {categories.find(cat => cat.id === item.categoryId)?.name || "Unknown Category"}
                     </p>
                   </div>
@@ -357,6 +364,19 @@ export default function AdminMenuManagementPage() {
                 onCheckedChange={(checked) => setEditForm({...editForm, available: checked})}
               />
               <Label htmlFor="available">Available</Label>
+            </div>
+
+            {/* Vegetarian */}
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="vegetarian"
+                checked={editForm.isVegetarian}
+                onCheckedChange={(checked) => setEditForm({...editForm, isVegetarian: checked})}
+              />
+              <Label htmlFor="vegetarian" className="flex items-center space-x-2">
+                <span>Vegetarian</span>
+                <VegIndicator isVegetarian={editForm.isVegetarian} size="sm" />
+              </Label>
             </div>
 
             {/* Add-ons Section */}

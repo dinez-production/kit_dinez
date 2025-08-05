@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/contexts/CartContext";
+import { VegIndicator } from "@/components/ui/VegIndicator";
 import { ArrowLeft, Plus, Minus, Trash2, ShoppingCart, Loader2 } from "lucide-react";
 import BottomNavigation from "./BottomNavigation";
 import type { MenuItem } from "@shared/schema";
@@ -133,7 +134,10 @@ export default function CartPage() {
                         <span className="text-white text-lg">🍽️</span>
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold">{item.name}</h3>
+                        <div className="flex items-center space-x-2 mb-1">
+                          <h3 className="font-semibold">{item.name}</h3>
+                          <VegIndicator isVegetarian={item.isVegetarian} size="sm" />
+                        </div>
                         <p className="text-sm text-muted-foreground">
                           Delicious food item
                         </p>

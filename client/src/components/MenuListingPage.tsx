@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Filter, Star, Plus, Loader2 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
+import { VegIndicator } from "@/components/ui/VegIndicator";
 import BottomNavigation from "./BottomNavigation";
 import type { MenuItem, Category } from "@shared/schema";
 
@@ -45,8 +46,8 @@ export default function MenuListingPage() {
   const items = getCategoryItems();
   const filteredItems = items.filter(item => {
     if (filter === "all") return true;
-    // Note: For now treating all items as veg since we don't have isVeg field in schema
-    // This can be extended when the schema includes vegetarian/non-vegetarian classification
+    if (filter === "veg") return item.isVegetarian;
+    if (filter === "non-veg") return !item.isVegetarian;
     return true;
   });
 
@@ -54,7 +55,8 @@ export default function MenuListingPage() {
     addToCart({
       id: item.id,
       name: item.name,
-      price: item.price
+      price: item.price,
+      isVegetarian: item.isVegetarian
     });
   };
 
@@ -123,9 +125,7 @@ export default function MenuListingPage() {
                         <div>
                           <div className="flex items-center space-x-2">
                             <h3 className="font-semibold">{item.name}</h3>
-                            <div className="w-3 h-3 rounded border-2 border-green-600">
-                              <div className="w-1.5 h-1.5 rounded-full bg-green-600 m-0.5"></div>
-                            </div>
+                            <VegIndicator isVegetarian={item.isVegetarian} size="sm" />
                           </div>
                           <p className="text-sm text-muted-foreground">{item.description || "Delicious item from our menu"}</p>
                         </div>

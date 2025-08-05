@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Plus, Minus, Star, Clock } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
+import { VegIndicator } from "@/components/ui/VegIndicator";
 import type { MenuItem } from "@shared/schema";
 
 export default function DishDetailPage() {
@@ -103,7 +104,8 @@ export default function DishDetailPage() {
       addToCart({
         id: dish.id,
         name: dish.name,
-        price: dish.price + getAddonPrice()
+        price: dish.price + getAddonPrice(),
+        isVegetarian: dish.isVegetarian
       });
     }
     
@@ -146,9 +148,7 @@ export default function DishDetailPage() {
             <div className="flex-1">
               <div className="flex items-center space-x-2 mb-1">
                 <h1 className="text-2xl font-bold">{dish.name}</h1>
-                <div className={`w-4 h-4 rounded border-2 border-green-600`}>
-                  <div className={`w-2 h-2 rounded-full bg-green-600 m-0.5`}></div>
-                </div>
+                <VegIndicator isVegetarian={dish.isVegetarian} size="md" />
               </div>
               <p className="text-muted-foreground mb-3">{dish.description || "No description available"}</p>
             </div>

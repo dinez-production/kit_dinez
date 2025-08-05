@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { useToast } from "@/hooks/use-toast";
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
+import { VegIndicator } from "@/components/ui/VegIndicator";
 import type { MenuItem, Category, Order } from "@shared/schema";
 import { formatOrderIdDisplay } from "@shared/utils";
 import SyncStatus from "./SyncStatus";
@@ -168,7 +169,7 @@ export default function CanteenOwnerDashboard() {
 
   const [newCategory, setNewCategory] = useState("");
 
-  const [newItem, setNewItem] = useState({ name: "", price: "", category: "", stock: "", barcode: "", description: "", addOns: [] as any[] });
+  const [newItem, setNewItem] = useState({ name: "", price: "", category: "", stock: "", barcode: "", description: "", isVegetarian: true, addOns: [] as any[] });
   const [editingItem, setEditingItem] = useState<any>(null);
   const [editAddOns, setEditAddOns] = useState<Array<{ name: string; price: string }>>([]);
   const [isScannerActive, setIsScannerActive] = useState(false);
@@ -223,7 +224,7 @@ export default function CanteenOwnerDashboard() {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/analytics'] });
       refetchMenuItems(); // Force immediate refetch
       toast.success("Menu item added successfully - synced across all dashboards");
-      setNewItem({ name: "", price: "", category: "", stock: "", barcode: "", description: "", addOns: [] });
+      setNewItem({ name: "", price: "", category: "", stock: "", barcode: "", description: "", isVegetarian: true, addOns: [] });
     },
     onError: () => {
       toast.error("Failed to add menu item");
@@ -352,6 +353,7 @@ export default function CanteenOwnerDashboard() {
       available: true,
       stock: parseInt(newItem.stock) || 0,
       description: newItem.description || "",
+      isVegetarian: newItem.isVegetarian,
       addOns: JSON.stringify(newItem.addOns.filter(addon => addon.name && addon.name.trim()))
     };
     
@@ -1368,6 +1370,17 @@ export default function CanteenOwnerDashboard() {
                             rows={2}
                           />
                         </div>
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            id="vegetarian"
+                            checked={newItem.isVegetarian}
+                            onCheckedChange={(checked) => setNewItem({...newItem, isVegetarian: checked})}
+                          />
+                          <Label htmlFor="vegetarian" className="flex items-center space-x-2">
+                            <span>Vegetarian</span>
+                            <VegIndicator isVegetarian={newItem.isVegetarian} size="sm" />
+                          </Label>
+                        </div>
                         <div>
                           <Label>Add-ons (Optional)</Label>
                           <div className="space-y-2">
@@ -1438,7 +1451,10 @@ export default function CanteenOwnerDashboard() {
                     <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex-1">
                         <div className="flex items-center space-x-3">
-                          <h4 className="font-medium">{item.name}</h4>
+                          <div className="flex items-center space-x-2">
+                            <h4 className="font-medium">{item.name}</h4>
+                            <VegIndicator isVegetarian={item.isVegetarian} size="sm" />
+                          </div>
                           <Badge variant="secondary">{categories.find(cat => cat.id === item.categoryId)?.name || "Unknown"}</Badge>
                           {!item.available && <Badge variant="destructive">Out of Stock</Badge>}
                         </div>
