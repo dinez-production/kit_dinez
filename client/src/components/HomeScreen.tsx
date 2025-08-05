@@ -40,8 +40,7 @@ export default function HomeScreen() {
   const [vegFilter, setVegFilter] = useState<"all" | "veg" | "non-veg">("all");
   const { addToCart, getCartQuantity } = useCart();
 
-  // Debug log to see current vegFilter state
-  console.log("Current vegFilter state:", vegFilter);
+
 
   // Enhanced queries with real-time synchronization
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
@@ -74,6 +73,8 @@ export default function HomeScreen() {
 
   const isLoading = categoriesLoading || menuItemsLoading;
 
+
+
   // Filter items based on search query and veg/non-veg filter
   const filteredItems = searchQuery.trim() 
     ? menuItems.filter(item => {
@@ -91,9 +92,18 @@ export default function HomeScreen() {
       })
     : [];
 
+  // Apply vegFilter to all items
+  const getFilteredMenuItems = (items: MenuItem[]) => {
+    return items.filter(item => {
+      const matchesVegFilter = vegFilter === "all" || 
+        (vegFilter === "veg" && item.isVegetarian) ||
+        (vegFilter === "non-veg" && !item.isVegetarian);
+      return item.available && matchesVegFilter;
+    });
+  };
+
   // Get trending items from database
-  const trendingItems = menuItems
-    .filter(item => item.available)
+  const trendingItems = getFilteredMenuItems(menuItems)
     .slice(0, 3)
     .map(item => ({
       id: item.id.toString(),
@@ -102,8 +112,7 @@ export default function HomeScreen() {
     }));
 
   // Get quick picks from database
-  const quickPickItems = menuItems
-    .filter(item => item.available)
+  const quickPickItems = getFilteredMenuItems(menuItems)
     .slice(3, 6)
     .map(item => ({
       id: item.id.toString(),
@@ -186,10 +195,7 @@ export default function HomeScreen() {
             <Button
               variant={vegFilter === "all" ? "secondary" : "ghost"}
               size="sm"
-              onClick={() => {
-                console.log("All button clicked, current vegFilter:", vegFilter);
-                setVegFilter("all");
-              }}
+              onClick={() => setVegFilter("all")}
               className={cn(
                 "text-white/80 border-white/20",
                 vegFilter === "all" && "bg-white/20 text-white"
@@ -201,10 +207,7 @@ export default function HomeScreen() {
             <Button
               variant={vegFilter === "veg" ? "secondary" : "ghost"}
               size="sm"
-              onClick={() => {
-                console.log("Veg button clicked, current vegFilter:", vegFilter);
-                setVegFilter("veg");
-              }}
+              onClick={() => setVegFilter("veg")}
               className={cn(
                 "text-white/80 border-white/20",
                 vegFilter === "veg" && "bg-green-600 text-white border-green-600"
@@ -217,10 +220,7 @@ export default function HomeScreen() {
             <Button
               variant={vegFilter === "non-veg" ? "secondary" : "ghost"}
               size="sm"
-              onClick={() => {
-                console.log("Non-Veg button clicked, current vegFilter:", vegFilter);
-                setVegFilter("non-veg");
-              }}
+              onClick={() => setVegFilter("non-veg")}
               className={cn(
                 "text-white/80 border-white/20",
                 vegFilter === "non-veg" && "bg-red-600 text-white border-red-600"
