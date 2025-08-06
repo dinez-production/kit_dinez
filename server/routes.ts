@@ -302,9 +302,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pendingOrders = await storage.getPendingOrders();
       }
 
-      // Transform pending orders to look like regular orders with payment_pending status
+      // Transform pending orders to look like regular orders with appropriate status
       const transformedPendingOrders = pendingOrders
-        .filter(pendingOrder => pendingOrder.status === 'payment_pending') // Only show active pending orders
+        .filter(pendingOrder => ['payment_pending', 'payment_failed', 'payment_timeout'].includes(pendingOrder.status)) // Show all pending payment orders
         .map(pendingOrder => ({
           id: pendingOrder.id,
           orderNumber: pendingOrder.orderNumber,
@@ -313,7 +313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           customerPhone: pendingOrder.customerPhone,
           items: pendingOrder.items,
           amount: pendingOrder.totalAmount,
-          status: 'payment_pending', // Special status for pending payments
+          status: pendingOrder.status, // Use actual pending order status (payment_pending, payment_failed, etc.)
           barcode: pendingOrder.barcode,
           createdAt: pendingOrder.createdAt,
           updatedAt: pendingOrder.updatedAt,
@@ -732,6 +732,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: false, 
         message: "Error checking payment status" 
       });
+    }
+  });
+
+  // Quick Orders endpoints
+  app.get("/api/quick-orders", async (req, res) => {
+    try {
+      const quickOrders = await storage.getQuickOrders();
+      res.json(quickOrders);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/quick-orders", async (req, res) => {
+    try {
+      const validatedData = insertQuickOrderSchema.parse(req.body);
+      const quickOrder = await storage.createQuickOrder(validatedData);
+      res.status(201).json(quickOrder);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/quick-orders/:id", async (req, res) => {
+    try {
+      const validatedData = insertQuickOrderSchema.partial().parse(req.body);
+      const quickOrder = await storage.updateQuickOrder(parseInt(req.params.id), validatedData);
+      res.json(quickOrder);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/quick-orders/:id", async (req, res) => {
+    try {
+      await storage.deleteQuickOrder(parseInt(req.params.id));
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 

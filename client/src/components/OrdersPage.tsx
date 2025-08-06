@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Search, Clock, CheckCircle, Package, Loader2, Receipt } from "lucide-react";
+import { ArrowLeft, Search, Clock, CheckCircle, Package, Loader2, Receipt, XCircle } from "lucide-react";
 import BottomNavigation from "./BottomNavigation";
 import type { Order } from "@shared/schema";
 
@@ -81,6 +81,8 @@ export default function OrdersPage() {
     switch (status?.toLowerCase()) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
       case 'payment_pending': return 'bg-orange-100 text-orange-800';
+      case 'payment_failed': return 'bg-red-100 text-red-800';
+      case 'payment_timeout': return 'bg-red-100 text-red-800';
       case 'preparing': return 'bg-blue-100 text-blue-800';
       case 'ready': return 'bg-green-100 text-green-800';
       case 'delivered': return 'bg-gray-100 text-gray-800';
@@ -93,6 +95,8 @@ export default function OrdersPage() {
     switch (status?.toLowerCase()) {
       case 'pending': return <Clock className="w-4 h-4" />;
       case 'payment_pending': return <Loader2 className="w-4 h-4 animate-spin" />;
+      case 'payment_failed': 
+      case 'payment_timeout': return <XCircle className="w-4 h-4" />;
       case 'preparing': return <Package className="w-4 h-4" />;
       case 'ready': 
       case 'delivered': return <CheckCircle className="w-4 h-4" />;
@@ -179,6 +183,7 @@ export default function OrdersPage() {
               >
                 <option value="all">All Status</option>
                 <option value="payment_pending">Payment Pending</option>
+                <option value="payment_failed">Payment Failed</option>
                 <option value="preparing">Preparing</option>
                 <option value="ready">Ready</option>
                 <option value="delivered">Delivered</option>
@@ -236,6 +241,14 @@ export default function OrdersPage() {
                         {order.status === 'payment_pending' ? (
                           <span className="text-orange-600 font-medium">
                             Payment Pending - Monitoring for 10 mins
+                          </span>
+                        ) : order.status === 'payment_failed' ? (
+                          <span className="text-red-600 font-medium">
+                            Payment Failed - Retry Available
+                          </span>
+                        ) : order.status === 'payment_timeout' ? (
+                          <span className="text-red-600 font-medium">
+                            Payment Timeout - Retry Available
                           </span>
                         ) : (
                           `Payment: Completed`
