@@ -11,7 +11,9 @@ import { Search, MapPin, Filter, Utensils, Coffee, Cookie, Pizza, Star, Clock, F
 import BottomNavigation from "./BottomNavigation";
 import { VegIndicator } from "@/components/ui/VegIndicator";
 import { cn } from "@/lib/utils";
-import type { MenuItem, Category } from "@shared/schema";
+import type { MenuItem, Category, TrendingItem } from "@shared/schema";
+
+type TrendingItemWithMenu = TrendingItem & { menuItem: MenuItem };
 import { QuickOrders } from "@/components/QuickOrders";
 
 export default function HomeScreen() {
@@ -103,13 +105,33 @@ export default function HomeScreen() {
     });
   };
 
-  // Get trending items from database
-  const trendingItems = getFilteredMenuItems(menuItems)
-    .slice(0, 3)
-    .map(item => ({
-      id: item.id.toString(),
-      name: item.name,
-      price: item.price
+  // Query trending items from API
+  const { data: trendingItemsData = [] } = useQuery<TrendingItemWithMenu[]>({
+    queryKey: ['/api/trending-items'],
+    queryFn: async () => {
+      const response = await fetch('/api/trending-items');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch trending items: ${response.status}`);
+      }
+      return response.json();
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes for trending items
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+  });
+
+  // Map trending items to display format with proper filtering
+  const trendingItems = trendingItemsData
+    .filter((item: TrendingItemWithMenu) => {
+      const matchesVegFilter = vegFilter === "all" || 
+        (vegFilter === "veg" && item.menuItem.isVegetarian) ||
+        (vegFilter === "non-veg" && !item.menuItem.isVegetarian);
+      return item.menuItem.available && matchesVegFilter;
+    })
+    .map((item: TrendingItemWithMenu) => ({
+      id: item.menuItem.id.toString(),
+      name: item.menuItem.name,
+      price: item.menuItem.price
     }));
 
   // Get quick picks from database

@@ -46,6 +46,7 @@ import {
   RefreshCcw
 } from "lucide-react";
 import { QuickOrdersManager } from "@/components/admin/QuickOrdersManager";
+import { TrendingItemsManager } from "@/components/admin/TrendingItemsManager";
 
 export default function CanteenOwnerDashboard() {
   const [, setLocation] = useLocation();
@@ -795,11 +796,12 @@ export default function CanteenOwnerDashboard() {
 
       <div className="p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="orders">Orders</TabsTrigger>
             <TabsTrigger value="scanner">Scanner</TabsTrigger>
             <TabsTrigger value="menu">Menu</TabsTrigger>
+            <TabsTrigger value="content">Content</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="inventory">Inventory</TabsTrigger>
           </TabsList>
@@ -1635,6 +1637,19 @@ export default function CanteenOwnerDashboard() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="content" className="space-y-6">
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-2">Content Management</h2>
+                <p className="text-muted-foreground">Configure what users see on their home page.</p>
+              </div>
+              
+              <TrendingItemsManager />
+              
+              <QuickOrdersManager />
+            </div>
           </TabsContent>
         </Tabs>
       </div>

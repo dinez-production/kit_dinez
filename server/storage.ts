@@ -1,12 +1,13 @@
 import { 
-  users, categories, menuItems, orders, notifications, loginIssues, quickOrders,
+  users, categories, menuItems, orders, notifications, loginIssues, quickOrders, trendingItems,
   type User, type InsertUser,
   type Category, type InsertCategory,
   type MenuItem, type InsertMenuItem,
   type Order, type InsertOrder,
   type Notification, type InsertNotification,
   type LoginIssue, type InsertLoginIssue,
-  type QuickOrder, type InsertQuickOrder
+  type QuickOrder, type InsertQuickOrder,
+  type TrendingItem, type InsertTrendingItem
 } from "@shared/schema";
 import { db as getDb } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -62,6 +63,12 @@ export interface IStorage {
   createQuickOrder(quickOrder: InsertQuickOrder): Promise<QuickOrder>;
   updateQuickOrder(id: number, quickOrder: Partial<InsertQuickOrder>): Promise<QuickOrder>;
   deleteQuickOrder(id: number): Promise<void>;
+  
+  // Trending Items
+  getTrendingItems(): Promise<(TrendingItem & { menuItem: MenuItem })[]>;
+  createTrendingItem(trendingItem: InsertTrendingItem): Promise<TrendingItem>;
+  updateTrendingItem(id: number, trendingItem: Partial<InsertTrendingItem>): Promise<TrendingItem>;
+  deleteTrendingItem(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -345,6 +352,64 @@ export class DatabaseStorage implements IStorage {
   async deleteQuickOrder(id: number): Promise<void> {
     const db = getDb();
     await db.delete(quickOrders).where(eq(quickOrders.id, id));
+  }
+
+  // Trending Items
+  async getTrendingItems(): Promise<(TrendingItem & { menuItem: MenuItem })[]> {
+    const db = getDb();
+    const result = await db
+      .select({
+        id: trendingItems.id,
+        menuItemId: trendingItems.menuItemId,
+        position: trendingItems.position,
+        isActive: trendingItems.isActive,
+        createdAt: trendingItems.createdAt,
+        menuItem: {
+          id: menuItems.id,
+          name: menuItems.name,
+          price: menuItems.price,
+          categoryId: menuItems.categoryId,
+          available: menuItems.available,
+          stock: menuItems.stock,
+          description: menuItems.description,
+          addOns: menuItems.addOns,
+          isVegetarian: menuItems.isVegetarian,
+          createdAt: menuItems.createdAt,
+        }
+      })
+      .from(trendingItems)
+      .innerJoin(menuItems, eq(trendingItems.menuItemId, menuItems.id))
+      .where(eq(trendingItems.isActive, true))
+      .orderBy(trendingItems.position);
+    
+    return result.map(row => ({
+      ...row,
+      menuItem: row.menuItem
+    }));
+  }
+
+  async createTrendingItem(trendingItem: InsertTrendingItem): Promise<TrendingItem> {
+    const db = getDb();
+    const [newTrendingItem] = await db
+      .insert(trendingItems)
+      .values(trendingItem)
+      .returning();
+    return newTrendingItem;
+  }
+
+  async updateTrendingItem(id: number, trendingItem: Partial<InsertTrendingItem>): Promise<TrendingItem> {
+    const db = getDb();
+    const [updatedTrendingItem] = await db
+      .update(trendingItems)
+      .set(trendingItem)
+      .where(eq(trendingItems.id, id))
+      .returning();
+    return updatedTrendingItem;
+  }
+
+  async deleteTrendingItem(id: number): Promise<void> {
+    const db = getDb();
+    await db.delete(trendingItems).where(eq(trendingItems.id, id));
   }
 }
 
