@@ -15,6 +15,7 @@ import {
   TrendingUp, Calendar, Download, Upload, Search, Filter,
   Mail, Phone, MapPin, Star, Eye, ThumbsUp, ThumbsDown
 } from "lucide-react";
+import { QuickOrdersManager } from "@/components/admin/QuickOrdersManager";
 
 export default function AdminPanel() {
   const [, setLocation] = useLocation();
@@ -489,6 +490,9 @@ export default function AdminPanel() {
           {/* Settings Tab */}
           <TabsContent value="settings" className="mt-6">
             <div className="grid gap-6">
+              {/* Quick Orders Management */}
+              <QuickOrdersManager />
+              
               <Card>
                 <CardHeader>
                   <CardTitle>General Settings</CardTitle>

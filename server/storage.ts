@@ -1,11 +1,12 @@
 import { 
-  users, categories, menuItems, orders, notifications, loginIssues,
+  users, categories, menuItems, orders, notifications, loginIssues, quickOrders,
   type User, type InsertUser,
   type Category, type InsertCategory,
   type MenuItem, type InsertMenuItem,
   type Order, type InsertOrder,
   type Notification, type InsertNotification,
-  type LoginIssue, type InsertLoginIssue
+  type LoginIssue, type InsertLoginIssue,
+  type QuickOrder, type InsertQuickOrder
 } from "@shared/schema";
 import { db as getDb } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -55,6 +56,12 @@ export interface IStorage {
   createLoginIssue(issue: InsertLoginIssue): Promise<LoginIssue>;
   updateLoginIssue(id: number, issue: Partial<LoginIssue>): Promise<LoginIssue>;
   deleteLoginIssue(id: number): Promise<void>;
+  
+  // Quick Orders
+  getQuickOrders(): Promise<(QuickOrder & { menuItem: MenuItem })[]>;
+  createQuickOrder(quickOrder: InsertQuickOrder): Promise<QuickOrder>;
+  updateQuickOrder(id: number, quickOrder: Partial<InsertQuickOrder>): Promise<QuickOrder>;
+  deleteQuickOrder(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -280,6 +287,64 @@ export class DatabaseStorage implements IStorage {
   async deleteLoginIssue(id: number): Promise<void> {
     const db = getDb();
     await db.delete(loginIssues).where(eq(loginIssues.id, id));
+  }
+
+  // Quick Orders
+  async getQuickOrders(): Promise<(QuickOrder & { menuItem: MenuItem })[]> {
+    const db = getDb();
+    const result = await db
+      .select({
+        id: quickOrders.id,
+        menuItemId: quickOrders.menuItemId,
+        position: quickOrders.position,
+        isActive: quickOrders.isActive,
+        createdAt: quickOrders.createdAt,
+        menuItem: {
+          id: menuItems.id,
+          name: menuItems.name,
+          price: menuItems.price,
+          categoryId: menuItems.categoryId,
+          available: menuItems.available,
+          stock: menuItems.stock,
+          description: menuItems.description,
+          addOns: menuItems.addOns,
+          isVegetarian: menuItems.isVegetarian,
+          createdAt: menuItems.createdAt,
+        }
+      })
+      .from(quickOrders)
+      .innerJoin(menuItems, eq(quickOrders.menuItemId, menuItems.id))
+      .where(eq(quickOrders.isActive, true))
+      .orderBy(quickOrders.position);
+    
+    return result.map(row => ({
+      ...row,
+      menuItem: row.menuItem
+    }));
+  }
+
+  async createQuickOrder(quickOrder: InsertQuickOrder): Promise<QuickOrder> {
+    const db = getDb();
+    const [newQuickOrder] = await db
+      .insert(quickOrders)
+      .values(quickOrder)
+      .returning();
+    return newQuickOrder;
+  }
+
+  async updateQuickOrder(id: number, quickOrder: Partial<InsertQuickOrder>): Promise<QuickOrder> {
+    const db = getDb();
+    const [updatedQuickOrder] = await db
+      .update(quickOrders)
+      .set(quickOrder)
+      .where(eq(quickOrders.id, id))
+      .returning();
+    return updatedQuickOrder;
+  }
+
+  async deleteQuickOrder(id: number): Promise<void> {
+    const db = getDb();
+    await db.delete(quickOrders).where(eq(quickOrders.id, id));
   }
 }
 

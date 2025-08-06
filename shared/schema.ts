@@ -93,6 +93,14 @@ export const loginIssues = pgTable("login_issues", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const quickOrders = pgTable("quick_orders", {
+  id: serial("id").primaryKey(),
+  menuItemId: integer("menu_item_id").references(() => menuItems.id).notNull(),
+  position: integer("position").notNull(), // 1-4 for grid positions
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations
 export const categoriesRelations = relations(categories, ({ many }) => ({
   menuItems: many(menuItems),
@@ -121,6 +129,13 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
   }),
   menuItem: one(menuItems, {
     fields: [orderItems.menuItemId],
+    references: [menuItems.id],
+  }),
+}));
+
+export const quickOrdersRelations = relations(quickOrders, ({ one }) => ({
+  menuItem: one(menuItems, {
+    fields: [quickOrders.menuItemId],
     references: [menuItems.id],
   }),
 }));
@@ -221,6 +236,12 @@ export const insertLoginIssueSchema = createInsertSchema(loginIssues).pick({
   status: true,
 });
 
+export const insertQuickOrderSchema = createInsertSchema(quickOrders).pick({
+  menuItemId: true,
+  position: true,
+  isActive: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -239,3 +260,6 @@ export type Notification = typeof notifications.$inferSelect;
 
 export type InsertLoginIssue = z.infer<typeof insertLoginIssueSchema>;
 export type LoginIssue = typeof loginIssues.$inferSelect;
+
+export type InsertQuickOrder = z.infer<typeof insertQuickOrderSchema>;
+export type QuickOrder = typeof quickOrders.$inferSelect;

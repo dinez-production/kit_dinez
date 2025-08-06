@@ -12,6 +12,7 @@ import BottomNavigation from "./BottomNavigation";
 import { VegIndicator } from "@/components/ui/VegIndicator";
 import { cn } from "@/lib/utils";
 import type { MenuItem, Category } from "@shared/schema";
+import { QuickOrders } from "@/components/QuickOrders";
 
 export default function HomeScreen() {
   const [, setLocation] = useLocation();
@@ -349,6 +350,11 @@ export default function HomeScreen() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Quick Orders - Hidden when searching */}
+        {!searchQuery.trim() && (
+          <QuickOrders />
         )}
 
         {/* Categories - Hidden when searching */}

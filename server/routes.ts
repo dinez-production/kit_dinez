@@ -7,7 +7,8 @@ import {
   insertMenuItemSchema, 
   insertOrderSchema, 
   insertNotificationSchema,
-  insertLoginIssueSchema
+  insertLoginIssueSchema,
+  insertQuickOrderSchema
 } from "@shared/schema";
 import { generateOrderNumber } from "@shared/utils";
 
@@ -526,6 +527,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/login-issues/:id", async (req, res) => {
     try {
       await storage.deleteLoginIssue(parseInt(req.params.id));
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Quick Orders endpoints
+  app.get("/api/quick-orders", async (req, res) => {
+    try {
+      const quickOrders = await storage.getQuickOrders();
+      res.json(quickOrders);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/quick-orders", async (req, res) => {
+    try {
+      const validatedData = insertQuickOrderSchema.parse(req.body);
+      const quickOrder = await storage.createQuickOrder(validatedData);
+      res.status(201).json(quickOrder);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/quick-orders/:id", async (req, res) => {
+    try {
+      const validatedData = insertQuickOrderSchema.parse(req.body);
+      const quickOrder = await storage.updateQuickOrder(parseInt(req.params.id), validatedData);
+      res.json(quickOrder);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/quick-orders/:id", async (req, res) => {
+    try {
+      await storage.deleteQuickOrder(parseInt(req.params.id));
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
