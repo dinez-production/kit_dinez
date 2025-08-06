@@ -1,5 +1,5 @@
 import { 
-  users, categories, menuItems, orders, notifications, loginIssues, quickOrders, payments,
+  users, categories, menuItems, orders, notifications, loginIssues, quickOrders, payments, pendingOrders,
   type User, type InsertUser,
   type Category, type InsertCategory,
   type MenuItem, type InsertMenuItem,
@@ -7,10 +7,11 @@ import {
   type Notification, type InsertNotification,
   type LoginIssue, type InsertLoginIssue,
   type QuickOrder, type InsertQuickOrder,
-  type Payment, type InsertPayment
+  type Payment, type InsertPayment,
+  type PendingOrder, type InsertPendingOrder
 } from "@shared/schema";
 import { db as getDb } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, lt } from "drizzle-orm";
 
 // modify the interface with any CRUD methods
 // you might need
@@ -71,6 +72,17 @@ export interface IStorage {
   createPayment(payment: InsertPayment): Promise<Payment>;
   updatePayment(id: number, payment: Partial<InsertPayment>): Promise<Payment>;
   updatePaymentByMerchantTxnId(merchantTransactionId: string, payment: Partial<InsertPayment>): Promise<Payment | undefined>;
+
+  // Pending Orders
+  getPendingOrders(): Promise<PendingOrder[]>;
+  getPendingOrder(id: number): Promise<PendingOrder | undefined>;
+  getPendingOrderByNumber(orderNumber: string): Promise<PendingOrder | undefined>;
+  getPendingOrdersByCustomer(customerId: number): Promise<PendingOrder[]>;
+  getPendingOrderByMerchantTxnId(merchantTransactionId: string): Promise<PendingOrder | undefined>;
+  createPendingOrder(pendingOrder: InsertPendingOrder): Promise<PendingOrder>;
+  updatePendingOrder(id: number, pendingOrder: Partial<PendingOrder>): Promise<PendingOrder>;
+  deletePendingOrder(id: number): Promise<void>;
+  getTimedOutPendingOrders(): Promise<PendingOrder[]>;
 
 }
 
@@ -403,6 +415,67 @@ export class DatabaseStorage implements IStorage {
       .where(eq(payments.merchantTransactionId, merchantTransactionId))
       .returning();
     return updatedPayment || undefined;
+  }
+
+  // Pending Orders implementation
+  async getPendingOrders(): Promise<PendingOrder[]> {
+    const db = getDb();
+    return await db.select().from(pendingOrders).orderBy(desc(pendingOrders.createdAt));
+  }
+
+  async getPendingOrder(id: number): Promise<PendingOrder | undefined> {
+    const db = getDb();
+    const [pendingOrder] = await db.select().from(pendingOrders).where(eq(pendingOrders.id, id));
+    return pendingOrder || undefined;
+  }
+
+  async getPendingOrderByNumber(orderNumber: string): Promise<PendingOrder | undefined> {
+    const db = getDb();
+    const [pendingOrder] = await db.select().from(pendingOrders).where(eq(pendingOrders.orderNumber, orderNumber));
+    return pendingOrder || undefined;
+  }
+
+  async getPendingOrdersByCustomer(customerId: number): Promise<PendingOrder[]> {
+    const db = getDb();
+    return await db.select().from(pendingOrders).where(eq(pendingOrders.customerId, customerId)).orderBy(desc(pendingOrders.createdAt));
+  }
+
+  async getPendingOrderByMerchantTxnId(merchantTransactionId: string): Promise<PendingOrder | undefined> {
+    const db = getDb();
+    const [pendingOrder] = await db.select().from(pendingOrders).where(eq(pendingOrders.merchantTransactionId, merchantTransactionId));
+    return pendingOrder || undefined;
+  }
+
+  async createPendingOrder(pendingOrder: InsertPendingOrder): Promise<PendingOrder> {
+    const db = getDb();
+    const [newPendingOrder] = await db
+      .insert(pendingOrders)
+      .values(pendingOrder)
+      .returning();
+    return newPendingOrder;
+  }
+
+  async updatePendingOrder(id: number, pendingOrder: Partial<PendingOrder>): Promise<PendingOrder> {
+    const db = getDb();
+    const [updatedPendingOrder] = await db
+      .update(pendingOrders)
+      .set({...pendingOrder, updatedAt: new Date()})
+      .where(eq(pendingOrders.id, id))
+      .returning();
+    return updatedPendingOrder;
+  }
+
+  async deletePendingOrder(id: number): Promise<void> {
+    const db = getDb();
+    await db.delete(pendingOrders).where(eq(pendingOrders.id, id));
+  }
+
+  async getTimedOutPendingOrders(): Promise<PendingOrder[]> {
+    const db = getDb();
+    const now = new Date();
+    return await db.select().from(pendingOrders).where(
+      lt(pendingOrders.paymentTimeoutAt, now)
+    );
   }
 
 }

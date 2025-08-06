@@ -105,6 +105,7 @@ export const quickOrders = pgTable("quick_orders", {
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
   orderId: integer("order_id").references(() => orders.id),
+  pendingOrderId: integer("pending_order_id").references(() => pendingOrders.id),
   merchantTransactionId: text("merchant_transaction_id").notNull().unique(),
   phonePeTransactionId: text("phonepe_transaction_id"),
   amount: integer("amount").notNull(),
@@ -114,6 +115,24 @@ export const payments = pgTable("payments", {
   responseMessage: text("response_message"),
   checksum: text("checksum"),
   metadata: text("metadata"), // Store order data for payment completion
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const pendingOrders = pgTable("pending_orders", {
+  id: serial("id").primaryKey(),
+  orderNumber: text("order_number").notNull().unique(),
+  customerId: integer("customer_id").references(() => users.id),
+  customerName: text("customer_name").notNull(),
+  customerPhone: text("customer_phone"),
+  items: text("items").notNull(), // JSON array of order items
+  totalAmount: integer("total_amount").notNull(),
+  status: text("status").notNull().default("payment_pending"), // payment_pending, payment_success, payment_failed, payment_timeout
+  barcode: text("barcode").notNull().unique(),
+  paymentMonitoringStarted: timestamp("payment_monitoring_started").defaultNow().notNull(),
+  paymentTimeoutAt: timestamp("payment_timeout_at").notNull(), // 10 minutes from creation
+  convertedToOrderAt: timestamp("converted_to_order_at"),
+  merchantTransactionId: text("merchant_transaction_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -164,6 +183,18 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
     fields: [payments.orderId],
     references: [orders.id],
   }),
+  pendingOrder: one(pendingOrders, {
+    fields: [payments.pendingOrderId],
+    references: [pendingOrders.id],
+  }),
+}));
+
+export const pendingOrdersRelations = relations(pendingOrders, ({ one, many }) => ({
+  customer: one(users, {
+    fields: [pendingOrders.customerId],
+    references: [users.id],
+  }),
+  payments: many(payments),
 }));
 
 
@@ -273,6 +304,7 @@ export const insertQuickOrderSchema = createInsertSchema(quickOrders).pick({
 
 export const insertPaymentSchema = createInsertSchema(payments).pick({
   orderId: true,
+  pendingOrderId: true,
   merchantTransactionId: true,
   phonePeTransactionId: true,
   amount: true,
@@ -282,6 +314,18 @@ export const insertPaymentSchema = createInsertSchema(payments).pick({
   responseMessage: true,
   checksum: true,
   metadata: true,
+});
+
+export const insertPendingOrderSchema = createInsertSchema(pendingOrders).pick({
+  orderNumber: true,
+  customerId: true,
+  customerName: true,
+  customerPhone: true,
+  items: true,
+  totalAmount: true,
+  barcode: true,
+  merchantTransactionId: true,
+  paymentTimeoutAt: true,
 });
 
 
@@ -310,5 +354,8 @@ export type QuickOrder = typeof quickOrders.$inferSelect;
 
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type Payment = typeof payments.$inferSelect;
+
+export type InsertPendingOrder = z.infer<typeof insertPendingOrderSchema>;
+export type PendingOrder = typeof pendingOrders.$inferSelect;
 
 

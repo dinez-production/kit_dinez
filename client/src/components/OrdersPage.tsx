@@ -23,11 +23,15 @@ export default function OrdersPage() {
   // Enhanced security check for authenticated users only
   useEffect(() => {
     if (!isAuthenticated) {
-      toast("Please log in to view your orders.");
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to view your orders.",
+        variant: "destructive"
+      });
       setLocation("/login");
       return;
     }
-  }, [isAuthenticated, setLocation]);
+  }, [isAuthenticated, setLocation, toast]);
 
   // Get current user from localStorage
   useEffect(() => {
@@ -37,11 +41,15 @@ export default function OrdersPage() {
     }
   }, []);
 
-  // Fetch real orders from database
+  // Fetch real orders from database (including pending payment orders)
   const { data: allOrders = [], isLoading, error } = useQuery<Order[]>({
-    queryKey: ['/api/orders'],
-    enabled: true, // Explicitly enable the query
+    queryKey: ['/api/orders', currentUser?.id],
+    queryFn: () => currentUser?.id 
+      ? fetch(`/api/orders?customerId=${currentUser.id}`).then(res => res.json())
+      : fetch('/api/orders').then(res => res.json()),
+    enabled: !!currentUser, // Only fetch when user is available
     refetchOnWindowFocus: false,
+    refetchInterval: 30000, // Refetch every 30 seconds to check for payment status updates
     retry: 3,
   });
 
@@ -72,6 +80,7 @@ export default function OrdersPage() {
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'payment_pending': return 'bg-orange-100 text-orange-800';
       case 'preparing': return 'bg-blue-100 text-blue-800';
       case 'ready': return 'bg-green-100 text-green-800';
       case 'delivered': return 'bg-gray-100 text-gray-800';
@@ -83,6 +92,7 @@ export default function OrdersPage() {
   const getStatusIcon = (status: string) => {
     switch (status?.toLowerCase()) {
       case 'pending': return <Clock className="w-4 h-4" />;
+      case 'payment_pending': return <Loader2 className="w-4 h-4 animate-spin" />;
       case 'preparing': return <Package className="w-4 h-4" />;
       case 'ready': 
       case 'delivered': return <CheckCircle className="w-4 h-4" />;
@@ -168,9 +178,10 @@ export default function OrdersPage() {
                 className="px-3 py-2 border rounded-md"
               >
                 <option value="all">All Status</option>
+                <option value="payment_pending">Payment Pending</option>
                 <option value="preparing">Preparing</option>
                 <option value="ready">Ready</option>
-                <option value="completed">Completed</option>
+                <option value="delivered">Delivered</option>
               </select>
             </div>
           </CardContent>
@@ -222,13 +233,24 @@ export default function OrdersPage() {
                     <div>
                       <p className="text-lg font-bold">₹{order.amount}</p>
                       <p className="text-sm text-muted-foreground">
-                        Payment: Pending
+                        {order.status === 'payment_pending' ? (
+                          <span className="text-orange-600 font-medium">
+                            Payment Pending - Monitoring for 10 mins
+                          </span>
+                        ) : (
+                          `Payment: Completed`
+                        )}
                       </p>
+                      {(order as any).isPendingPayment && (
+                        <p className="text-xs text-blue-600 mt-1">
+                          Background payment verification active
+                        </p>
+                      )}
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setLocation(`/order-status/${order.id}`)}
+                      onClick={() => setLocation(`/order-status/${order.orderNumber || order.id}`)}
                     >
                       View Details
                     </Button>
