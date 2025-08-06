@@ -1209,19 +1209,28 @@ export default function CanteenOwnerDashboard() {
                               </div>
                             </div>
                             
-                            {/* Barcode Display */}
+                            {/* Status Display */}
                             <div className="md:col-span-1 flex items-center justify-center">
-                              {order.barcode && order.status === "ready" && (
+                              {order.status === "ready" && (
                                 <div className="text-center">
-                                  <BarcodeDisplay 
-                                    value={order.barcode}
-                                    width={1.5}
-                                    height={60}
-                                    displayValue={false}
-                                    className="mb-2"
-                                  />
-                                  <p className="text-xs text-muted-foreground font-mono">{order.barcode}</p>
-                                  <Badge variant="outline" className="mt-1">Ready for Pickup</Badge>
+                                  <CheckCircle className="w-8 h-8 text-blue-500 mx-auto mb-2" />
+                                  <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-300">
+                                    Ready for Pickup
+                                  </Badge>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Customer can scan barcode
+                                  </p>
+                                </div>
+                              )}
+                              {order.status === "preparing" && (
+                                <div className="text-center">
+                                  <Clock className="w-8 h-8 text-orange-500 mx-auto mb-2 animate-pulse" />
+                                  <Badge variant="outline" className="bg-orange-50 text-orange-800 border-orange-300">
+                                    In Kitchen
+                                  </Badge>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    ETA: {order.estimatedTime || 15} min
+                                  </p>
                                 </div>
                               )}
                               {(order.status === "delivered" || order.status === "completed") && (
