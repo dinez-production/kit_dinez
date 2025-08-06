@@ -172,15 +172,8 @@ export default function CheckoutPage() {
       });
 
       if (paymentResponse.success) {
-        // Store transaction ID and pending order number for status checking
+        // Store merchant transaction ID for status checking
         localStorage.setItem('currentPaymentTxnId', paymentResponse.merchantTransactionId);
-        localStorage.setItem('currentOrderNumber', paymentResponse.orderNumber);
-        
-        // Show success message about pending order creation
-        toast({
-          title: "Order Created with Pending Payment",
-          description: `Order ${paymentResponse.orderNumber} created and visible in Orders page.`,
-        });
         
         // Redirect to PhonePe payment page
         window.location.href = paymentResponse.paymentUrl;

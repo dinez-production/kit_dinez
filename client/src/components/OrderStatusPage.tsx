@@ -90,15 +90,7 @@ export default function OrderStatusPage() {
   const orderDetails = order ? {
     id: order.barcode, // Use barcode as the primary ID for consistency
     orderNumber: order.orderNumber, // Keep order number for reference
-    items: (() => {
-      try {
-        const parsedItems = JSON.parse(order.items || '[]');
-        return Array.isArray(parsedItems) ? parsedItems : [];
-      } catch (error) {
-        console.error('Error parsing order items:', error);
-        return [];
-      }
-    })() as Array<{id: number, name: string, price: number, quantity: number}>,
+    items: JSON.parse(order.items || '[]') as Array<{id: number, name: string, price: number, quantity: number}>,
     total: order.amount,
     estimatedTime: `${order.estimatedTime || 15} mins`,
     actualTime: orderStatus === "ready" ? `${order.estimatedTime || 15} mins` : `${order.estimatedTime || 15} mins`,
@@ -287,18 +279,12 @@ export default function OrderStatusPage() {
           <CardContent className="p-4">
             <h3 className="font-semibold mb-4">Order Details</h3>
             <div className="space-y-3">
-              {orderDetails.items.length > 0 ? (
-                orderDetails.items.map((item, index) => (
-                  <div key={index} className="flex justify-between">
-                    <span>{item.name} x{item.quantity}</span>
-                    <span>₹{item.price}</span>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center text-muted-foreground py-4">
-                  Order items not available
+              {orderDetails.items.map((item, index) => (
+                <div key={index} className="flex justify-between">
+                  <span>{item.name} x{item.quantity}</span>
+                  <span>₹{item.price}</span>
                 </div>
-              )}
+              ))}
               <div className="border-t pt-3">
                 <div className="flex justify-between font-bold">
                   <span>Total</span>

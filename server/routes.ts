@@ -26,37 +26,6 @@ import axios from "axios";
 // Store SSE connections for real-time notifications
 const sseConnections = new Set<any>();
 
-// Background task to monitor payment timeouts
-async function monitorPaymentTimeouts() {
-  try {
-    // Get timed out pending orders
-    const timedOutOrders = await storage.getTimedOutPendingOrders();
-    
-    for (const pendingOrder of timedOutOrders) {
-      if (pendingOrder.status === 'payment_pending') {
-        // Mark as timeout and update payment
-        await storage.updatePendingOrder(pendingOrder.id, {
-          status: 'payment_timeout'
-        });
-        
-        // Update associated payment
-        if (pendingOrder.merchantTransactionId) {
-          await storage.updatePaymentByMerchantTxnId(pendingOrder.merchantTransactionId, {
-            status: PAYMENT_STATUS.TIMEOUT
-          });
-        }
-        
-        console.log(`⏰ Payment timeout for order ${pendingOrder.orderNumber}`);
-      }
-    }
-  } catch (error) {
-    console.error('Error monitoring payment timeouts:', error);
-  }
-}
-
-// Start background monitoring (every 30 seconds)
-setInterval(monitorPaymentTimeouts, 30000);
-
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint
   app.get("/api/health", (req, res) => {
@@ -78,7 +47,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     sseConnections.add(res);
     
     // Send initial connection confirmation
-    res.write('data: {"type": "connected", "message": "Connected to real-time order updates"}\\n\\n');
+    res.write('data: {"type": "connected", "message": "Connected to real-time order updates"}\n\n');
     
     console.log(`📡 SSE client connected. Total connections: ${sseConnections.size}`);
 
@@ -282,54 +251,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Orders endpoints (includes both confirmed orders and pending payment orders)
+  // Orders endpoints
   app.get("/api/orders", async (req, res) => {
     try {
-      const { customerId } = req.query;
-      let orders = [];
-      let pendingOrders = [];
-
-      if (customerId) {
-        // Get confirmed orders for specific customer
-        const allOrders = await storage.getOrders();
-        orders = allOrders.filter(order => order.customerId === parseInt(customerId as string));
-        
-        // Get pending orders for specific customer
-        pendingOrders = await storage.getPendingOrdersByCustomer(parseInt(customerId as string));
-      } else {
-        // Get all orders (admin view)
-        orders = await storage.getOrders();
-        pendingOrders = await storage.getPendingOrders();
-      }
-
-      // Transform pending orders to look like regular orders with appropriate status
-      const transformedPendingOrders = pendingOrders
-        .filter(pendingOrder => ['payment_pending', 'payment_failed', 'payment_timeout'].includes(pendingOrder.status)) // Show all pending payment orders
-        .map(pendingOrder => ({
-          id: pendingOrder.id,
-          orderNumber: pendingOrder.orderNumber,
-          customerId: pendingOrder.customerId,
-          customerName: pendingOrder.customerName,
-          customerPhone: pendingOrder.customerPhone,
-          items: pendingOrder.items,
-          amount: pendingOrder.totalAmount,
-          status: pendingOrder.status, // Use actual pending order status (payment_pending, payment_failed, etc.)
-          barcode: pendingOrder.barcode,
-          createdAt: pendingOrder.createdAt,
-          updatedAt: pendingOrder.updatedAt,
-          estimatedTime: null,
-          deliveredAt: null,
-          barcodeUsed: false,
-          isPendingPayment: true, // Flag to identify pending orders
-          merchantTransactionId: pendingOrder.merchantTransactionId,
-          paymentTimeoutAt: pendingOrder.paymentTimeoutAt
-        }));
-
-      // Combine orders with pending orders
-      const combinedOrders = [...orders, ...transformedPendingOrders]
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-      res.json(combinedOrders);
+      const orders = await storage.getOrders();
+      res.json(orders);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
     }
@@ -347,9 +273,319 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/orders", async (req, res) => {
+    try {
+      // Generate unique 12-digit numeric order ID for both orderNumber and barcode
+      const orderNumber = generateOrderNumber();
+      const barcode = generateOrderNumber();
+      
+      const orderData = { ...req.body, orderNumber, barcode };
+      const validatedData = insertOrderSchema.parse(orderData);
+      const order = await storage.createOrder(validatedData);
+      
+      // Broadcast new order to all connected SSE clients (canteen owners)
+      if (sseConnections.size > 0) {
+        const message = `data: ${JSON.stringify({
+          type: 'new_order',
+          data: order
+        })}\n\n`;
+        
+        // Send to all connected SSE clients
+        sseConnections.forEach((connection) => {
+          try {
+            connection.write(message);
+          } catch (error) {
+            // Remove dead connections
+            sseConnections.delete(connection);
+          }
+        });
+        
+        console.log(`📢 Broadcasted new order ${order.orderNumber} to ${sseConnections.size} connected clients`);
+      }
+      
+      res.status(201).json(order);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/orders/:id", async (req, res) => {
+    try {
+      const order = await storage.updateOrder(parseInt(req.params.id), req.body);
+      res.json(order);
+    } catch (error) {
+      console.error("Error updating order:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/orders/:id", async (req, res) => {
+    try {
+      console.log(`Updating order ${req.params.id} with data:`, req.body);
+      const order = await storage.updateOrder(parseInt(req.params.id), req.body);
+      console.log("Updated order:", order);
+      res.json(order);
+    } catch (error) {
+      console.error("Error updating order:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Notifications endpoints
+  app.get("/api/notifications", async (req, res) => {
+    try {
+      const notifications = await storage.getNotifications();
+      res.json(notifications);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/notifications", async (req, res) => {
+    try {
+      const validatedData = insertNotificationSchema.parse(req.body);
+      const notification = await storage.createNotification(validatedData);
+      res.status(201).json(notification);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/notifications/:id", async (req, res) => {
+    try {
+      const notification = await storage.updateNotification(parseInt(req.params.id), req.body);
+      res.json(notification);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/notifications/:id", async (req, res) => {
+    try {
+      await storage.deleteNotification(parseInt(req.params.id));
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+
+
+  // Barcode delivery endpoints
+  app.post("/api/delivery/scan", async (req, res) => {
+    try {
+      const { barcode } = req.body;
+      if (!barcode) {
+        return res.status(400).json({ message: "Barcode is required" });
+      }
+
+      console.log("Scanning barcode:", barcode);
+      
+      // Find order by barcode or order number
+      let order = await storage.getOrderByBarcode(barcode);
+      
+      // If not found by barcode, try to find by order number (12-digit numeric format)
+      if (!order && barcode.match(/^\d{12}$/)) {
+        order = await storage.getOrderByOrderNumber(barcode);
+      }
+      
+      if (!order) {
+        return res.status(404).json({ 
+          message: "Invalid barcode. No order found.", 
+          error: "BARCODE_NOT_FOUND" 
+        });
+      }
+
+      // Check if barcode was already used
+      if (order.barcodeUsed) {
+        return res.status(400).json({ 
+          message: "🔒 This order has already been delivered.", 
+          error: "BARCODE_ALREADY_USED",
+          deliveredAt: order.deliveredAt 
+        });
+      }
+
+      // Check if order is ready for pickup
+      if (order.status !== "ready") {
+        return res.status(400).json({ 
+          message: `Order is not ready for pickup. Current status: ${order.status}`, 
+          error: "ORDER_NOT_READY" 
+        });
+      }
+
+      // Update order to delivered and mark barcode as used
+      const updatedOrder = await storage.updateOrder(order.id, {
+        status: "delivered",
+        barcodeUsed: true,
+        deliveredAt: new Date()
+      });
+
+      console.log("Order delivered successfully:", updatedOrder);
+
+      res.json({
+        success: true,
+        message: "Order delivered successfully!",
+        order: updatedOrder
+      });
+    } catch (error) {
+      console.error("Error processing barcode scan:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/delivery/verify/:barcode", async (req, res) => {
+    try {
+      const { barcode } = req.params;
+      
+      const order = await storage.getOrderByBarcode(barcode);
+      if (!order) {
+        return res.status(404).json({ 
+          valid: false, 
+          message: "Invalid barcode" 
+        });
+      }
+
+      res.json({
+        valid: true,
+        order: {
+          id: order.id,
+          orderNumber: order.orderNumber,
+          customerName: order.customerName,
+          status: order.status,
+          barcodeUsed: order.barcodeUsed,
+          deliveredAt: order.deliveredAt,
+          amount: order.amount
+        }
+      });
+    } catch (error) {
+      console.error("Error verifying barcode:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Admin analytics endpoint
+  app.get("/api/admin/analytics", async (req, res) => {
+    try {
+      const orders = await storage.getOrders();
+      const menuItems = await storage.getMenuItems();
+      
+      const totalOrders = orders.length;
+      const totalRevenue = orders.reduce((sum, order) => sum + order.amount, 0);
+      const activeMenuItems = menuItems.filter(item => item.available).length;
+      const averageOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
+
+      res.json({
+        totalOrders,
+        totalRevenue,
+        activeMenuItems,
+        averageOrderValue
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Login Issues endpoints
+  app.get("/api/login-issues", async (req, res) => {
+    try {
+      const issues = await storage.getLoginIssues();
+      res.json(issues);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/login-issues/:id", async (req, res) => {
+    try {
+      const issue = await storage.getLoginIssue(parseInt(req.params.id));
+      if (!issue) {
+        return res.status(404).json({ message: "Login issue not found" });
+      }
+      res.json(issue);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/login-issues", async (req, res) => {
+    try {
+      const validatedData = insertLoginIssueSchema.parse(req.body);
+      const issue = await storage.createLoginIssue(validatedData);
+      res.status(201).json(issue);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/login-issues/:id", async (req, res) => {
+    try {
+      const issueId = parseInt(req.params.id);
+      const { status, adminNotes, resolvedBy } = req.body;
+      
+      const updateData: any = {};
+      if (status) updateData.status = status;
+      if (adminNotes !== undefined) updateData.adminNotes = adminNotes;
+      if (resolvedBy !== undefined) updateData.resolvedBy = resolvedBy;
+      if (status === "resolved") updateData.resolvedAt = new Date();
+
+      const updatedIssue = await storage.updateLoginIssue(issueId, updateData);
+      res.json(updatedIssue);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/login-issues/:id", async (req, res) => {
+    try {
+      await storage.deleteLoginIssue(parseInt(req.params.id));
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Quick Orders endpoints
+  app.get("/api/quick-orders", async (req, res) => {
+    try {
+      const quickOrders = await storage.getQuickOrders();
+      res.json(quickOrders);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/quick-orders", async (req, res) => {
+    try {
+      const validatedData = insertQuickOrderSchema.parse(req.body);
+      const quickOrder = await storage.createQuickOrder(validatedData);
+      res.status(201).json(quickOrder);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/quick-orders/:id", async (req, res) => {
+    try {
+      const validatedData = insertQuickOrderSchema.parse(req.body);
+      const quickOrder = await storage.updateQuickOrder(parseInt(req.params.id), validatedData);
+      res.json(quickOrder);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/quick-orders/:id", async (req, res) => {
+    try {
+      await storage.deleteQuickOrder(parseInt(req.params.id));
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // PhonePe Payment Integration
   
-  // Initiate payment with PhonePe - creates pending order immediately
+  // Initiate payment with PhonePe
   app.post("/api/payments/initiate", async (req, res) => {
     try {
       const { amount, customerName, orderData } = req.body;
@@ -364,26 +600,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate unique merchant transaction ID
       const merchantTransactionId = `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // Generate order number and barcode for pending order
-      const orderNumber = generateOrderNumber();
-      const barcode = generateOrderNumber(); // Use same function for barcode
-      
-      // Calculate 10 minutes from now for timeout
-      const paymentTimeoutAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-      
-      // Create pending order that will appear in user's orders immediately
-      const pendingOrder = await storage.createPendingOrder({
-        orderNumber,
-        customerId: orderData.customerId || null,
-        customerName,
-        customerPhone: orderData.customerPhone || null,
-        items: JSON.stringify(orderData.items),
-        totalAmount: amount * 100, // Store in paise
-        barcode,
-        merchantTransactionId,
-        paymentTimeoutAt
-      });
-
       // Create callback URLs
       const baseUrl = process.env.REPLIT_DOMAINS 
         ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
@@ -408,15 +624,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Base64 encode the payload
       const base64Payload = Buffer.from(JSON.stringify(paymentPayload)).toString('base64');
 
-      // Store payment record linked to pending order
+      // Store payment record with order data for later order creation
       await storage.createPayment({
-        orderId: null, // No actual order created yet
-        pendingOrderId: pendingOrder.id,
+        orderId: null, // No order created yet
         merchantTransactionId,
         amount: amount * 100, // Store in paise
         status: PAYMENT_STATUS.PENDING,
         checksum,
-        metadata: JSON.stringify(orderData) // Store order data for backup
+        metadata: JSON.stringify(orderData) // Store order data for later
       });
 
       // Make request to PhonePe
@@ -435,19 +650,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json({
           success: true,
           merchantTransactionId,
-          orderNumber: pendingOrder.orderNumber, // Return pending order number
           paymentUrl: phonePeResponse.data.data.instrumentResponse.redirectInfo.url
         });
       } else {
-        // Update payment and pending order status to failed
+        // Update payment status to failed
         await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
           status: PAYMENT_STATUS.FAILED,
           responseCode: phonePeResponse.data.code,
           responseMessage: phonePeResponse.data.message
-        });
-        
-        await storage.updatePendingOrder(pendingOrder.id, {
-          status: 'payment_failed'
         });
         
         res.status(400).json({
@@ -464,7 +674,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // PhonePe webhook handler - converts pending order to confirmed order on success
+  // PhonePe webhook handler
   app.post("/api/payments/webhook", async (req, res) => {
     try {
       const receivedChecksum = req.headers['x-verify'] as string;
@@ -503,67 +713,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         responseMessage: payload.message
       });
 
-      // If payment successful, convert pending order to confirmed order
+      // If payment successful, create order from metadata
       if (paymentStatus === PAYMENT_STATUS.SUCCESS) {
         const payment = await storage.getPaymentByMerchantTxnId(merchantTransactionId);
-        if (payment?.pendingOrderId && !payment.orderId) {
-          const pendingOrder = await storage.getPendingOrder(payment.pendingOrderId);
-          if (pendingOrder) {
-            // Create confirmed order from pending order
-            const confirmedOrder = await storage.createOrder({
-              orderNumber: pendingOrder.orderNumber, // Keep same order number
-              customerId: pendingOrder.customerId,
-              customerName: pendingOrder.customerName,
-              items: pendingOrder.items,
-              amount: pendingOrder.totalAmount,
-              status: 'preparing',
-              barcode: pendingOrder.barcode, // Keep same barcode
-              estimatedTime: 15 // Default 15 minutes
-            });
-            
-            // Update payment with actual order ID
-            await storage.updatePayment(payment.id, {
-              orderId: confirmedOrder.id
-            });
-            
-            // Mark pending order as converted
-            await storage.updatePendingOrder(pendingOrder.id, {
-              status: 'payment_success',
-              convertedToOrderAt: new Date()
-            });
-            
-            // Send SSE notification to canteen owner
-            const notification = {
-              type: 'new_order_from_pending',
-              orderId: confirmedOrder.id,
-              orderNumber: confirmedOrder.orderNumber,
-              merchantTransactionId,
-              message: `Order ${confirmedOrder.orderNumber} payment completed - now ready for preparation`
-            };
-            
-            sseConnections.forEach(connection => {
-              connection.write(`data: ${JSON.stringify(notification)}\\n\\n`);
-            });
-          }
-        }
-      } else if (paymentStatus === PAYMENT_STATUS.FAILED) {
-        // Mark pending order as failed
-        const payment = await storage.getPaymentByMerchantTxnId(merchantTransactionId);
-        if (payment?.pendingOrderId) {
-          await storage.updatePendingOrder(payment.pendingOrderId, {
-            status: 'payment_failed'
+        if (payment?.metadata && !payment.orderId) {
+          // Parse order data from metadata
+          const orderData = JSON.parse(payment.metadata);
+          
+          // Generate orderNumber and barcode for the new order
+          const { generateOrderNumber } = await import('../shared/utils.js');
+          const orderNumber = generateOrderNumber();
+          const barcode = generateOrderNumber(); // Use same function for barcode
+          
+          const completeOrderData = {
+            ...orderData,
+            orderNumber,
+            barcode,
+            status: 'preparing' // Set to preparing since payment is successful
+          };
+          
+          // Create the order
+          const newOrder = await storage.createOrder(completeOrderData);
+          
+          // Update payment with order ID
+          await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
+            orderId: newOrder.id
+          });
+          
+          // Send SSE notification
+          const notification = {
+            type: 'payment_success',
+            orderId: newOrder.id,
+            orderNumber: newOrder.orderNumber,
+            merchantTransactionId,
+            message: 'Payment completed successfully'
+          };
+          
+          sseConnections.forEach(connection => {
+            connection.write(`data: ${JSON.stringify(notification)}\n\n`);
           });
         }
       }
 
-      res.json({ success: true, message: 'Webhook processed' });
+      res.status(200).json({ success: true });
     } catch (error) {
       console.error('Webhook processing error:', error);
       res.status(500).json({ success: false, message: 'Processing failed' });
     }
   });
 
-  // Check payment status - handles background monitoring
+  // Check payment status
   app.get("/api/payments/status/:merchantTransactionId", async (req, res) => {
     try {
       const { merchantTransactionId } = req.params;
@@ -577,11 +776,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // If already successful, return cached status with order info
+      // If already successful, ensure order is created and return cached status
       if (payment.status === PAYMENT_STATUS.SUCCESS) {
         let orderNumber = null;
         
-        if (payment.orderId) {
+        // Create order if not already created
+        if (payment.metadata && !payment.orderId) {
+          const orderData = JSON.parse(payment.metadata);
+          
+          // Generate orderNumber and barcode for the new order
+          const { generateOrderNumber } = await import('../shared/utils.js');
+          const generatedOrderNumber = generateOrderNumber();
+          const barcode = generateOrderNumber();
+          
+          const completeOrderData = {
+            ...orderData,
+            orderNumber: generatedOrderNumber,
+            barcode,
+            status: 'preparing' // Set to preparing since payment is successful
+          };
+          
+          const newOrder = await storage.createOrder(completeOrderData);
+          await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
+            orderId: newOrder.id
+          });
+          orderNumber = newOrder.orderNumber;
+        } else if (payment.orderId) {
+          // Get existing order number
           const order = await storage.getOrder(payment.orderId);
           orderNumber = order?.orderNumber;
         }
@@ -597,8 +818,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // If already failed or timeout, return cached status
-      if (payment.status === PAYMENT_STATUS.FAILED || payment.status === PAYMENT_STATUS.TIMEOUT) {
+      // If already failed, return cached status with retry option
+      if (payment.status === PAYMENT_STATUS.FAILED) {
         return res.json({
           success: true,
           status: payment.status,
@@ -645,47 +866,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
           responseMessage: phonePeResponse.data.message
         });
 
-        // If payment successful, convert pending order to confirmed order
+        // If payment successful, create order if not already created
         if (paymentStatus === PAYMENT_STATUS.SUCCESS) {
-          if (payment.pendingOrderId && !payment.orderId) {
-            const pendingOrder = await storage.getPendingOrder(payment.pendingOrderId);
-            if (pendingOrder) {
-              // Create confirmed order
-              const confirmedOrder = await storage.createOrder({
-                orderNumber: pendingOrder.orderNumber,
-                customerId: pendingOrder.customerId,
-                customerName: pendingOrder.customerName,
-                items: pendingOrder.items,
-                amount: pendingOrder.totalAmount,
-                status: 'preparing',
-                barcode: pendingOrder.barcode,
-                estimatedTime: 15
-              });
-              
-              // Update payment with order ID
-              await storage.updatePayment(payment.id, {
-                orderId: confirmedOrder.id
-              });
-              
-              // Mark pending order as converted
-              await storage.updatePendingOrder(pendingOrder.id, {
-                status: 'payment_success',
-                convertedToOrderAt: new Date()
-              });
-              
-              // Send SSE notification
-              const notification = {
-                type: 'new_order_from_pending',
-                orderId: confirmedOrder.id,
-                orderNumber: confirmedOrder.orderNumber,
-                merchantTransactionId,
-                message: `Order ${confirmedOrder.orderNumber} payment completed - now ready for preparation`
-              };
-              
-              sseConnections.forEach(connection => {
-                connection.write(`data: ${JSON.stringify(notification)}\\n\\n`);
-              });
-            }
+          if (payment.metadata && !payment.orderId) {
+            // Parse order data from metadata and create order
+            const orderData = JSON.parse(payment.metadata);
+            
+            // Generate orderNumber and barcode for the new order
+            const { generateOrderNumber } = await import('../shared/utils.js');
+            const orderNumber = generateOrderNumber();
+            const barcode = generateOrderNumber(); // Use same function for barcode
+            
+            const completeOrderData = {
+              ...orderData,
+              orderNumber,
+              barcode,
+              status: 'preparing' // Set to preparing since payment is successful
+            };
+            
+            const newOrder = await storage.createOrder(completeOrderData);
+            
+            // Update payment with order ID
+            await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
+              orderId: newOrder.id
+            });
+            
+            // Send SSE notification
+            const notification = {
+              type: 'payment_success',
+              orderId: newOrder.id,
+              orderNumber: newOrder.orderNumber,
+              merchantTransactionId,
+              message: 'Payment completed successfully'
+            };
+            
+            sseConnections.forEach(connection => {
+              connection.write(`data: ${JSON.stringify(notification)}\n\n`);
+            });
           }
         }
 
@@ -702,12 +919,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         } else if (paymentStatus === PAYMENT_STATUS.FAILED) {
           responseData.shouldRetry = true;
-          // Mark pending order as failed
-          if (payment.pendingOrderId) {
-            await storage.updatePendingOrder(payment.pendingOrderId, {
-              status: 'payment_failed'
-            });
-          }
         }
 
         res.json({
@@ -716,64 +927,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
           data: responseData
         });
       } else {
-        // PhonePe API call failed, return current status
-        res.json({
-          success: true,
-          status: payment.status,
-          data: { 
-            ...payment,
-            apiError: true
-          }
+        res.status(400).json({
+          success: false,
+          message: phonePeResponse.data.message || "Status check failed"
         });
       }
     } catch (error) {
       console.error('Payment status check error:', error);
       res.status(500).json({ 
         success: false, 
-        message: "Error checking payment status" 
+        message: "Internal server error during status check" 
       });
     }
   });
 
-  // Quick Orders endpoints
-  app.get("/api/quick-orders", async (req, res) => {
+  // Get all payments (admin)
+  app.get("/api/payments", async (req, res) => {
     try {
-      const quickOrders = await storage.getQuickOrders();
-      res.json(quickOrders);
+      const payments = await storage.getPayments();
+      res.json(payments);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
     }
   });
 
-  app.post("/api/quick-orders", async (req, res) => {
+  // TEST ENDPOINT: Simulate PhonePe payment completion for development
+  // Admin get all payments with detailed information
+  app.get("/api/admin/payments", async (req, res) => {
     try {
-      const validatedData = insertQuickOrderSchema.parse(req.body);
-      const quickOrder = await storage.createQuickOrder(validatedData);
-      res.status(201).json(quickOrder);
+      const allPayments = await storage.getPayments();
+      
+      // Enhance payment data with order information
+      const enhancedPayments = await Promise.all(
+        allPayments.map(async (payment) => {
+          let orderDetails = null;
+          if (payment.orderId) {
+            const order = await storage.getOrder(payment.orderId);
+            orderDetails = {
+              orderNumber: order?.orderNumber,
+              orderStatus: order?.status,
+              customerName: order?.customerName,
+              amount: order?.amount,
+              items: order?.items
+            };
+          }
+          
+          return {
+            ...payment,
+            orderDetails,
+            metadata: payment.metadata ? JSON.parse(payment.metadata) : null,
+            formattedAmount: `₹${payment.amount / 100}`,
+            createdAtFormatted: new Date(payment.createdAt).toLocaleString('en-IN'),
+            updatedAtFormatted: new Date(payment.updatedAt).toLocaleString('en-IN')
+          };
+        })
+      );
+      
+      res.json({ 
+        success: true, 
+        payments: enhancedPayments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      });
     } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
+      console.error('Error fetching payments:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch payments' });
     }
   });
 
-  app.put("/api/quick-orders/:id", async (req, res) => {
+  app.post("/api/payments/test-complete/:merchantTransactionId", async (req, res) => {
     try {
-      const validatedData = insertQuickOrderSchema.partial().parse(req.body);
-      const quickOrder = await storage.updateQuickOrder(parseInt(req.params.id), validatedData);
-      res.json(quickOrder);
+      const { merchantTransactionId } = req.params;
+      
+      // Get payment from database
+      const payment = await storage.getPaymentByMerchantTxnId(merchantTransactionId);
+      if (!payment) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "Payment not found" 
+        });
+      }
+
+      // Update payment to success
+      await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
+        phonePeTransactionId: `TEST_${Date.now()}`,
+        status: PAYMENT_STATUS.SUCCESS,
+        paymentMethod: 'UPI',
+        responseCode: 'SUCCESS',
+        responseMessage: 'Test payment completed successfully'
+      });
+
+      // Update order status
+      if (payment.orderId) {
+        await storage.updateOrder(payment.orderId, { status: 'preparing' });
+        
+        // Send SSE notification
+        const notification = {
+          type: 'payment_success',
+          orderId: payment.orderId,
+          merchantTransactionId,
+          message: 'Test payment completed successfully'
+        };
+        
+        sseConnections.forEach(connection => {
+          connection.write(`data: ${JSON.stringify(notification)}\n\n`);
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Test payment completed successfully',
+        merchantTransactionId
+      });
     } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
+      console.error('Test payment completion error:', error);
+      res.status(500).json({ success: false, message: 'Test payment completion failed' });
     }
   });
 
-  app.delete("/api/quick-orders/:id", async (req, res) => {
-    try {
-      await storage.deleteQuickOrder(parseInt(req.params.id));
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
+  const httpServer = createServer(app);
 
-  const server = createServer(app);
-  return server;
+  return httpServer;
 }

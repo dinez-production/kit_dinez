@@ -16,9 +16,9 @@ export default function PaymentCallbackPage() {
   useEffect(() => {
     const checkPaymentStatus = async () => {
       try {
-        // Get stored transaction ID and pending order number
+        // Get stored transaction ID and order ID
         const merchantTransactionId = localStorage.getItem('currentPaymentTxnId');
-        const pendingOrderNumber = localStorage.getItem('currentOrderNumber');
+        const storedOrderId = localStorage.getItem('currentOrderId');
         
         if (!merchantTransactionId) {
           setStatus('failed');
@@ -30,15 +30,9 @@ export default function PaymentCallbackPage() {
           return;
         }
 
-        setOrderId(pendingOrderNumber || '');
+        setOrderId(storedOrderId || '');
 
-        // Inform user that their order is already visible and background monitoring is active
-        toast({
-          title: "Order Created with Pending Payment",
-          description: `Order ${pendingOrderNumber} is now visible in your orders page while we verify payment.`,
-        });
-
-        // Check payment status with background monitoring
+        // Check payment status
         const statusResponse = await apiRequest(`/api/payments/status/${merchantTransactionId}`);
         
         if (statusResponse.success) {
@@ -60,7 +54,6 @@ export default function PaymentCallbackPage() {
             // Clear stored transaction data
             localStorage.removeItem('currentPaymentTxnId');
             localStorage.removeItem('pendingOrderData');
-            localStorage.removeItem('currentOrderNumber');
             
             // Get the order to redirect to order status page
             if (statusResponse.data?.orderNumber) {
@@ -68,7 +61,7 @@ export default function PaymentCallbackPage() {
                 setLocation(`/order-status/${statusResponse.data.orderNumber}`);
               }, 2000);
             }
-          } else if (paymentStatus === 'failed' || paymentStatus === 'timeout') {
+          } else if (paymentStatus === 'failed') {
             setStatus('failed');
             setPaymentData(statusResponse.data);
             

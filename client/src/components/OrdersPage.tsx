@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Search, Clock, CheckCircle, Package, Loader2, Receipt, XCircle } from "lucide-react";
+import { ArrowLeft, Search, Clock, CheckCircle, Package, Loader2, Receipt } from "lucide-react";
 import BottomNavigation from "./BottomNavigation";
 import type { Order } from "@shared/schema";
 
@@ -23,15 +23,11 @@ export default function OrdersPage() {
   // Enhanced security check for authenticated users only
   useEffect(() => {
     if (!isAuthenticated) {
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to view your orders.",
-        variant: "destructive"
-      });
+      toast("Please log in to view your orders.");
       setLocation("/login");
       return;
     }
-  }, [isAuthenticated, setLocation, toast]);
+  }, [isAuthenticated, setLocation]);
 
   // Get current user from localStorage
   useEffect(() => {
@@ -41,15 +37,11 @@ export default function OrdersPage() {
     }
   }, []);
 
-  // Fetch real orders from database (including pending payment orders)
+  // Fetch real orders from database
   const { data: allOrders = [], isLoading, error } = useQuery<Order[]>({
-    queryKey: ['/api/orders', currentUser?.id],
-    queryFn: () => currentUser?.id 
-      ? fetch(`/api/orders?customerId=${currentUser.id}`).then(res => res.json())
-      : fetch('/api/orders').then(res => res.json()),
-    enabled: !!currentUser, // Only fetch when user is available
+    queryKey: ['/api/orders'],
+    enabled: true, // Explicitly enable the query
     refetchOnWindowFocus: false,
-    refetchInterval: 30000, // Refetch every 30 seconds to check for payment status updates
     retry: 3,
   });
 
@@ -80,9 +72,6 @@ export default function OrdersPage() {
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'payment_pending': return 'bg-orange-100 text-orange-800';
-      case 'payment_failed': return 'bg-red-100 text-red-800';
-      case 'payment_timeout': return 'bg-red-100 text-red-800';
       case 'preparing': return 'bg-blue-100 text-blue-800';
       case 'ready': return 'bg-green-100 text-green-800';
       case 'delivered': return 'bg-gray-100 text-gray-800';
@@ -94,9 +83,6 @@ export default function OrdersPage() {
   const getStatusIcon = (status: string) => {
     switch (status?.toLowerCase()) {
       case 'pending': return <Clock className="w-4 h-4" />;
-      case 'payment_pending': return <Loader2 className="w-4 h-4 animate-spin" />;
-      case 'payment_failed': 
-      case 'payment_timeout': return <XCircle className="w-4 h-4" />;
       case 'preparing': return <Package className="w-4 h-4" />;
       case 'ready': 
       case 'delivered': return <CheckCircle className="w-4 h-4" />;
@@ -182,11 +168,9 @@ export default function OrdersPage() {
                 className="px-3 py-2 border rounded-md"
               >
                 <option value="all">All Status</option>
-                <option value="payment_pending">Payment Pending</option>
-                <option value="payment_failed">Payment Failed</option>
                 <option value="preparing">Preparing</option>
                 <option value="ready">Ready</option>
-                <option value="delivered">Delivered</option>
+                <option value="completed">Completed</option>
               </select>
             </div>
           </CardContent>
@@ -238,32 +222,13 @@ export default function OrdersPage() {
                     <div>
                       <p className="text-lg font-bold">₹{order.amount}</p>
                       <p className="text-sm text-muted-foreground">
-                        {order.status === 'payment_pending' ? (
-                          <span className="text-orange-600 font-medium">
-                            Payment Pending - Monitoring for 10 mins
-                          </span>
-                        ) : order.status === 'payment_failed' ? (
-                          <span className="text-red-600 font-medium">
-                            Payment Failed - Retry Available
-                          </span>
-                        ) : order.status === 'payment_timeout' ? (
-                          <span className="text-red-600 font-medium">
-                            Payment Timeout - Retry Available
-                          </span>
-                        ) : (
-                          `Payment: Completed`
-                        )}
+                        Payment: Pending
                       </p>
-                      {(order as any).isPendingPayment && (
-                        <p className="text-xs text-blue-600 mt-1">
-                          Background payment verification active
-                        </p>
-                      )}
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setLocation(`/order-status/${order.orderNumber || order.id}`)}
+                      onClick={() => setLocation(`/order-status/${order.id}`)}
                     >
                       View Details
                     </Button>
