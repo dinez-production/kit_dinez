@@ -101,6 +101,14 @@ export const quickOrders = pgTable("quick_orders", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const trendingItems = pgTable("trending_items", {
+  id: serial("id").primaryKey(),
+  menuItemId: integer("menu_item_id").references(() => menuItems.id).notNull(),
+  position: integer("position").notNull(), // Display order position
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations
 export const categoriesRelations = relations(categories, ({ many }) => ({
   menuItems: many(menuItems),
@@ -136,6 +144,13 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
 export const quickOrdersRelations = relations(quickOrders, ({ one }) => ({
   menuItem: one(menuItems, {
     fields: [quickOrders.menuItemId],
+    references: [menuItems.id],
+  }),
+}));
+
+export const trendingItemsRelations = relations(trendingItems, ({ one }) => ({
+  menuItem: one(menuItems, {
+    fields: [trendingItems.menuItemId],
     references: [menuItems.id],
   }),
 }));
@@ -242,6 +257,12 @@ export const insertQuickOrderSchema = createInsertSchema(quickOrders).pick({
   isActive: true,
 });
 
+export const insertTrendingItemSchema = createInsertSchema(trendingItems).pick({
+  menuItemId: true,
+  position: true,
+  isActive: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -263,3 +284,6 @@ export type LoginIssue = typeof loginIssues.$inferSelect;
 
 export type InsertQuickOrder = z.infer<typeof insertQuickOrderSchema>;
 export type QuickOrder = typeof quickOrders.$inferSelect;
+
+export type InsertTrendingItem = z.infer<typeof insertTrendingItemSchema>;
+export type TrendingItem = typeof trendingItems.$inferSelect;
