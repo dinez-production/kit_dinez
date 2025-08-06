@@ -807,9 +807,20 @@ export default function CanteenOwnerDashboard() {
 
   // Offline order helper functions
   const addToCart = (item: MenuItem) => {
+    // Check if item is in stock
+    if (!item.stock || item.stock <= 0) {
+      toast.error(`${item.name} is out of stock`);
+      return;
+    }
+
     setCart(prevCart => {
       const existingItem = prevCart.find(cartItem => cartItem.id === item.id);
       if (existingItem) {
+        // Check if adding another item would exceed stock
+        if (existingItem.quantity >= item.stock) {
+          toast.error(`Only ${item.stock} ${item.name} available in stock`);
+          return prevCart;
+        }
         return prevCart.map(cartItem =>
           cartItem.id === item.id 
             ? { ...cartItem, quantity: cartItem.quantity + 1 }
@@ -825,6 +836,13 @@ export default function CanteenOwnerDashboard() {
     if (quantity <= 0) {
       setCart(prevCart => prevCart.filter(item => item.id !== id));
     } else {
+      // Check stock availability
+      const menuItem = menuItems.find(item => item.id === id);
+      if (menuItem && quantity > menuItem.stock) {
+        toast.error(`Only ${menuItem.stock} ${menuItem.name} available in stock`);
+        return;
+      }
+      
       setCart(prevCart => prevCart.map(item =>
         item.id === id ? { ...item, quantity } : item
       ));

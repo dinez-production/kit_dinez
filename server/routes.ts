@@ -281,7 +281,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const orderData = { ...req.body, orderNumber, barcode };
       const validatedData = insertOrderSchema.parse(orderData);
+      
+      // Process stock deduction before creating the order
+      let orderItems = [];
+      try {
+        orderItems = JSON.parse(validatedData.items);
+      } catch (error) {
+        return res.status(400).json({ message: "Invalid order items format" });
+      }
+
+      // Check stock availability and deduct stock for each item
+      const stockErrors = [];
+      const stockUpdates = [];
+      
+      for (const item of orderItems) {
+        const menuItem = await storage.getMenuItem(item.id);
+        if (!menuItem) {
+          stockErrors.push(`Item ${item.name} not found`);
+          continue;
+        }
+        
+        if (menuItem.stock < item.quantity) {
+          stockErrors.push(`Insufficient stock for ${item.name}. Available: ${menuItem.stock}, Requested: ${item.quantity}`);
+          continue;
+        }
+        
+        // Prepare stock update
+        stockUpdates.push({
+          id: item.id,
+          currentStock: menuItem.stock,
+          newStock: menuItem.stock - item.quantity,
+          quantity: item.quantity
+        });
+      }
+      
+      // If there are stock errors, don't process the order
+      if (stockErrors.length > 0) {
+        return res.status(400).json({ 
+          message: "Order cannot be processed due to stock issues",
+          errors: stockErrors
+        });
+      }
+      
+      // Create the order first
       const order = await storage.createOrder(validatedData);
+      
+      // Then update stock levels
+      for (const update of stockUpdates) {
+        try {
+          await storage.updateMenuItem(update.id, { stock: update.newStock });
+          console.log(`📦 Stock updated for item ${update.id}: ${update.currentStock} → ${update.newStock} (${update.quantity} ordered)`);
+        } catch (error) {
+          console.error(`❌ Failed to update stock for item ${update.id}:`, error);
+        }
+      }
       
       // Broadcast new order to all connected SSE clients (canteen owners)
       if (sseConnections.size > 0) {
@@ -305,6 +358,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(201).json(order);
     } catch (error) {
+      console.error("Error creating order:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
