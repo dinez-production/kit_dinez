@@ -73,7 +73,6 @@ export default function CanteenOwnerDashboard() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [cart, setCart] = useState<Array<{id: number, name: string, price: number, quantity: number}>>([]);
   const [paymentMode, setPaymentMode] = useState<'cash' | 'online'>('cash');
-  const [customerInfo, setCustomerInfo] = useState("");
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   // Enhanced security check - redirect if not authenticated OR not canteen owner
@@ -296,11 +295,10 @@ export default function CanteenOwnerDashboard() {
     onSuccess: () => {
       // Clear cart and reset state
       setCart([]);
-      setCustomerInfo("");
       setPaymentMode('cash');
       setIsPlacingOrder(false);
       queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
-      toast.success("Offline order placed successfully and marked as delivered!");
+      toast.success("Counter order processed and delivered!");
     },
     onError: () => {
       setIsPlacingOrder(false);
@@ -822,21 +820,16 @@ export default function CanteenOwnerDashboard() {
       return;
     }
 
-    if (!customerInfo.trim()) {
-      toast.error("Please enter customer information");
-      return;
-    }
-
     setIsPlacingOrder(true);
 
     const orderData = {
       orderNumber: generateOrderNumber(),
-      customerId: user?.id || 2, // Use canteen owner's ID as fallback
-      customerName: `${customerInfo} (${paymentMode === 'cash' ? 'Cash' : 'Online'} - Counter Order)`,
+      customerId: user?.id || 2, // Use canteen owner's ID
+      customerName: `${user?.name || 'Canteen Owner'} - ${paymentMode === 'cash' ? 'Cash' : 'Online Payment'} Counter Sale`,
       items: JSON.stringify(cart),
       amount: getTotalAmount(),
-      status: "delivered", // Automatically mark as delivered for offline orders
-      estimatedTime: 0, // No waiting time for offline orders
+      status: "delivered", // Automatically mark as delivered for counter orders
+      estimatedTime: 0, // No waiting time for counter orders
       barcode: generateBarcode(),
       barcodeUsed: true, // Mark as used since it's delivered immediately
       deliveredAt: new Date().toISOString()
@@ -1336,24 +1329,16 @@ export default function CanteenOwnerDashboard() {
                             </CardContent>
                           </Card>
 
-                          {/* Customer Info and Payment */}
+                          {/* Payment Mode and Checkout */}
                           {cart.length > 0 && (
                             <Card>
                               <CardHeader>
-                                <CardTitle className="text-lg">Order Details</CardTitle>
+                                <CardTitle className="text-lg">Counter Sale</CardTitle>
+                                <p className="text-sm text-muted-foreground">
+                                  Order by: {user?.name || 'Canteen Owner'}
+                                </p>
                               </CardHeader>
                               <CardContent className="space-y-4">
-                                <div>
-                                  <Label htmlFor="customerInfo">Customer Info</Label>
-                                  <Input
-                                    id="customerInfo"
-                                    placeholder="Student ID / Name / Phone"
-                                    value={customerInfo}
-                                    onChange={(e) => setCustomerInfo(e.target.value)}
-                                    className="mt-1"
-                                  />
-                                </div>
-
                                 <div>
                                   <Label>Payment Mode</Label>
                                   <div className="flex space-x-2 mt-2">
@@ -1363,7 +1348,7 @@ export default function CanteenOwnerDashboard() {
                                       className="flex-1"
                                     >
                                       <Banknote className="w-4 h-4 mr-2" />
-                                      Cash
+                                      Cash Payment
                                     </Button>
                                     <Button
                                       variant={paymentMode === 'online' ? 'default' : 'outline'}
@@ -1371,7 +1356,7 @@ export default function CanteenOwnerDashboard() {
                                       className="flex-1"
                                     >
                                       <CreditCard className="w-4 h-4 mr-2" />
-                                      Online
+                                      Online Payment
                                     </Button>
                                   </div>
                                 </div>
@@ -1380,14 +1365,14 @@ export default function CanteenOwnerDashboard() {
                                   className="w-full"
                                   size="lg"
                                   onClick={placeOfflineOrder}
-                                  disabled={isPlacingOrder || cart.length === 0 || !customerInfo.trim()}
+                                  disabled={isPlacingOrder || cart.length === 0}
                                 >
                                   {isPlacingOrder ? (
-                                    <>Processing...</>
+                                    <>Processing Sale...</>
                                   ) : (
                                     <>
                                       <ShoppingBag className="w-4 h-4 mr-2" />
-                                      Place Order (₹{getTotalAmount()})
+                                      Complete Sale (₹{getTotalAmount()})
                                     </>
                                   )}
                                 </Button>
