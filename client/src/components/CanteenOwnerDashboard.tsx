@@ -43,7 +43,12 @@ import {
   BarChart3,
   ScanLine,
   X,
-  RefreshCcw
+  RefreshCcw,
+  Search,
+  Minus,
+  ShoppingCart,
+  Banknote,
+  CreditCard
 } from "lucide-react";
 import { QuickOrdersManager } from "@/components/admin/QuickOrdersManager";
 import { TrendingItemsManager } from "@/components/admin/TrendingItemsManager";
@@ -62,6 +67,14 @@ export default function CanteenOwnerDashboard() {
 
   // Search state for orders
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // Offline order state
+  const [offlineSearchQuery, setOfflineSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [cart, setCart] = useState<Array<{id: number, name: string, price: number, quantity: number}>>([]);
+  const [paymentMode, setPaymentMode] = useState<'cash' | 'online'>('cash');
+  const [customerInfo, setCustomerInfo] = useState("");
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   // Enhanced security check - redirect if not authenticated OR not canteen owner
   useEffect(() => {
@@ -268,6 +281,32 @@ export default function CanteenOwnerDashboard() {
     // Update order status using correct API endpoint
     updateOrderStatusMutation.mutate({ id: orderId, status: newStatus });
   };
+
+  // Offline order mutations
+  const placeOfflineOrderMutation = useMutation({
+    mutationFn: async (orderData: any) => {
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData)
+      });
+      if (!response.ok) throw new Error('Failed to place offline order');
+      return response.json();
+    },
+    onSuccess: () => {
+      // Clear cart and reset state
+      setCart([]);
+      setCustomerInfo("");
+      setPaymentMode('cash');
+      setIsPlacingOrder(false);
+      queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+      toast.success("Offline order placed successfully and marked as delivered!");
+    },
+    onError: () => {
+      setIsPlacingOrder(false);
+      toast.error("Failed to place offline order");
+    }
+  });
 
   // Enhanced mutations with comprehensive synchronization
   const addMenuItemMutation = useMutation({
@@ -735,6 +774,86 @@ export default function CanteenOwnerDashboard() {
     BarcodeScanner.stopScan();
   };
 
+  // Offline order helper functions
+  const addToCart = (item: MenuItem) => {
+    setCart(prevCart => {
+      const existingItem = prevCart.find(cartItem => cartItem.id === item.id);
+      if (existingItem) {
+        return prevCart.map(cartItem =>
+          cartItem.id === item.id 
+            ? { ...cartItem, quantity: cartItem.quantity + 1 }
+            : cartItem
+        );
+      } else {
+        return [...prevCart, { id: item.id, name: item.name, price: item.price, quantity: 1 }];
+      }
+    });
+  };
+
+  const updateCartQuantity = (id: number, quantity: number) => {
+    if (quantity <= 0) {
+      setCart(prevCart => prevCart.filter(item => item.id !== id));
+    } else {
+      setCart(prevCart => prevCart.map(item =>
+        item.id === id ? { ...item, quantity } : item
+      ));
+    }
+  };
+
+  const removeFromCart = (id: number) => {
+    setCart(prevCart => prevCart.filter(item => item.id !== id));
+  };
+
+  const getTotalAmount = () => {
+    return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  };
+
+  const generateOrderNumber = () => {
+    return Math.random().toString().substring(2, 14);
+  };
+
+  const generateBarcode = () => {
+    return `ORD${Date.now()}`;
+  };
+
+  const placeOfflineOrder = async () => {
+    if (cart.length === 0) {
+      toast.error("Please add items to cart");
+      return;
+    }
+
+    if (!customerInfo.trim()) {
+      toast.error("Please enter customer information");
+      return;
+    }
+
+    setIsPlacingOrder(true);
+
+    const orderData = {
+      orderNumber: generateOrderNumber(),
+      customerId: user?.id || 2, // Use canteen owner's ID as fallback
+      customerName: `${customerInfo} (${paymentMode === 'cash' ? 'Cash' : 'Online'} - Counter Order)`,
+      items: JSON.stringify(cart),
+      amount: getTotalAmount(),
+      status: "delivered", // Automatically mark as delivered for offline orders
+      estimatedTime: 0, // No waiting time for offline orders
+      barcode: generateBarcode(),
+      barcodeUsed: true, // Mark as used since it's delivered immediately
+      deliveredAt: new Date().toISOString()
+    };
+
+    placeOfflineOrderMutation.mutate(orderData);
+  };
+
+  // Filter menu items for offline ordering
+  const filteredMenuItems = menuItems.filter(item => {
+    const matchesSearch = offlineSearchQuery === "" || 
+      item.name.toLowerCase().includes(offlineSearchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === "all" || 
+      categories.find(cat => cat.id === item.categoryId)?.name === selectedCategory;
+    return matchesSearch && matchesCategory && item.available;
+  });
+
   // Refresh all data function
   const refreshAllData = async () => {
     try {
@@ -1074,78 +1193,207 @@ export default function CanteenOwnerDashboard() {
                   <TabsContent value="offline">
                     <div className="space-y-4">
                       <div className="flex justify-between items-center">
-                        <h3 className="text-lg font-medium">Counter Orders</h3>
-
+                        <h3 className="text-lg font-medium">Offline Counter Orders</h3>
+                        <Badge variant="outline" className="text-xs">
+                          Cart: {cart.length} items • ₹{getTotalAmount()}
+                        </Badge>
                       </div>
-                      
-                      {/* Offline Orders List */}
-                      <div className="space-y-4">
-                        <div className="p-4 border rounded-lg space-y-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <span className="font-semibold">#C001</span>
-                              <Badge className="bg-primary">Counter Order</Badge>
-                              <span className="text-sm text-muted-foreground">
-                                Student ID: 21CS1234
-                              </span>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Menu Items Selection */}
+                        <div className="lg:col-span-2 space-y-4">
+                          {/* Search and Category Filter */}
+                          <div className="flex flex-col sm:flex-row gap-4">
+                            <div className="flex-1 relative">
+                              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                              <Input
+                                placeholder="Search menu items..."
+                                value={offlineSearchQuery}
+                                onChange={(e) => setOfflineSearchQuery(e.target.value)}
+                                className="pl-10"
+                              />
                             </div>
-                            <span className="font-bold text-lg">₹120</span>
-                          </div>
-                          
-                          <div>
-                            <p className="text-sm">2x Veg Meals, 1x Lassi</p>
-                            <p className="text-xs text-muted-foreground">Counter 1 • just now</p>
+                            <div className="w-full sm:w-48">
+                              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Category" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">All Categories</SelectItem>
+                                  {categories.map((category) => (
+                                    <SelectItem key={category.id} value={category.name}>
+                                      {category.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
 
-                          <div className="flex space-x-2">
-                            <Button size="sm">Process Payment</Button>
-                            <Button size="sm" variant="outline">Print Receipt</Button>
+                          {/* Menu Items Grid */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
+                            {filteredMenuItems.length > 0 ? (
+                              filteredMenuItems.map((item) => (
+                                <Card key={item.id} className="hover:shadow-md transition-shadow">
+                                  <CardContent className="p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <h4 className="font-medium">{item.name}</h4>
+                                      <div className="flex items-center space-x-1">
+                                        {item.isVegetarian && (
+                                          <div className="w-3 h-3 border border-green-500 rounded-sm flex items-center justify-center">
+                                            <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground mb-2">
+                                      {item.description || "No description"}
+                                    </p>
+                                    <div className="flex items-center justify-between">
+                                      <span className="font-bold text-lg">₹{item.price}</span>
+                                      <div className="flex items-center space-x-2">
+                                        <Badge variant="outline" className="text-xs">
+                                          Stock: {item.stock}
+                                        </Badge>
+                                        <Button 
+                                          size="sm" 
+                                          onClick={() => addToCart(item)}
+                                          disabled={item.stock <= 0}
+                                        >
+                                          <Plus className="w-4 h-4 mr-1" />
+                                          Add
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              ))
+                            ) : (
+                              <div className="col-span-full text-center py-8 text-muted-foreground">
+                                No menu items found
+                              </div>
+                            )}
                           </div>
                         </div>
 
-                        <div className="p-4 border rounded-lg space-y-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <span className="font-semibold">#C002</span>
-                              <Badge className="bg-success">Paid</Badge>
-                              <span className="text-sm text-muted-foreground">
-                                Cash Payment
-                              </span>
-                            </div>
-                            <span className="font-bold text-lg">₹75</span>
-                          </div>
-                          
-                          <div>
-                            <p className="text-sm">1x Biryani, 1x Raita</p>
-                            <p className="text-xs text-muted-foreground">Counter 2 • 2 min ago</p>
-                          </div>
+                        {/* Cart and Order Summary */}
+                        <div className="space-y-4">
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg">Order Cart</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                              {cart.length > 0 ? (
+                                <div className="space-y-3 max-h-48 overflow-y-auto">
+                                  {cart.map((item) => (
+                                    <div key={item.id} className="flex items-center justify-between p-2 border rounded">
+                                      <div className="flex-1">
+                                        <p className="font-medium text-sm">{item.name}</p>
+                                        <p className="text-xs text-muted-foreground">₹{item.price} each</p>
+                                      </div>
+                                      <div className="flex items-center space-x-2">
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
+                                        >
+                                          <Minus className="w-3 h-3" />
+                                        </Button>
+                                        <span className="w-8 text-center text-sm">{item.quantity}</span>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
+                                        >
+                                          <Plus className="w-3 h-3" />
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => removeFromCart(item.id)}
+                                        >
+                                          <X className="w-3 h-3" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-center py-8 text-muted-foreground">
+                                  <ShoppingCart className="w-8 h-8 mx-auto mb-2" />
+                                  <p>Cart is empty</p>
+                                </div>
+                              )}
 
-                          <div className="flex space-x-2">
-                            <Button size="sm" variant="outline">Reprint Receipt</Button>
-                          </div>
-                        </div>
+                              {cart.length > 0 && (
+                                <div className="border-t pt-3">
+                                  <div className="flex justify-between font-bold text-lg">
+                                    <span>Total:</span>
+                                    <span>₹{getTotalAmount()}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
 
-                        <div className="p-4 border rounded-lg space-y-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <span className="font-semibold">#C003</span>
-                              <Badge className="bg-primary">Counter Order</Badge>
-                              <span className="text-sm text-muted-foreground">
-                                Faculty Order
-                              </span>
-                            </div>
-                            <span className="font-bold text-lg">₹200</span>
-                          </div>
-                          
-                          <div>
-                            <p className="text-sm">3x Special Thali, 2x Tea</p>
-                            <p className="text-xs text-muted-foreground">Counter 1 • 5 min ago</p>
-                          </div>
+                          {/* Customer Info and Payment */}
+                          {cart.length > 0 && (
+                            <Card>
+                              <CardHeader>
+                                <CardTitle className="text-lg">Order Details</CardTitle>
+                              </CardHeader>
+                              <CardContent className="space-y-4">
+                                <div>
+                                  <Label htmlFor="customerInfo">Customer Info</Label>
+                                  <Input
+                                    id="customerInfo"
+                                    placeholder="Student ID / Name / Phone"
+                                    value={customerInfo}
+                                    onChange={(e) => setCustomerInfo(e.target.value)}
+                                    className="mt-1"
+                                  />
+                                </div>
 
-                          <div className="flex space-x-2">
-                            <Button size="sm">Process Payment</Button>
-                            <Button size="sm" variant="outline">Print Receipt</Button>
-                          </div>
+                                <div>
+                                  <Label>Payment Mode</Label>
+                                  <div className="flex space-x-2 mt-2">
+                                    <Button
+                                      variant={paymentMode === 'cash' ? 'default' : 'outline'}
+                                      onClick={() => setPaymentMode('cash')}
+                                      className="flex-1"
+                                    >
+                                      <Banknote className="w-4 h-4 mr-2" />
+                                      Cash
+                                    </Button>
+                                    <Button
+                                      variant={paymentMode === 'online' ? 'default' : 'outline'}
+                                      onClick={() => setPaymentMode('online')}
+                                      className="flex-1"
+                                    >
+                                      <CreditCard className="w-4 h-4 mr-2" />
+                                      Online
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                <Button 
+                                  className="w-full"
+                                  size="lg"
+                                  onClick={placeOfflineOrder}
+                                  disabled={isPlacingOrder || cart.length === 0 || !customerInfo.trim()}
+                                >
+                                  {isPlacingOrder ? (
+                                    <>Processing...</>
+                                  ) : (
+                                    <>
+                                      <ShoppingBag className="w-4 h-4 mr-2" />
+                                      Place Order (₹{getTotalAmount()})
+                                    </>
+                                  )}
+                                </Button>
+                              </CardContent>
+                            </Card>
+                          )}
                         </div>
                       </div>
                     </div>
