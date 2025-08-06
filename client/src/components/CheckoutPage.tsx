@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Clock, MapPin, CreditCard, Wallet, Timer } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useCart } from "@/contexts/CartContext";
 
 export default function CheckoutPage() {
   const [, setLocation] = useLocation();
@@ -20,12 +21,12 @@ export default function CheckoutPage() {
   const paymentValidRef = useRef(false);
   const queryClient = useQueryClient();
 
-  // Get cart data from localStorage (using the same key as useCart hook)
-  const cartData = JSON.parse(localStorage.getItem('kit-canteen-cart') || '[]');
+  // Use cart context instead of reading from localStorage directly
+  const { cart, clearCart } = useCart();
   const userData = JSON.parse(localStorage.getItem('user') || '{}');
   
-  const orderItems = cartData;
-  const subtotal = cartData.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+  const orderItems = cart;
+  const subtotal = cart.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
   const tax = Math.round(subtotal * 0.05);
   const total = subtotal + tax;
 
@@ -35,7 +36,7 @@ export default function CheckoutPage() {
     const orderData = {
       customerId: userData.id || null,
       customerName: userData.name || 'Guest User',
-      items: JSON.stringify(cartData),
+      items: JSON.stringify(cart),
       amount: total,
       status: 'preparing',
       estimatedTime: 15
@@ -71,8 +72,8 @@ export default function CheckoutPage() {
     onSuccess: () => {
       // Invalidate orders cache to refresh order lists
       queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
-      // Clear cart after successful order (using correct cart key)
-      localStorage.removeItem('kit-canteen-cart');
+      // Clear cart after successful order using cart context
+      clearCart();
     },
   });
 
@@ -152,7 +153,7 @@ export default function CheckoutPage() {
         const orderData = {
           customerId: userData.id || null,
           customerName: userData.name || 'Guest User',
-          items: JSON.stringify(cartData),
+          items: JSON.stringify(cart),
           amount: total,
           status: 'preparing',
           estimatedTime: 15
@@ -344,7 +345,7 @@ export default function CheckoutPage() {
           size="mobile"
           className="w-full"
           onClick={handlePlaceOrder}
-          disabled={paymentInProgress || cartData.length === 0}
+          disabled={paymentInProgress || cart.length === 0}
         >
           {paymentInProgress ? 'Processing...' : `Pay Now • ₹${total}`}
         </Button>
@@ -356,13 +357,13 @@ export default function CheckoutPage() {
             size="mobile"
             className="w-full"
             onClick={createOrderDirectly}
-            disabled={createOrderMutation.isPending || cartData.length === 0}
+            disabled={createOrderMutation.isPending || cart.length === 0}
           >
             {createOrderMutation.isPending ? 'Creating Order...' : 'Skip Payment (Test Mode)'}
           </Button>
         )}
         
-        {cartData.length === 0 && (
+        {cart.length === 0 && (
           <p className="text-center text-sm text-muted-foreground">
             Your cart is empty. Add items to continue.
           </p>

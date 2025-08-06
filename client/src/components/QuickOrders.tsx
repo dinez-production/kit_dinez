@@ -41,7 +41,7 @@ export function QuickOrders() {
     queryKey: ["/api/quick-orders"],
   });
 
-  const handleQuickOrder = (quickOrder: QuickOrder) => {
+  const handleQuickOrder = async (quickOrder: QuickOrder) => {
     // Add items to cart based on quantity
     for (let i = 0; i < quantity; i++) {
       addToCart({
@@ -53,8 +53,11 @@ export function QuickOrders() {
     }
     setSelectedQuickOrder(null);
     setQuantity(1);
-    // Navigate to checkout
-    setLocation("/checkout");
+    
+    // Small delay to ensure cart context is updated before navigation
+    setTimeout(() => {
+      setLocation("/checkout");
+    }, 100);
   };
 
   if (isLoading) {
