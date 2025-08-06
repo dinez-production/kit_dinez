@@ -39,7 +39,7 @@ export default function PaymentCallbackPage() {
             setStatus('success');
             // Clear stored transaction data
             localStorage.removeItem('currentPaymentTxnId');
-            localStorage.removeItem('currentOrderId');
+            localStorage.removeItem('pendingOrderData');
             
             toast({
               title: "Payment Successful",
@@ -47,18 +47,15 @@ export default function PaymentCallbackPage() {
             });
             
             // Get the order to redirect to order status page
-            if (statusResponse.data?.orderId) {
-              const orderResponse = await apiRequest(`/api/orders/${statusResponse.data.orderId}`);
-              if (orderResponse) {
-                setTimeout(() => {
-                  setLocation(`/order-status/${orderResponse.orderNumber}`);
-                }, 2000);
-              }
+            if (statusResponse.data?.orderNumber) {
+              setTimeout(() => {
+                setLocation(`/order-status/${statusResponse.data.orderNumber}`);
+              }, 2000);
             }
           } else if (paymentStatus === 'failed') {
             setStatus('failed');
             localStorage.removeItem('currentPaymentTxnId');
-            localStorage.removeItem('currentOrderId');
+            // Keep pendingOrderData for retry functionality
             
             toast({
               title: "Payment Failed",
@@ -75,6 +72,8 @@ export default function PaymentCallbackPage() {
             } else {
               // After max retries, assume failure in test environment
               setStatus('failed');
+              localStorage.removeItem('currentPaymentTxnId');
+              
               toast({
                 title: "Payment Timeout",
                 description: "Payment verification timed out. Please check your orders.",
@@ -105,10 +104,18 @@ export default function PaymentCallbackPage() {
   }, [setLocation]);
 
   const handleRetry = () => {
-    // Clear any stored data and go back to cart
+    // Clear payment transaction data but keep pending order data
     localStorage.removeItem('currentPaymentTxnId');
-    localStorage.removeItem('currentOrderId');
-    setLocation('/cart');
+    
+    // Check if we have pending order data to retry
+    const pendingOrderData = localStorage.getItem('pendingOrderData');
+    if (pendingOrderData) {
+      // Go back to checkout to retry payment
+      setLocation('/checkout');
+    } else {
+      // No pending data, go to cart
+      setLocation('/cart');
+    }
   };
 
   const handleGoToOrders = () => {

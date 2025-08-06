@@ -113,6 +113,7 @@ export const payments = pgTable("payments", {
   responseCode: text("response_code"),
   responseMessage: text("response_message"),
   checksum: text("checksum"),
+  metadata: text("metadata"), // Store order data for payment completion
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -280,6 +281,7 @@ export const insertPaymentSchema = createInsertSchema(payments).pick({
   responseCode: true,
   responseMessage: true,
   checksum: true,
+  metadata: true,
 });
 
 

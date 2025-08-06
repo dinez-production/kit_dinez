@@ -588,17 +588,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initiate payment with PhonePe
   app.post("/api/payments/initiate", async (req, res) => {
     try {
-      const { orderId, amount, customerName } = req.body;
+      const { amount, customerName, orderData } = req.body;
       
-      if (!orderId || !amount || !customerName) {
+      if (!amount || !customerName || !orderData) {
         return res.status(400).json({ 
           success: false, 
-          message: "Missing required fields: orderId, amount, customerName" 
+          message: "Missing required fields: amount, customerName, orderData" 
         });
       }
 
       // Generate unique merchant transaction ID
-      const merchantTransactionId = `TXN_${Date.now()}_${orderId}`;
+      const merchantTransactionId = `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
       // Create callback URLs
       const baseUrl = process.env.REPLIT_DOMAINS 
@@ -624,13 +624,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Base64 encode the payload
       const base64Payload = Buffer.from(JSON.stringify(paymentPayload)).toString('base64');
 
-      // Store payment record
+      // Store payment record with order data for later order creation
       await storage.createPayment({
-        orderId: parseInt(orderId),
+        orderId: null, // No order created yet
         merchantTransactionId,
         amount: amount * 100, // Store in paise
         status: PAYMENT_STATUS.PENDING,
-        checksum
+        checksum,
+        metadata: JSON.stringify(orderData) // Store order data for later
       });
 
       // Make request to PhonePe
@@ -712,16 +713,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         responseMessage: payload.message
       });
 
-      // If payment successful, update order status
+      // If payment successful, create order from metadata
       if (paymentStatus === PAYMENT_STATUS.SUCCESS) {
         const payment = await storage.getPaymentByMerchantTxnId(merchantTransactionId);
-        if (payment?.orderId) {
-          await storage.updateOrder(payment.orderId, { status: 'confirmed' });
+        if (payment?.metadata && !payment.orderId) {
+          // Parse order data from metadata
+          const orderData = JSON.parse(payment.metadata);
+          
+          // Create the order
+          const newOrder = await storage.createOrder(orderData);
+          
+          // Update payment with order ID
+          await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
+            orderId: newOrder.id
+          });
           
           // Send SSE notification
           const notification = {
             type: 'payment_success',
-            orderId: payment.orderId,
+            orderId: newOrder.id,
+            orderNumber: newOrder.orderNumber,
             merchantTransactionId,
             message: 'Payment completed successfully'
           };
@@ -753,16 +764,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // If already successful, make sure order status is updated and return cached status
+      // If already successful, ensure order is created and return cached status
       if (payment.status === PAYMENT_STATUS.SUCCESS) {
-        // Ensure order is marked as confirmed
-        if (payment.orderId) {
-          await storage.updateOrder(payment.orderId, { status: 'preparing' });
+        let orderNumber = null;
+        
+        // Create order if not already created
+        if (payment.metadata && !payment.orderId) {
+          const orderData = JSON.parse(payment.metadata);
+          const newOrder = await storage.createOrder(orderData);
+          await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
+            orderId: newOrder.id
+          });
+          orderNumber = newOrder.orderNumber;
+        } else if (payment.orderId) {
+          // Get existing order number
+          const order = await storage.getOrder(payment.orderId);
+          orderNumber = order?.orderNumber;
         }
+        
         return res.json({
           success: true,
           status: payment.status,
-          data: payment
+          data: { ...payment, orderNumber }
         });
       }
       
@@ -811,21 +834,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           responseMessage: phonePeResponse.data.message
         });
 
-        // If payment successful, update order status
-        if (paymentStatus === PAYMENT_STATUS.SUCCESS && payment.orderId) {
-          await storage.updateOrder(payment.orderId, { status: 'preparing' });
-          
-          // Send SSE notification
-          const notification = {
-            type: 'payment_success',
-            orderId: payment.orderId,
-            merchantTransactionId,
-            message: 'Payment completed successfully'
-          };
-          
-          sseConnections.forEach(connection => {
-            connection.write(`data: ${JSON.stringify(notification)}\n\n`);
-          });
+        // If payment successful, create order if not already created
+        if (paymentStatus === PAYMENT_STATUS.SUCCESS) {
+          if (payment.metadata && !payment.orderId) {
+            // Parse order data from metadata and create order
+            const orderData = JSON.parse(payment.metadata);
+            const newOrder = await storage.createOrder(orderData);
+            
+            // Update payment with order ID
+            await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
+              orderId: newOrder.id
+            });
+            
+            // Send SSE notification
+            const notification = {
+              type: 'payment_success',
+              orderId: newOrder.id,
+              orderNumber: newOrder.orderNumber,
+              merchantTransactionId,
+              message: 'Payment completed successfully'
+            };
+            
+            sseConnections.forEach(connection => {
+              connection.write(`data: ${JSON.stringify(notification)}\n\n`);
+            });
+          }
         }
 
         res.json({

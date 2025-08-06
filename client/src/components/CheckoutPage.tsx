@@ -30,6 +30,19 @@ export default function CheckoutPage() {
   const tax = Math.round(subtotal * 0.05);
   const total = subtotal + tax;
 
+  // Check for pending order data on mount
+  useEffect(() => {
+    const pendingOrderData = localStorage.getItem('pendingOrderData');
+    if (pendingOrderData && cart.length === 0) {
+      // Show info that there's pending payment data but don't auto-restore cart
+      toast({
+        title: "Pending Payment Found",
+        description: "You have a pending payment. Please retry or go back to cart.",
+        variant: "default"
+      });
+    }
+  }, [cart.length]);
+
   // Add fallback for testing - create order without payment if in dev mode
   const createOrderDirectly = async () => {
     // Server will generate the orderNumber and barcode using new 12-digit alphanumeric format
@@ -136,32 +149,31 @@ export default function CheckoutPage() {
     startPaymentTimer();
 
     try {
-      // First create the order in database to get order ID
+      // Store cart data and customer info for payment completion
       const orderData = {
         customerId: userData.id || null,
         customerName: userData.name || 'Guest User',
         items: JSON.stringify(cart),
         amount: total,
-        status: 'pending_payment',
         estimatedTime: 15
       };
 
-      const newOrder = await createOrderMutation.mutateAsync(orderData);
+      // Store order data in localStorage for later order creation
+      localStorage.setItem('pendingOrderData', JSON.stringify(orderData));
       
-      // Now initiate PhonePe payment
+      // Initiate PhonePe payment without creating order first
       const paymentResponse = await apiRequest('/api/payments/initiate', {
         method: 'POST',
         body: JSON.stringify({
-          orderId: newOrder.id,
           amount: total,
-          customerName: userData.name || 'Guest User'
+          customerName: userData.name || 'Guest User',
+          orderData: orderData // Send order data to be stored with payment
         }),
       });
 
       if (paymentResponse.success) {
         // Store merchant transaction ID for status checking
         localStorage.setItem('currentPaymentTxnId', paymentResponse.merchantTransactionId);
-        localStorage.setItem('currentOrderId', newOrder.id.toString());
         
         // Redirect to PhonePe payment page
         window.location.href = paymentResponse.paymentUrl;
@@ -171,6 +183,9 @@ export default function CheckoutPage() {
         setPaymentInProgress(false);
         paymentValidRef.current = false;
         
+        // Clean up stored data
+        localStorage.removeItem('pendingOrderData');
+        
         toast({
           title: "Payment Error",
           description: paymentResponse.message || "Failed to initiate payment. Please try again.",
@@ -178,10 +193,13 @@ export default function CheckoutPage() {
         });
       }
     } catch (error) {
-      // Error during order creation or payment initiation
+      // Error during payment initiation
       setIsTimerActive(false);
       setPaymentInProgress(false);
       paymentValidRef.current = false;
+      
+      // Clean up stored data
+      localStorage.removeItem('pendingOrderData');
       
       toast({
         title: "Payment Error",
