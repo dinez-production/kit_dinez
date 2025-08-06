@@ -1,12 +1,13 @@
 import { 
-  users, categories, menuItems, orders, notifications, loginIssues, quickOrders,
+  users, categories, menuItems, orders, notifications, loginIssues, quickOrders, payments,
   type User, type InsertUser,
   type Category, type InsertCategory,
   type MenuItem, type InsertMenuItem,
   type Order, type InsertOrder,
   type Notification, type InsertNotification,
   type LoginIssue, type InsertLoginIssue,
-  type QuickOrder, type InsertQuickOrder
+  type QuickOrder, type InsertQuickOrder,
+  type Payment, type InsertPayment
 } from "@shared/schema";
 import { db as getDb } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -63,6 +64,13 @@ export interface IStorage {
   updateQuickOrder(id: number, quickOrder: Partial<InsertQuickOrder>): Promise<QuickOrder>;
   deleteQuickOrder(id: number): Promise<void>;
   
+  // Payments
+  getPayments(): Promise<Payment[]>;
+  getPayment(id: number): Promise<Payment | undefined>;
+  getPaymentByMerchantTxnId(merchantTransactionId: string): Promise<Payment | undefined>;
+  createPayment(payment: InsertPayment): Promise<Payment>;
+  updatePayment(id: number, payment: Partial<InsertPayment>): Promise<Payment>;
+  updatePaymentByMerchantTxnId(merchantTransactionId: string, payment: Partial<InsertPayment>): Promise<Payment | undefined>;
 
 }
 
@@ -311,6 +319,7 @@ export class DatabaseStorage implements IStorage {
           description: menuItems.description,
           addOns: menuItems.addOns,
           isVegetarian: menuItems.isVegetarian,
+          isTrending: menuItems.isTrending,
           createdAt: menuItems.createdAt,
         }
       })
@@ -349,6 +358,52 @@ export class DatabaseStorage implements IStorage {
     await db.delete(quickOrders).where(eq(quickOrders.id, id));
   }
 
+  // Payments
+  async getPayments(): Promise<Payment[]> {
+    const db = getDb();
+    return await db.select().from(payments).orderBy(desc(payments.createdAt));
+  }
+
+  async getPayment(id: number): Promise<Payment | undefined> {
+    const db = getDb();
+    const [payment] = await db.select().from(payments).where(eq(payments.id, id));
+    return payment || undefined;
+  }
+
+  async getPaymentByMerchantTxnId(merchantTransactionId: string): Promise<Payment | undefined> {
+    const db = getDb();
+    const [payment] = await db.select().from(payments).where(eq(payments.merchantTransactionId, merchantTransactionId));
+    return payment || undefined;
+  }
+
+  async createPayment(payment: InsertPayment): Promise<Payment> {
+    const db = getDb();
+    const [newPayment] = await db
+      .insert(payments)
+      .values(payment)
+      .returning();
+    return newPayment;
+  }
+
+  async updatePayment(id: number, payment: Partial<InsertPayment>): Promise<Payment> {
+    const db = getDb();
+    const [updatedPayment] = await db
+      .update(payments)
+      .set({...payment, updatedAt: new Date()})
+      .where(eq(payments.id, id))
+      .returning();
+    return updatedPayment;
+  }
+
+  async updatePaymentByMerchantTxnId(merchantTransactionId: string, payment: Partial<InsertPayment>): Promise<Payment | undefined> {
+    const db = getDb();
+    const [updatedPayment] = await db
+      .update(payments)
+      .set({...payment, updatedAt: new Date()})
+      .where(eq(payments.merchantTransactionId, merchantTransactionId))
+      .returning();
+    return updatedPayment || undefined;
+  }
 
 }
 

@@ -365,7 +365,7 @@ export default function AdminSystemSettingsPage() {
                     </h3>
                     <Badge variant="default">Active</Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground">Razorpay integration for payments</p>
+                  <p className="text-sm text-muted-foreground">PhonePe Test Gateway integration for payments</p>
                   <Button variant="outline" size="sm" className="mt-2">Configure</Button>
                 </div>
                 <div className="p-4 border rounded-lg">

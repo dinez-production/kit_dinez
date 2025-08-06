@@ -131,99 +131,64 @@ export default function CheckoutPage() {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     // Start the timer
     startPaymentTimer();
-    
-    const options = {
-      key: "rzp_test_uKo2E3dcFizVIW", // Razorpay test key
-      amount: total * 100, // Amount in paise
-      currency: "INR",
-      name: "KIT College Canteen",
-      description: "Food Order Payment",
-      image: "/favicon.ico",
-      order_id: "", // This should come from your backend
-      handler: async function (response: any) {
-        // Payment successful - stop timer immediately
-        setIsTimerActive(false);
-        setPaymentInProgress(false);
-        
-        // Payment successful - create order in database
-        // Server will generate orderNumber and barcode using new format
-        const orderData = {
-          customerId: userData.id || null,
-          customerName: userData.name || 'Guest User',
-          items: JSON.stringify(cart),
-          amount: total,
-          status: 'preparing',
-          estimatedTime: 15
-        };
-
-        try {
-          const newOrder = await createOrderMutation.mutateAsync(orderData);
-          
-          toast({
-            title: "Payment Successful",
-            description: "Your order has been confirmed!",
-          });
-          
-          setLocation(`/order-status/${newOrder.orderNumber}`);
-        } catch (error) {
-          // Failed to create order after payment - critical error
-          toast({
-            title: "Order Creation Failed",
-            description: "Payment successful but order creation failed. Contact support.",
-            variant: "destructive"
-          });
-        }
-      },
-      prefill: {
-        name: "Student Name",
-        email: "student@kit.ac.in",
-        contact: "9999999999"
-      },
-      notes: {
-        address: "KIT College Campus"
-      },
-      theme: {
-        color: "#3B82F6"
-      },
-      modal: {
-        ondismiss: function() {
-          // Payment cancelled by user
-          setIsTimerActive(false);
-          setPaymentInProgress(false);
-          paymentValidRef.current = false;
-        }
-      }
-    };
-
-    // Check if Razorpay is loaded
-    if (!(window as any).Razorpay) {
-      toast({
-        title: "Payment Error",
-        description: "Payment service is not available. Please try again later.",
-        variant: "destructive"
-      });
-      setIsTimerActive(false);
-      setPaymentInProgress(false);
-      paymentValidRef.current = false;
-      return;
-    }
 
     try {
-      const rzp = new (window as any).Razorpay(options);
-      rzp.open();
-    } catch (error) {
-      // Razorpay initialization error - show fallback
-      toast({
-        title: "Payment Error",
-        description: "Failed to initialize payment. Please try again.",
-        variant: "destructive"
+      // First create the order in database to get order ID
+      const orderData = {
+        customerId: userData.id || null,
+        customerName: userData.name || 'Guest User',
+        items: JSON.stringify(cart),
+        amount: total,
+        status: 'pending_payment',
+        estimatedTime: 15
+      };
+
+      const newOrder = await createOrderMutation.mutateAsync(orderData);
+      
+      // Now initiate PhonePe payment
+      const paymentResponse = await apiRequest('/api/payments/initiate', {
+        method: 'POST',
+        body: JSON.stringify({
+          orderId: newOrder.id,
+          amount: total,
+          customerName: userData.name || 'Guest User'
+        }),
       });
+
+      if (paymentResponse.success) {
+        // Store merchant transaction ID for status checking
+        localStorage.setItem('currentPaymentTxnId', paymentResponse.merchantTransactionId);
+        localStorage.setItem('currentOrderId', newOrder.id.toString());
+        
+        // Redirect to PhonePe payment page
+        window.location.href = paymentResponse.paymentUrl;
+      } else {
+        // Payment initiation failed
+        setIsTimerActive(false);
+        setPaymentInProgress(false);
+        paymentValidRef.current = false;
+        
+        toast({
+          title: "Payment Error",
+          description: paymentResponse.message || "Failed to initiate payment. Please try again.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      // Error during order creation or payment initiation
       setIsTimerActive(false);
       setPaymentInProgress(false);
       paymentValidRef.current = false;
+      
+      toast({
+        title: "Payment Error",
+        description: "Failed to process payment. Please try again.",
+        variant: "destructive"
+      });
+      console.error('Payment error:', error);
     }
   };
 

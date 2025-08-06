@@ -2,6 +2,14 @@
 KIT-Canteen is a modern food ordering application for college campuses, enabling students, faculty, and staff to browse menus, place orders, and manage preferences via a web application. It offers both customer-facing features and administrative panels for canteen management, aiming to provide a complete solution for campus food service operations. The project's vision is to streamline campus food services, enhance user experience, and provide efficient management tools for canteen operators.
 
 ## Recent Changes (August 2025)
+- **PhonePe Payment Gateway Integration**: Completely removed Razorpay and integrated PhonePe Test Gateway for payment processing.
+  - Added comprehensive payment table to database schema with payment status tracking
+  - Implemented secure PhonePe API integration with proper checksum validation
+  - Created payment initiation, webhook handling, and status verification endpoints
+  - Added PaymentCallbackPage component for handling payment redirects
+  - Updated CheckoutPage to use PhonePe payment flow instead of Razorpay
+  - Configured test environment with PhonePe sandbox credentials
+  - Enhanced admin panel to show PhonePe integration status
 - **Order ID Format Update**: Changed from alphanumeric format to exactly 12-digit numeric format (0-9 only) for better barcode compatibility and easier identification.
 - **Order Number Highlighting**: Implemented visual highlighting of the last 4 digits of order numbers across all components for quick visual identification (e.g., 532912**9639**).
 - Updated order generation in `shared/utils.ts` to use 8 random digits + 4 timestamp-based digits for uniqueness.
@@ -34,5 +42,15 @@ Authentication is **flexible**, supporting **Google OAuth** and guest access. It
 **Database & ORM:** Drizzle ORM, @neondatabase/serverless, Drizzle Zod
 **Development & Build Tools:** Vite, TypeScript, ESBuild, PostCSS, Autoprefixer
 **Mobile & PWA Features:** @capacitor-community/barcode-scanner
+**Payment Processing:** PhonePe Test Gateway, axios (for payment API calls)
 **Utilities & Helpers:** date-fns, clsx, class-variance-authority, zod, nanoid
+
+# Payment Integration Details
+**PhonePe Test Gateway Configuration:**
+- Merchant ID: PGTESTPAYUAT86
+- Test environment: https://api-preprod.phonepe.com/apis/pg-sandbox
+- Secure checksum validation for all payment operations
+- Webhook handling for real-time payment status updates
+- Comprehensive error handling and retry mechanisms
+- Payment status tracking in database with audit trail
 ```

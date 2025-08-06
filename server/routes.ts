@@ -8,9 +8,20 @@ import {
   insertOrderSchema, 
   insertNotificationSchema,
   insertLoginIssueSchema,
-  insertQuickOrderSchema
+  insertQuickOrderSchema,
+  insertPaymentSchema
 } from "@shared/schema";
 import { generateOrderNumber } from "@shared/utils";
+import { 
+  PHONEPE_CONFIG, 
+  generatePaymentChecksum, 
+  generateStatusChecksum, 
+  verifyWebhookChecksum, 
+  createPaymentPayload,
+  PAYMENT_STATUS,
+  PHONEPE_RESPONSE_CODES
+} from "@shared/phonepe";
+import axios from "axios";
 
 // Store SSE connections for real-time notifications
 const sseConnections = new Set<any>();
@@ -572,7 +583,250 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PhonePe Payment Integration
+  
+  // Initiate payment with PhonePe
+  app.post("/api/payments/initiate", async (req, res) => {
+    try {
+      const { orderId, amount, customerName } = req.body;
+      
+      if (!orderId || !amount || !customerName) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Missing required fields: orderId, amount, customerName" 
+        });
+      }
 
+      // Generate unique merchant transaction ID
+      const merchantTransactionId = `TXN_${Date.now()}_${orderId}`;
+      
+      // Create callback URLs
+      const baseUrl = process.env.REPLIT_DOMAINS 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+        : 'http://localhost:5000';
+      
+      const redirectUrl = `${baseUrl}/payment-callback`;
+      const callbackUrl = `${baseUrl}/api/payments/webhook`;
+
+      // Create payment payload
+      const paymentPayload = createPaymentPayload(
+        merchantTransactionId,
+        amount,
+        customerName,
+        redirectUrl,
+        callbackUrl
+      );
+
+      // Generate checksum
+      const endpoint = '/pg/v1/pay';
+      const checksum = generatePaymentChecksum(paymentPayload, endpoint);
+      
+      // Base64 encode the payload
+      const base64Payload = Buffer.from(JSON.stringify(paymentPayload)).toString('base64');
+
+      // Store payment record
+      await storage.createPayment({
+        orderId: parseInt(orderId),
+        merchantTransactionId,
+        amount: amount * 100, // Store in paise
+        status: PAYMENT_STATUS.PENDING,
+        checksum
+      });
+
+      // Make request to PhonePe
+      const phonePeResponse = await axios.post(
+        `${PHONEPE_CONFIG.BASE_URL}${endpoint}`,
+        { request: base64Payload },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-VERIFY': checksum
+          }
+        }
+      );
+
+      if (phonePeResponse.data.success) {
+        res.json({
+          success: true,
+          merchantTransactionId,
+          paymentUrl: phonePeResponse.data.data.instrumentResponse.redirectInfo.url
+        });
+      } else {
+        // Update payment status to failed
+        await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
+          status: PAYMENT_STATUS.FAILED,
+          responseCode: phonePeResponse.data.code,
+          responseMessage: phonePeResponse.data.message
+        });
+        
+        res.status(400).json({
+          success: false,
+          message: phonePeResponse.data.message || "Payment initiation failed"
+        });
+      }
+    } catch (error) {
+      console.error('Payment initiation error:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Internal server error during payment initiation" 
+      });
+    }
+  });
+
+  // PhonePe webhook handler
+  app.post("/api/payments/webhook", async (req, res) => {
+    try {
+      const receivedChecksum = req.headers['x-verify'] as string;
+      const payload = req.body;
+
+      if (!receivedChecksum) {
+        return res.status(401).json({ success: false, message: 'Missing checksum' });
+      }
+
+      // Verify checksum
+      if (!verifyWebhookChecksum(payload, receivedChecksum)) {
+        console.error('Invalid webhook checksum');
+        return res.status(401).json({ success: false, message: 'Invalid checksum' });
+      }
+
+      const { merchantTransactionId, state, responseCode } = payload.data;
+      const phonePeTransactionId = payload.data.transactionId;
+      const paymentMethod = payload.data.paymentInstrument?.type;
+
+      // Update payment status
+      let paymentStatus: string;
+      if (state === 'COMPLETED' && responseCode === 'SUCCESS') {
+        paymentStatus = PAYMENT_STATUS.SUCCESS;
+      } else if (state === 'FAILED') {
+        paymentStatus = PAYMENT_STATUS.FAILED;
+      } else {
+        paymentStatus = PAYMENT_STATUS.PENDING;
+      }
+
+      // Update payment record
+      await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
+        phonePeTransactionId,
+        status: paymentStatus,
+        paymentMethod,
+        responseCode,
+        responseMessage: payload.message
+      });
+
+      // If payment successful, update order status
+      if (paymentStatus === PAYMENT_STATUS.SUCCESS) {
+        const payment = await storage.getPaymentByMerchantTxnId(merchantTransactionId);
+        if (payment?.orderId) {
+          await storage.updateOrder(payment.orderId, { status: 'confirmed' });
+          
+          // Send SSE notification
+          const notification = {
+            type: 'payment_success',
+            orderId: payment.orderId,
+            merchantTransactionId,
+            message: 'Payment completed successfully'
+          };
+          
+          sseConnections.forEach(connection => {
+            connection.write(`data: ${JSON.stringify(notification)}\n\n`);
+          });
+        }
+      }
+
+      res.status(200).json({ success: true });
+    } catch (error) {
+      console.error('Webhook processing error:', error);
+      res.status(500).json({ success: false, message: 'Processing failed' });
+    }
+  });
+
+  // Check payment status
+  app.get("/api/payments/status/:merchantTransactionId", async (req, res) => {
+    try {
+      const { merchantTransactionId } = req.params;
+      
+      // Get payment from database
+      const payment = await storage.getPaymentByMerchantTxnId(merchantTransactionId);
+      if (!payment) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "Payment not found" 
+        });
+      }
+
+      // If already successful or failed, return cached status
+      if (payment.status === PAYMENT_STATUS.SUCCESS || payment.status === PAYMENT_STATUS.FAILED) {
+        return res.json({
+          success: true,
+          status: payment.status,
+          data: payment
+        });
+      }
+
+      // Check with PhonePe for latest status
+      const checksum = generateStatusChecksum(merchantTransactionId);
+      const endpoint = `/pg/v1/status/${PHONEPE_CONFIG.MERCHANT_ID}/${merchantTransactionId}`;
+
+      const phonePeResponse = await axios.get(
+        `${PHONEPE_CONFIG.BASE_URL}${endpoint}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-VERIFY': checksum,
+            'X-MERCHANT-ID': PHONEPE_CONFIG.MERCHANT_ID
+          }
+        }
+      );
+
+      if (phonePeResponse.data.success) {
+        const { state, responseCode, transactionId, paymentInstrument } = phonePeResponse.data.data;
+        
+        let paymentStatus: string;
+        if (state === 'COMPLETED' && responseCode === 'SUCCESS') {
+          paymentStatus = PAYMENT_STATUS.SUCCESS;
+        } else if (state === 'FAILED') {
+          paymentStatus = PAYMENT_STATUS.FAILED;
+        } else {
+          paymentStatus = PAYMENT_STATUS.PENDING;
+        }
+
+        // Update payment record
+        const updatedPayment = await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
+          phonePeTransactionId: transactionId,
+          status: paymentStatus,
+          paymentMethod: paymentInstrument?.type,
+          responseCode,
+          responseMessage: phonePeResponse.data.message
+        });
+
+        res.json({
+          success: true,
+          status: paymentStatus,
+          data: updatedPayment
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          message: phonePeResponse.data.message || "Status check failed"
+        });
+      }
+    } catch (error) {
+      console.error('Payment status check error:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Internal server error during status check" 
+      });
+    }
+  });
+
+  // Get all payments (admin)
+  app.get("/api/payments", async (req, res) => {
+    try {
+      const payments = await storage.getPayments();
+      res.json(payments);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
 
   const httpServer = createServer(app);
 

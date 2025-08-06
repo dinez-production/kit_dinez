@@ -102,6 +102,21 @@ export const quickOrders = pgTable("quick_orders", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id").references(() => orders.id),
+  merchantTransactionId: text("merchant_transaction_id").notNull().unique(),
+  phonePeTransactionId: text("phonepe_transaction_id"),
+  amount: integer("amount").notNull(),
+  status: text("status").notNull().default("pending"), // pending, success, failed, timeout
+  paymentMethod: text("payment_method"), // UPI, CARD, NET_BANKING
+  responseCode: text("response_code"),
+  responseMessage: text("response_message"),
+  checksum: text("checksum"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 
 
 // Relations
@@ -140,6 +155,13 @@ export const quickOrdersRelations = relations(quickOrders, ({ one }) => ({
   menuItem: one(menuItems, {
     fields: [quickOrders.menuItemId],
     references: [menuItems.id],
+  }),
+}));
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  order: one(orders, {
+    fields: [payments.orderId],
+    references: [orders.id],
   }),
 }));
 
@@ -248,6 +270,18 @@ export const insertQuickOrderSchema = createInsertSchema(quickOrders).pick({
   isActive: true,
 });
 
+export const insertPaymentSchema = createInsertSchema(payments).pick({
+  orderId: true,
+  merchantTransactionId: true,
+  phonePeTransactionId: true,
+  amount: true,
+  status: true,
+  paymentMethod: true,
+  responseCode: true,
+  responseMessage: true,
+  checksum: true,
+});
+
 
 
 // Types
@@ -271,5 +305,8 @@ export type LoginIssue = typeof loginIssues.$inferSelect;
 
 export type InsertQuickOrder = z.infer<typeof insertQuickOrderSchema>;
 export type QuickOrder = typeof quickOrders.$inferSelect;
+
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type Payment = typeof payments.$inferSelect;
 
 

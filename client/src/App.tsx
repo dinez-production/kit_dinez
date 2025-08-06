@@ -59,6 +59,7 @@ import RateReviewPage from "./components/RateReviewPage";
 import OrderDetailPage from "./components/OrderDetailPage";
 import CanteenOrderDetailPage from "./components/CanteenOrderDetailPage";
 import BarcodeScannerPage from "./components/BarcodeScannerPage";
+import PaymentCallbackPage from "./components/PaymentCallbackPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -78,6 +79,7 @@ const App = () => (
           <Route path="/dish/:dishId" component={DishDetailPage} />
           <Route path="/cart" component={CartPage} />
           <Route path="/checkout" component={CheckoutPage} />
+          <Route path="/payment-callback" component={PaymentCallbackPage} />
           <Route path="/retry-payment" component={RetryPaymentPage} />
           <Route path="/order-status/:orderId" component={OrderStatusPage} />
           <Route path="/orders">
