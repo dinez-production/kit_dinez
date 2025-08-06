@@ -10,6 +10,12 @@ KIT-Canteen is a modern food ordering application for college campuses, enabling
   - Updated CheckoutPage to use PhonePe payment flow instead of Razorpay
   - Configured test environment with PhonePe sandbox credentials
   - Enhanced admin panel to show PhonePe integration status
+- **Pending Payment System**: Implemented comprehensive payment status handling with separate pending_orders table
+  - Orders appear immediately in user's orders page with "Payment Pending" status
+  - Background monitoring runs for exactly 10 minutes before timeout
+  - Only successful payments create confirmed orders for canteen owners
+  - Enhanced visual status indicators for all payment states (pending, failed, timeout)
+  - Added proper filter options for failed payments in orders page
 - **Order ID Format Update**: Changed from alphanumeric format to exactly 12-digit numeric format (0-9 only) for better barcode compatibility and easier identification.
 - **Order Number Highlighting**: Implemented visual highlighting of the last 4 digits of order numbers across all components for quick visual identification (e.g., 532912**9639**).
 - Updated order generation in `shared/utils.ts` to use 8 random digits + 4 timestamp-based digits for uniqueness.
@@ -22,6 +28,7 @@ KIT-Canteen is a modern food ordering application for college campuses, enabling
 - Updated AdminUserManagementPage to fetch real user data from database and display comprehensive profile information with role-specific fields.
 - Fixed order ID highlighting across all components using proper `formatOrderIdDisplay` utility function.
 - Enhanced profile data loading to properly handle new user schema with null-safe operations.
+- **Bug Fixes**: Fixed OrderStatusPage error where items.map was failing due to invalid JSON parsing, and added missing quick orders API routes for admin panel functionality.
 
 # User Preferences
 Preferred communication style: Simple, everyday language.
