@@ -244,10 +244,28 @@ export default function CanteenOwnerDashboard() {
              itemsText.includes(query);
     });
 
-  // Separate active and completed orders
+  // Separate active and completed orders with proper FIFO priority sorting
   const activeOrders = allFilteredOrders
     .filter(order => order.status !== 'delivered' && order.status !== 'cancelled' && order.status !== 'completed')
-    .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    .sort((a: any, b: any) => {
+      // Status priority: preparing (1) comes before ready (2)
+      const statusPriority = {
+        'preparing': 1,
+        'ready': 2,
+        'pending': 0
+      };
+      
+      const aPriority = statusPriority[a.status as keyof typeof statusPriority] || 3;
+      const bPriority = statusPriority[b.status as keyof typeof statusPriority] || 3;
+      
+      // If same status, sort by creation time (FIFO - oldest first)
+      if (aPriority === bPriority) {
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      }
+      
+      // Otherwise, sort by status priority
+      return aPriority - bPriority;
+    });
 
   const completedOrders = allFilteredOrders
     .filter(order => order.status === 'delivered' || order.status === 'cancelled' || order.status === 'completed')
@@ -1076,7 +1094,12 @@ export default function CanteenOwnerDashboard() {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-medium">Active Orders (FIFO Queue)</h3>
-                        <Badge variant="outline">{activeOrders.length} active</Badge>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="outline">{activeOrders.length} active</Badge>
+                          <span className="text-xs text-muted-foreground">
+                            Priority: Preparing → Ready
+                          </span>
+                        </div>
                       </div>
                       
                       {activeOrders.length === 0 ? (
@@ -1084,8 +1107,12 @@ export default function CanteenOwnerDashboard() {
                           <p className="text-muted-foreground">No active orders at the moment</p>
                         </div>
                       ) : (
-                        activeOrders.map((order: any) => (
-                        <div key={order.id} className="p-4 border rounded-lg space-y-3">
+                        activeOrders.map((order: any, index: number) => (
+                        <div key={order.id} className={`p-4 border rounded-lg space-y-3 ${
+                          order.status === 'preparing' 
+                            ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800' 
+                            : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                        }`}>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {/* Order Info */}
                             <div className="md:col-span-2">
@@ -1094,6 +1121,9 @@ export default function CanteenOwnerDashboard() {
                                 onClick={() => setLocation(`/canteen-order-detail/${order.id}`)}
                               >
                                 <div className="flex items-center space-x-3">
+                                  <Badge variant="outline" className="text-xs font-bold">
+                                    Queue #{index + 1}
+                                  </Badge>
                                   <div className="flex items-center font-semibold">
                                     <span>#{(() => {
                                       const formatted = formatOrderIdDisplay(order.orderNumber || order.id.toString());
