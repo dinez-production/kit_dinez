@@ -61,8 +61,10 @@ export default function CanteenOrderDetailPage() {
   // Parse order items from JSON string
   const parsedItems = orderDetails?.items ? (() => {
     try {
-      return JSON.parse(orderDetails.items);
-    } catch {
+      const itemsData = JSON.parse(orderDetails.items);
+      return Array.isArray(itemsData) ? itemsData : [];
+    } catch (error) {
+      console.error('Error parsing order items:', error);
       return [];
     }
   })() : [];
