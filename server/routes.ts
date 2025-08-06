@@ -810,16 +810,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({
           success: true,
           status: payment.status,
-          data: { ...payment, orderNumber }
+          data: { 
+            ...payment, 
+            orderNumber,
+            shouldClearCart: true // Flag to clear cart on frontend
+          }
         });
       }
       
-      // If already failed, return cached status
+      // If already failed, return cached status with retry option
       if (payment.status === PAYMENT_STATUS.FAILED) {
         return res.json({
           success: true,
           status: payment.status,
-          data: payment
+          data: { 
+            ...payment,
+            shouldRetry: true // Flag to show retry option
+          }
         });
       }
 
@@ -899,10 +906,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
+        // Return appropriate data based on payment status
+        const responseData: any = { ...updatedPayment };
+        
+        if (paymentStatus === PAYMENT_STATUS.SUCCESS) {
+          responseData.shouldClearCart = true;
+          // Get order number if order exists
+          if (payment.orderId || updatedPayment?.orderId) {
+            const orderId = payment.orderId || updatedPayment?.orderId;
+            const order = await storage.getOrder(orderId!);
+            responseData.orderNumber = order?.orderNumber;
+          }
+        } else if (paymentStatus === PAYMENT_STATUS.FAILED) {
+          responseData.shouldRetry = true;
+        }
+
         res.json({
           success: true,
           status: paymentStatus,
-          data: updatedPayment
+          data: responseData
         });
       } else {
         res.status(400).json({
@@ -930,6 +952,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // TEST ENDPOINT: Simulate PhonePe payment completion for development
+  // Admin get all payments with detailed information
+  app.get("/api/admin/payments", async (req, res) => {
+    try {
+      const allPayments = await storage.getPayments();
+      
+      // Enhance payment data with order information
+      const enhancedPayments = await Promise.all(
+        allPayments.map(async (payment) => {
+          let orderDetails = null;
+          if (payment.orderId) {
+            const order = await storage.getOrder(payment.orderId);
+            orderDetails = {
+              orderNumber: order?.orderNumber,
+              orderStatus: order?.status,
+              customerName: order?.customerName,
+              amount: order?.amount,
+              items: order?.items
+            };
+          }
+          
+          return {
+            ...payment,
+            orderDetails,
+            metadata: payment.metadata ? JSON.parse(payment.metadata) : null,
+            formattedAmount: `₹${payment.amount / 100}`,
+            createdAtFormatted: new Date(payment.createdAt).toLocaleString('en-IN'),
+            updatedAtFormatted: new Date(payment.updatedAt).toLocaleString('en-IN')
+          };
+        })
+      );
+      
+      res.json({ 
+        success: true, 
+        payments: enhancedPayments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      });
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch payments' });
+    }
+  });
+
   app.post("/api/payments/test-complete/:merchantTransactionId", async (req, res) => {
     try {
       const { merchantTransactionId } = req.params;

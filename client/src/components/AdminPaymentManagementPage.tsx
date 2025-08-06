@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,10 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import { 
   ArrowLeft, Search, Filter, CreditCard, DollarSign, 
   TrendingUp, AlertTriangle, CheckCircle, Clock, 
-  RefreshCw, Download, Eye
+  RefreshCw, Download, Eye, Loader2
 } from "lucide-react";
 
 export default function AdminPaymentManagementPage() {
@@ -21,41 +23,48 @@ export default function AdminPaymentManagementPage() {
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const payments: any[] = []; // Will be populated from actual payment transactions when payment system is implemented
+  // Fetch payments data
+  const { data: paymentsData, isLoading, refetch } = useQuery({
+    queryKey: ['/api/admin/payments'],
+    queryFn: () => apiRequest('/api/admin/payments'),
+  });
+
+  const payments = paymentsData?.payments || [];
 
   const filteredPayments = payments.filter((payment: any) => {
-    const matchesSearch = payment?.user?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         payment?.orderId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         payment?.transactionId?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = payment?.orderDetails?.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         payment?.merchantTransactionId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         payment?.phonePeTransactionId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         payment?.orderDetails?.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || payment?.status?.toLowerCase() === statusFilter.toLowerCase();
     return matchesSearch && matchesStatus;
   });
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Completed": return "bg-success text-success-foreground";
-      case "Failed": return "bg-destructive text-destructive-foreground";
-      case "Pending": return "bg-warning text-warning-foreground";
-      case "Refunded": return "bg-secondary text-secondary-foreground";
-      default: return "bg-muted text-muted-foreground";
+    switch (status?.toLowerCase()) {
+      case "success": return "bg-green-100 text-green-800 border-green-200";
+      case "failed": return "bg-red-100 text-red-800 border-red-200";
+      case "pending": return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "timeout": return "bg-gray-100 text-gray-800 border-gray-200";
+      default: return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
   const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "Completed": return <CheckCircle className="h-3 w-3" />;
-      case "Failed": return <AlertTriangle className="h-3 w-3" />;
-      case "Pending": return <Clock className="h-3 w-3" />;
-      case "Refunded": return <RefreshCw className="h-3 w-3" />;
+    switch (status?.toLowerCase()) {
+      case "success": return <CheckCircle className="h-3 w-3" />;
+      case "failed": return <AlertTriangle className="h-3 w-3" />;
+      case "pending": return <Clock className="h-3 w-3 animate-pulse" />;
+      case "timeout": return <RefreshCw className="h-3 w-3" />;
       default: return <Clock className="h-3 w-3" />;
     }
   };
 
   const stats = {
-    totalTransactions: 0,
-    totalAmount: 0,
-    successRate: 0,
-    pendingAmount: 0
+    totalTransactions: payments.length,
+    totalAmount: payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0),
+    successRate: payments.length > 0 ? ((payments.filter((p: any) => p.status === 'success').length / payments.length) * 100) : 0,
+    pendingAmount: payments.filter((p: any) => p.status === 'pending').reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
   };
 
   const handleExportReport = () => {
@@ -68,16 +77,16 @@ export default function AdminPaymentManagementPage() {
     setTimeout(() => {
       const csvContent = [
         ["Payment ID", "Order ID", "User", "Amount", "Method", "Status", "Timestamp", "Transaction ID", "Gateway"],
-        ...filteredPayments.map(payment => [
+        ...filteredPayments.map((payment: any) => [
           payment.id,
-          payment.orderId,
-          payment.user,
-          payment.amount,
-          payment.method,
+          payment.orderDetails?.orderNumber || 'N/A',
+          payment.orderDetails?.customerName || 'Guest',
+          payment.formattedAmount,
+          payment.paymentMethod || 'N/A',
           payment.status,
-          payment.timestamp,
-          payment.transactionId,
-          payment.gateway
+          payment.createdAtFormatted,
+          payment.merchantTransactionId,
+          'PhonePe'
         ])
       ].map(row => row.join(",")).join("\n");
       
@@ -106,7 +115,7 @@ export default function AdminPaymentManagementPage() {
   const handleRetryPayment = (payment: any) => {
     toast({
       title: "Payment Retry",
-      description: `Initiating retry for failed payment ${payment.id}`,
+      description: `Initiating retry for failed payment ${payment.merchantTransactionId}`,
     });
     // In a real app, this would trigger the payment retry process
   };
@@ -128,10 +137,16 @@ export default function AdminPaymentManagementPage() {
             <p className="text-muted-foreground">Monitor and manage all payment transactions</p>
           </div>
         </div>
-        <Button variant="outline" onClick={handleExportReport}>
-          <Download className="h-4 w-4 mr-2" />
-          Export Report
-        </Button>
+        <div className="flex space-x-2">
+          <Button variant="outline" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+          <Button variant="outline" onClick={handleExportReport}>
+            <Download className="h-4 w-4 mr-2" />
+            Export Report
+          </Button>
+        </div>
       </div>
 
       {/* Stats Overview */}
@@ -212,10 +227,10 @@ export default function AdminPaymentManagementPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="success">Success</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="failed">Failed</SelectItem>
-                <SelectItem value="refunded">Refunded</SelectItem>
+                <SelectItem value="timeout">Timeout</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -229,59 +244,72 @@ export default function AdminPaymentManagementPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {filteredPayments.map((payment) => (
-              <div key={payment.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center">
-                    <CreditCard className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground">{payment.user}</p>
-                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                      <span>Order: {payment.orderId}</span>
-                      <span>•</span>
-                      <span>{payment.method}</span>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <span className="ml-2">Loading payments...</span>
+              </div>
+            ) : filteredPayments.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No payment transactions found.
+              </div>
+            ) : (
+              filteredPayments.map((payment: any) => (
+                <div key={payment.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center">
+                      <CreditCard className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {payment.orderDetails?.customerName || 'Guest User'}
+                      </p>
+                      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                        <span>Txn: {payment.merchantTransactionId}</span>
+                        <span>•</span>
+                        <span>{payment.paymentMethod || 'N/A'}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                
-                <div className="text-center">
-                  <p className="font-semibold text-lg">₹{payment.amount}</p>
-                  <p className="text-xs text-muted-foreground">{payment.gateway}</p>
-                </div>
-                
-                <div className="text-center">
-                  <Badge className={`${getStatusColor(payment.status)} mb-1`}>
-                    <div className="flex items-center space-x-1">
-                      {getStatusIcon(payment.status)}
-                      <span>{payment.status}</span>
-                    </div>
-                  </Badge>
-                  <p className="text-xs text-muted-foreground">{payment.timestamp}</p>
-                </div>
-                
-                <div className="flex space-x-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => handleViewPayment(payment)}
-                    title="View payment details"
-                  >
-                    <Eye className="h-3 w-3" />
-                  </Button>
-                  {payment.status === "Failed" && (
+                  
+                  <div className="text-center">
+                    <p className="font-semibold text-lg">{payment.formattedAmount}</p>
+                    <p className="text-xs text-muted-foreground">PhonePe</p>
+                  </div>
+                  
+                  <div className="text-center">
+                    <Badge className={`${getStatusColor(payment.status)} mb-1 border`}>
+                      <div className="flex items-center space-x-1">
+                        {getStatusIcon(payment.status)}
+                        <span className="capitalize">{payment.status}</span>
+                      </div>
+                    </Badge>
+                    <p className="text-xs text-muted-foreground">{payment.createdAtFormatted}</p>
+                  </div>
+                  
+                  <div className="flex space-x-2">
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={() => handleRetryPayment(payment)}
-                      title="Retry failed payment"
+                      onClick={() => handleViewPayment(payment)}
+                      title="View payment details"
                     >
-                      <RefreshCw className="h-3 w-3" />
+                      <Eye className="h-3 w-3" />
                     </Button>
-                  )}
+                    {payment.status === "failed" && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleRetryPayment(payment)}
+                        title="Retry failed payment"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </CardContent>
       </Card>
@@ -297,15 +325,15 @@ export default function AdminPaymentManagementPage() {
           </DialogHeader>
           
           {selectedPayment && (
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-96 overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Payment ID</p>
                   <p className="text-sm font-mono">{selectedPayment.id}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Order ID</p>
-                  <p className="text-sm font-mono">{selectedPayment.orderId}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Order Number</p>
+                  <p className="text-sm font-mono">{selectedPayment.orderDetails?.orderNumber || 'N/A'}</p>
                 </div>
               </div>
 
@@ -313,20 +341,20 @@ export default function AdminPaymentManagementPage() {
 
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Customer</p>
-                <p className="text-sm">{selectedPayment.user}</p>
+                <p className="text-sm">{selectedPayment.orderDetails?.customerName || 'Guest User'}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Amount</p>
-                  <p className="text-lg font-bold text-success">₹{selectedPayment.amount}</p>
+                  <p className="text-lg font-bold text-green-600">{selectedPayment.formattedAmount}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Status</p>
-                  <Badge className={getStatusColor(selectedPayment.status)}>
+                  <Badge className={`${getStatusColor(selectedPayment.status)} border`}>
                     <div className="flex items-center space-x-1">
                       {getStatusIcon(selectedPayment.status)}
-                      <span>{selectedPayment.status}</span>
+                      <span className="capitalize">{selectedPayment.status}</span>
                     </div>
                   </Badge>
                 </div>
@@ -337,25 +365,66 @@ export default function AdminPaymentManagementPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Payment Method</p>
-                  <p className="text-sm">{selectedPayment.method}</p>
+                  <p className="text-sm">{selectedPayment.paymentMethod || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Gateway</p>
-                  <p className="text-sm">{selectedPayment.gateway}</p>
+                  <p className="text-sm">PhonePe</p>
                 </div>
               </div>
 
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Transaction ID</p>
-                <p className="text-sm font-mono bg-muted p-2 rounded">{selectedPayment.transactionId}</p>
+                <p className="text-sm font-medium text-muted-foreground">Merchant Transaction ID</p>
+                <p className="text-sm font-mono bg-muted p-2 rounded text-xs break-all">{selectedPayment.merchantTransactionId}</p>
               </div>
 
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Transaction Time</p>
-                <p className="text-sm">{selectedPayment.timestamp}</p>
+              {selectedPayment.phonePeTransactionId && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">PhonePe Transaction ID</p>
+                  <p className="text-sm font-mono bg-muted p-2 rounded text-xs break-all">{selectedPayment.phonePeTransactionId}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Created At</p>
+                  <p className="text-sm">{selectedPayment.createdAtFormatted}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Updated At</p>
+                  <p className="text-sm">{selectedPayment.updatedAtFormatted}</p>
+                </div>
               </div>
 
-              {selectedPayment.status === "Failed" && (
+              {selectedPayment.responseCode && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Response Code</p>
+                  <p className="text-sm">{selectedPayment.responseCode}</p>
+                </div>
+              )}
+
+              {selectedPayment.responseMessage && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Response Message</p>
+                  <p className="text-sm bg-muted p-2 rounded">{selectedPayment.responseMessage}</p>
+                </div>
+              )}
+
+              {selectedPayment.metadata && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Order Items</p>
+                  <div className="text-sm bg-muted p-2 rounded max-h-24 overflow-y-auto">
+                    {selectedPayment.metadata.items && JSON.parse(selectedPayment.metadata.items).map((item: any, index: number) => (
+                      <div key={index} className="flex justify-between">
+                        <span>{item.name} x {item.quantity}</span>
+                        <span>₹{item.price * item.quantity}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedPayment.status === "failed" && (
                 <div className="pt-4">
                   <Button 
                     onClick={() => {

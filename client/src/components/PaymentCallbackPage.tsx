@@ -4,11 +4,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, CheckCircle, XCircle, Clock } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useCart } from "@/contexts/CartContext";
 
 export default function PaymentCallbackPage() {
   const [, setLocation] = useLocation();
   const [status, setStatus] = useState<'checking' | 'success' | 'failed' | 'pending'>('checking');
   const [orderId, setOrderId] = useState<string>('');
+  const [paymentData, setPaymentData] = useState<any>(null);
+  const { clearCart } = useCart();
 
   useEffect(() => {
     const checkPaymentStatus = async () => {
@@ -37,14 +40,20 @@ export default function PaymentCallbackPage() {
           
           if (paymentStatus === 'success') {
             setStatus('success');
+            setPaymentData(statusResponse.data);
+            
+            // Clear cart if payment successful
+            if (statusResponse.data?.shouldClearCart) {
+              clearCart();
+              toast({
+                title: "Payment Successful",
+                description: "Your order has been confirmed and cart has been cleared!",
+              });
+            }
+            
             // Clear stored transaction data
             localStorage.removeItem('currentPaymentTxnId');
             localStorage.removeItem('pendingOrderData');
-            
-            toast({
-              title: "Payment Successful",
-              description: "Your order has been confirmed!",
-            });
             
             // Get the order to redirect to order status page
             if (statusResponse.data?.orderNumber) {
@@ -54,30 +63,33 @@ export default function PaymentCallbackPage() {
             }
           } else if (paymentStatus === 'failed') {
             setStatus('failed');
+            setPaymentData(statusResponse.data);
+            
+            // Clear transaction ID but keep pending order data for retry
             localStorage.removeItem('currentPaymentTxnId');
-            // Keep pendingOrderData for retry functionality
             
             toast({
               title: "Payment Failed",
               description: "Your payment could not be processed. Please try again.",
               variant: "destructive"
             });
-          } else {
+          } else if (paymentStatus === 'pending') {
             setStatus('pending');
+            setPaymentData(statusResponse.data);
+            
             // Keep checking for a bit more, but add timeout
             let retryCount = (window as any).paymentRetryCount || 0;
-            if (retryCount < 10) { // Max 10 retries (30 seconds)
+            if (retryCount < 15) { // Max 15 retries (45 seconds)
               (window as any).paymentRetryCount = retryCount + 1;
               setTimeout(checkPaymentStatus, 3000);
             } else {
-              // After max retries, assume failure in test environment
-              setStatus('failed');
-              localStorage.removeItem('currentPaymentTxnId');
+              // After max retries, show timeout but keep order in pending state
+              setStatus('pending');
               
               toast({
-                title: "Payment Timeout",
-                description: "Payment verification timed out. Please check your orders.",
-                variant: "destructive"
+                title: "Payment Still Processing",
+                description: "Payment is taking longer than expected. Check your orders later.",
+                variant: "default"
               });
             }
           }
@@ -156,37 +168,61 @@ export default function PaymentCallbackPage() {
             <>
               <XCircle className="w-12 h-12 mx-auto mb-4 text-red-500" />
               <h2 className="text-xl font-semibold mb-2 text-red-700">Payment Failed</h2>
-              <p className="text-muted-foreground mb-4">
-                Unfortunately, your payment could not be processed. Please try again.
+              <p className="text-muted-foreground mb-2">
+                Unfortunately, your payment could not be processed.
               </p>
-              <button
-                onClick={handleRetry}
-                className="bg-primary text-primary-foreground px-6 py-2 rounded-md hover:bg-primary/90"
-              >
-                Try Again
-              </button>
+              {paymentData?.responseMessage && (
+                <p className="text-sm text-muted-foreground mb-4 p-2 bg-red-50 rounded">
+                  Reason: {paymentData.responseMessage}
+                </p>
+              )}
+              <div className="space-y-3">
+                <button
+                  onClick={handleRetry}
+                  className="bg-primary text-primary-foreground px-6 py-2 rounded-md hover:bg-primary/90 w-full"
+                >
+                  Retry Payment
+                </button>
+                <button
+                  onClick={() => setLocation('/cart')}
+                  className="border border-gray-300 text-gray-700 px-6 py-2 rounded-md hover:bg-gray-50 w-full"
+                >
+                  Back to Cart
+                </button>
+              </div>
             </>
           )}
 
           {status === 'pending' && (
             <>
-              <Clock className="w-12 h-12 mx-auto mb-4 text-yellow-500" />
-              <h2 className="text-xl font-semibold mb-2 text-yellow-700">Payment Pending</h2>
-              <p className="text-muted-foreground mb-4">
+              <Clock className="w-12 h-12 mx-auto mb-4 text-yellow-500 animate-pulse" />
+              <h2 className="text-xl font-semibold mb-2 text-yellow-700">Payment Processing</h2>
+              <p className="text-muted-foreground mb-2">
                 Your payment is being processed. This may take a few moments.
               </p>
+              <p className="text-sm text-yellow-600 mb-4 p-2 bg-yellow-50 rounded">
+                Please don't close this page. Your order will be created once payment is confirmed.
+              </p>
+              {paymentData && (
+                <div className="text-xs text-muted-foreground mb-4">
+                  Transaction ID: {paymentData.merchantTransactionId}
+                </div>
+              )}
               <div className="flex gap-2 justify-center">
                 <button
-                  onClick={handleRetry}
+                  onClick={() => setLocation('/orders')}
                   className="border border-primary text-primary px-4 py-2 rounded-md hover:bg-primary/10"
                 >
-                  Cancel
+                  Check My Orders
                 </button>
                 <button
-                  onClick={handleGoToOrders}
-                  className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
+                  onClick={() => {
+                    // Don't clear transaction data, let user manually exit
+                    setLocation('/home');
+                  }}
+                  className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600"
                 >
-                  Check Orders
+                  Continue Shopping
                 </button>
               </div>
             </>
