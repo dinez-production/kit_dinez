@@ -246,11 +246,11 @@ export default function CanteenOwnerDashboard() {
 
   // Separate active and completed orders
   const activeOrders = allFilteredOrders
-    .filter(order => order.status !== 'delivered' && order.status !== 'cancelled')
+    .filter(order => order.status !== 'delivered' && order.status !== 'cancelled' && order.status !== 'completed')
     .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   const completedOrders = allFilteredOrders
-    .filter(order => order.status === 'delivered' || order.status === 'cancelled')
+    .filter(order => order.status === 'delivered' || order.status === 'cancelled' || order.status === 'completed')
     .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   // Helper function to determine if order is offline
@@ -1170,10 +1170,10 @@ export default function CanteenOwnerDashboard() {
                                     className="bg-success text-success-foreground hover:bg-success/90"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleOrderStatusUpdate(order.id, "delivered");
+                                      handleOrderStatusUpdate(order.id, "completed");
                                     }}
                                   >
-                                    Mark Delivered
+                                    Complete Order
                                   </Button>
                                 )}
                               </div>
@@ -1194,13 +1194,15 @@ export default function CanteenOwnerDashboard() {
                                   <Badge variant="outline" className="mt-1">Ready for Pickup</Badge>
                                 </div>
                               )}
-                              {order.status === "delivered" && (
+                              {(order.status === "delivered" || order.status === "completed") && (
                                 <div className="text-center">
                                   <CheckCircle className="w-8 h-8 text-success mx-auto mb-2" />
-                                  <Badge className="bg-success">Delivered</Badge>
-                                  {order.deliveredAt && (
+                                  <Badge className="bg-success">
+                                    {order.status === "delivered" ? "Delivered" : "Completed"}
+                                  </Badge>
+                                  {(order.deliveredAt || order.completedAt) && (
                                     <p className="text-xs text-muted-foreground mt-1">
-                                      {new Date(order.deliveredAt).toLocaleString()}
+                                      {new Date(order.deliveredAt || order.completedAt).toLocaleString()}
                                     </p>
                                   )}
                                 </div>
