@@ -720,8 +720,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Parse order data from metadata
           const orderData = JSON.parse(payment.metadata);
           
+          // Generate orderNumber and barcode for the new order
+          const { generateOrderNumber } = await import('../shared/utils.js');
+          const orderNumber = generateOrderNumber();
+          const barcode = generateOrderNumber(); // Use same function for barcode
+          
+          const completeOrderData = {
+            ...orderData,
+            orderNumber,
+            barcode,
+            status: 'preparing' // Set to preparing since payment is successful
+          };
+          
           // Create the order
-          const newOrder = await storage.createOrder(orderData);
+          const newOrder = await storage.createOrder(completeOrderData);
           
           // Update payment with order ID
           await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
@@ -771,7 +783,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Create order if not already created
         if (payment.metadata && !payment.orderId) {
           const orderData = JSON.parse(payment.metadata);
-          const newOrder = await storage.createOrder(orderData);
+          
+          // Generate orderNumber and barcode for the new order
+          const { generateOrderNumber } = await import('../shared/utils.js');
+          const generatedOrderNumber = generateOrderNumber();
+          const barcode = generateOrderNumber();
+          
+          const completeOrderData = {
+            ...orderData,
+            orderNumber: generatedOrderNumber,
+            barcode,
+            status: 'preparing' // Set to preparing since payment is successful
+          };
+          
+          const newOrder = await storage.createOrder(completeOrderData);
           await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
             orderId: newOrder.id
           });
@@ -839,7 +864,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (payment.metadata && !payment.orderId) {
             // Parse order data from metadata and create order
             const orderData = JSON.parse(payment.metadata);
-            const newOrder = await storage.createOrder(orderData);
+            
+            // Generate orderNumber and barcode for the new order
+            const { generateOrderNumber } = await import('../shared/utils.js');
+            const orderNumber = generateOrderNumber();
+            const barcode = generateOrderNumber(); // Use same function for barcode
+            
+            const completeOrderData = {
+              ...orderData,
+              orderNumber,
+              barcode,
+              status: 'preparing' // Set to preparing since payment is successful
+            };
+            
+            const newOrder = await storage.createOrder(completeOrderData);
             
             // Update payment with order ID
             await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
