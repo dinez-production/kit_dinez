@@ -1,32 +1,57 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Search, Star } from "lucide-react";
+import { ArrowLeft, Search, Plus } from "lucide-react";
+import { useCart } from "@/contexts/CartContext";
+import { VegIndicator } from "@/components/ui/VegIndicator";
+import type { MenuItem, Category } from "@shared/schema";
 
 export default function SearchPage() {
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
+  const { addToCart, getCartQuantity } = useCart();
 
-  const allItems = [
-    { id: 1, name: "Veg Thali", price: 85, rating: 4.5, category: "Main Course", isVeg: true },
-    { id: 2, name: "Masala Dosa", price: 60, rating: 4.3, category: "South Indian", isVeg: true },
-    { id: 3, name: "Chole Bhature", price: 70, rating: 4.6, category: "North Indian", isVeg: true },
-    { id: 4, name: "Samosa", price: 20, rating: 4.2, category: "Snacks", isVeg: true },
-    { id: 5, name: "Masala Tea", price: 15, rating: 4.5, category: "Beverages", isVeg: true },
-    { id: 6, name: "Sandwich", price: 40, rating: 4.0, category: "Snacks", isVeg: true },
-    { id: 7, name: "Coffee", price: 20, rating: 4.2, category: "Beverages", isVeg: true },
-    { id: 8, name: "Pakora", price: 30, rating: 4.4, category: "Snacks", isVeg: true }
-  ];
+  // Fetch real menu items and categories
+  const { data: menuItems = [], isLoading } = useQuery<MenuItem[]>({
+    queryKey: ["/api/menu"],
+  });
 
-  const filteredItems = allItems.filter(item =>
-    item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+  });
 
-  const popularSearches = ["Thali", "Dosa", "Tea", "Snacks", "South Indian"];
+  // Create item-category mapping
+  const getCategoryName = (categoryId: number) => {
+    const category = categories.find(cat => cat.id === categoryId);
+    return category?.name || "Other";
+  };
+
+  const filteredItems = menuItems.filter(item => {
+    // First filter out items with 0 stock and unavailable items
+    if (!item.available || item.stock <= 0) return false;
+    
+    // Then apply search filter
+    const categoryName = getCategoryName(item.categoryId);
+    return (
+      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      categoryName.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
+
+  const handleAddToCart = (item: MenuItem) => {
+    addToCart({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      isVegetarian: item.isVegetarian
+    });
+  };
+
+  const popularSearches = ["Tea", "Snacks", "Chicken", "Roll"];
 
   return (
     <div className="min-h-screen bg-background">
@@ -73,57 +98,82 @@ export default function SearchPage() {
         {searchQuery && (
           <div>
             <h3 className="font-semibold mb-3">
-              {filteredItems.length} results for "{searchQuery}"
+              {filteredItems.length > 0 
+                ? `${filteredItems.length} results for "${searchQuery}"` 
+                : `No results for "${searchQuery}"`
+              }
             </h3>
-            <div className="space-y-3">
-              {filteredItems.map((item) => (
-                <Card
-                  key={item.id}
-                  className="cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => setLocation(`/dish/${item.id}`)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h4 className="font-medium">{item.name}</h4>
-                          {item.isVeg && (
-                            <div className="w-4 h-4 border-2 border-green-500 flex items-center justify-center">
-                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            </div>
+            
+            {isLoading ? (
+              <div className="space-y-3">
+                {[...Array(3)].map((_, index) => (
+                  <Card key={index} className="animate-pulse">
+                    <CardContent className="p-4">
+                      <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded mb-2 w-3/4"></div>
+                      <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : filteredItems.length > 0 ? (
+              <div className="space-y-3">
+                {filteredItems.map((item) => (
+                  <Card key={item.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <h4 className="font-medium text-lg">{item.name}</h4>
+                            <VegIndicator isVegetarian={item.isVegetarian} size="sm" />
+                          </div>
+                          
+                          <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
+                            <Badge variant="secondary">{getCategoryName(item.categoryId)}</Badge>
+                            <Badge variant="outline">Stock: {item.stock}</Badge>
+                          </div>
+                          
+                          <p className="font-semibold text-lg text-primary">₹{item.price}</p>
+                          {item.description && (
+                            <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground mb-2">{item.category}</p>
-                        <div className="flex items-center space-x-1">
-                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                          <span className="text-sm">{item.rating}</span>
+                        
+                        <div className="ml-4">
+                          {getCartQuantity(item.id) > 0 ? (
+                            <div className="flex items-center space-x-2">
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => handleAddToCart(item)}
+                              >
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                              <span className="font-semibold">{getCartQuantity(item.id)}</span>
+                            </div>
+                          ) : (
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleAddToCart(item)}
+                              disabled={!item.available || item.stock === 0}
+                            >
+                              <Plus className="w-4 h-4 mr-1" />
+                              Add
+                            </Button>
+                          )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold text-lg">₹{item.price}</p>
-                        <Button size="sm" className="mt-2">
-                          Add
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* No Results */}
-        {searchQuery && filteredItems.length === 0 && (
-          <div className="text-center py-8">
-            <Search className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="font-semibold text-lg mb-2">No items found</h3>
-            <p className="text-muted-foreground">
-              Try searching for something else or browse our menu
-            </p>
-            <Button className="mt-4" onClick={() => setLocation("/home")}>
-              Browse Menu
-            </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Search className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <p>No available items found for "{searchQuery}"</p>
+                <p className="text-sm mt-1">Try searching for something else</p>
+              </div>
+            )}
           </div>
         )}
       </div>

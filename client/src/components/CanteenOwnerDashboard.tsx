@@ -895,7 +895,8 @@ export default function CanteenOwnerDashboard() {
       item.name.toLowerCase().includes(offlineSearchQuery.toLowerCase());
     const matchesCategory = selectedCategory === "all" || 
       categories.find(cat => cat.id === item.categoryId)?.name === selectedCategory;
-    return matchesSearch && matchesCategory && item.available;
+    // Hide items with 0 stock
+    return matchesSearch && matchesCategory && item.available && item.stock > 0;
   });
 
   // Refresh all data function

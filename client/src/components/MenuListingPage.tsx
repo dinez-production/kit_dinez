@@ -45,6 +45,10 @@ export default function MenuListingPage() {
 
   const items = getCategoryItems();
   const filteredItems = items.filter(item => {
+    // First filter out items with 0 stock and unavailable items
+    if (!item.available || item.stock <= 0) return false;
+    
+    // Then apply vegetarian filters
     if (filter === "all") return true;
     if (filter === "veg") return item.isVegetarian;
     if (filter === "non-veg") return !item.isVegetarian;

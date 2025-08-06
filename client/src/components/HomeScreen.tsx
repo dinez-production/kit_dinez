@@ -99,7 +99,8 @@ export default function HomeScreen() {
       const matchesVegFilter = vegFilter === "all" || 
         (vegFilter === "veg" && item.isVegetarian) ||
         (vegFilter === "non-veg" && !item.isVegetarian);
-      return item.available && matchesVegFilter;
+      // Filter out items with 0 stock
+      return item.available && item.stock > 0 && matchesVegFilter;
     });
   };
 

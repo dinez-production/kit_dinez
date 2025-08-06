@@ -119,7 +119,9 @@ export function QuickOrders() {
       </div>
       
       <div className="grid grid-cols-2 gap-4">
-        {quickOrders.slice(0, 4).map((quickOrder) => (
+        {quickOrders.filter(quickOrder => 
+          quickOrder.menuItem.available && quickOrder.menuItem.stock > 0
+        ).slice(0, 4).map((quickOrder) => (
           <Dialog key={quickOrder.id}>
             <DialogTrigger asChild>
               <Card 
