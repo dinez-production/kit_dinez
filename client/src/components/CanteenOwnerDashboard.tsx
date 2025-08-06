@@ -213,8 +213,8 @@ export default function CanteenOwnerDashboard() {
   });
 
 
-  // Enhanced filtering with FIFO sorting
-  const filteredOrders = (orders as any[])
+  // Enhanced filtering with separate active and completed orders
+  const allFilteredOrders = (orders as any[])
     .filter((order: any) => {
       if (!searchQuery) return true;
       
@@ -242,9 +242,24 @@ export default function CanteenOwnerDashboard() {
              orderId.includes(query) ||
              barcode.includes(query) ||
              itemsText.includes(query);
-    })
-    // FIFO sorting: active orders first by creation time ASC, completed orders at the end
-    .sort((a: any, b: any) => {
+    });
+
+  // Separate active and completed orders
+  const activeOrders = allFilteredOrders
+    .filter(order => order.status !== 'delivered' && order.status !== 'cancelled')
+    .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+  const completedOrders = allFilteredOrders
+    .filter(order => order.status === 'delivered' || order.status === 'cancelled')
+    .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  // Helper function to determine if order is offline
+  const isOfflineOrder = (order: any) => {
+    return order.customerName.includes('Counter Sale') || order.customerName.includes('Cash Payment') || order.customerName.includes('Online Payment');
+  };
+
+  // Keep filteredOrders for backward compatibility
+  const filteredOrders = allFilteredOrders.sort((a: any, b: any) => {
       // Priority sorting: preparing first, then ready, then completed
       const statusPriority = {
         'preparing': 1,
@@ -1050,20 +1065,26 @@ export default function CanteenOwnerDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Tabs defaultValue="online" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2 mb-6">
-                    <TabsTrigger value="online">Online Orders</TabsTrigger>
-                    <TabsTrigger value="offline">Offline Orders</TabsTrigger>
+                <Tabs defaultValue="active" className="w-full">
+                  <TabsList className="grid w-full grid-cols-3 mb-6">
+                    <TabsTrigger value="active">Active Orders ({activeOrders.length})</TabsTrigger>
+                    <TabsTrigger value="all">All Orders ({allFilteredOrders.length})</TabsTrigger>
+                    <TabsTrigger value="offline">Offline Counter Orders</TabsTrigger>
                   </TabsList>
                   
-                  <TabsContent value="online">
+                  <TabsContent value="active">
                     <div className="space-y-4">
-                      {filteredOrders.length === 0 && searchQuery ? (
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium">Active Orders (FIFO Queue)</h3>
+                        <Badge variant="outline">{activeOrders.length} active</Badge>
+                      </div>
+                      
+                      {activeOrders.length === 0 ? (
                         <div className="text-center py-8">
-                          <p className="text-muted-foreground">No orders found matching "{searchQuery}"</p>
+                          <p className="text-muted-foreground">No active orders at the moment</p>
                         </div>
                       ) : (
-                        filteredOrders.map((order: any) => (
+                        activeOrders.map((order: any) => (
                         <div key={order.id} className="p-4 border rounded-lg space-y-3">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {/* Order Info */}
@@ -1088,6 +1109,15 @@ export default function CanteenOwnerDashboard() {
                                   <Badge className={getOrderStatusColor(order.status)}>
                                     {getOrderStatusText(order.status)}
                                   </Badge>
+                                  {isOfflineOrder(order) ? (
+                                    <Badge variant="secondary" className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                                      Counter Order
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                      Online Order
+                                    </Badge>
+                                  )}
                                   {order.estimatedTime > 0 && (
                                     <span className="text-sm text-muted-foreground">
                                       ETA: {order.estimatedTime} min
@@ -1140,10 +1170,10 @@ export default function CanteenOwnerDashboard() {
                                     className="bg-success text-success-foreground hover:bg-success/90"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleOrderStatusUpdate(order.id, "completed");
+                                      handleOrderStatusUpdate(order.id, "delivered");
                                     }}
                                   >
-                                    Complete Order
+                                    Mark Delivered
                                   </Button>
                                 )}
                               </div>
@@ -1180,6 +1210,119 @@ export default function CanteenOwnerDashboard() {
                         </div>
                         ))
                       )}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="all">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium">All Orders</h3>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="outline">{activeOrders.length} active</Badge>
+                          <Badge variant="secondary">{completedOrders.length} completed</Badge>
+                        </div>
+                      </div>
+                      
+                      {/* Active Orders Section */}
+                      {activeOrders.length > 0 && (
+                        <div className="mb-6">
+                          <h4 className="font-medium text-sm text-muted-foreground mb-3">ACTIVE ORDERS</h4>
+                          <div className="space-y-3">
+                            {activeOrders.map((order: any) => (
+                              <div key={order.id} className="p-3 border rounded-lg bg-yellow-50 dark:bg-yellow-900/20">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="flex items-center font-semibold">
+                                      <span>#{(() => {
+                                        const formatted = formatOrderIdDisplay(order.orderNumber || order.id.toString());
+                                        return formatted.prefix;
+                                      })()}</span>
+                                      <span className="bg-primary/20 text-primary font-bold px-1 rounded ml-0">
+                                        {(() => {
+                                          const formatted = formatOrderIdDisplay(order.orderNumber || order.id.toString());
+                                          return formatted.highlighted;
+                                        })()}
+                                      </span>
+                                    </div>
+                                    <Badge className={getOrderStatusColor(order.status)}>
+                                      {getOrderStatusText(order.status)}
+                                    </Badge>
+                                    {isOfflineOrder(order) ? (
+                                      <Badge variant="secondary" className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                                        Counter
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                        Online
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="font-bold">₹{order.amount}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {order.createdAt ? new Date(order.createdAt).toLocaleTimeString() : 'N/A'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <p className="text-sm text-muted-foreground mt-1">Customer: {order.customerName || 'N/A'}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Completed Orders Section */}
+                      <div>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-3">COMPLETED ORDERS</h4>
+                        <div className="space-y-3 max-h-96 overflow-y-auto">
+                          {completedOrders.length === 0 ? (
+                            <div className="text-center py-8">
+                              <p className="text-muted-foreground">No completed orders yet</p>
+                            </div>
+                          ) : (
+                            completedOrders.map((order: any) => (
+                              <div key={order.id} className="p-3 border rounded-lg bg-green-50 dark:bg-green-900/20">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="flex items-center font-semibold">
+                                      <span>#{(() => {
+                                        const formatted = formatOrderIdDisplay(order.orderNumber || order.id.toString());
+                                        return formatted.prefix;
+                                      })()}</span>
+                                      <span className="bg-primary/20 text-primary font-bold px-1 rounded ml-0">
+                                        {(() => {
+                                          const formatted = formatOrderIdDisplay(order.orderNumber || order.id.toString());
+                                          return formatted.highlighted;
+                                        })()}
+                                      </span>
+                                    </div>
+                                    <Badge className={getOrderStatusColor(order.status)}>
+                                      {getOrderStatusText(order.status)}
+                                    </Badge>
+                                    {isOfflineOrder(order) ? (
+                                      <Badge variant="secondary" className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                                        Counter
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                        Online
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="font-bold">₹{order.amount}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {order.deliveredAt ? new Date(order.deliveredAt).toLocaleTimeString() : 
+                                       order.createdAt ? new Date(order.createdAt).toLocaleTimeString() : 'N/A'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <p className="text-sm text-muted-foreground mt-1">Customer: {order.customerName || 'N/A'}</p>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </TabsContent>
                   

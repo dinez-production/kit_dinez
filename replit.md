@@ -23,6 +23,7 @@ KIT-Canteen is a modern food ordering application for college campuses, enabling
 - Fixed order ID highlighting across all components using proper `formatOrderIdDisplay` utility function.
 - Enhanced profile data loading to properly handle new user schema with null-safe operations.
 - **Comprehensive Offline Ordering System**: Implemented complete counter order management for canteen owners with menu browsing, shopping cart functionality, payment mode tracking (cash/online), and automatic order completion. Orders are placed under canteen owner credentials and automatically marked as "delivered" status since items are handed over immediately at counter.
+- **Enhanced Order Management UI**: Reorganized orders into "Active Orders" (FIFO queue), "All Orders" (combined view), and "Offline Counter Orders" tabs. Added visual differentiation between online orders (blue badges) and counter orders (orange badges). Active orders show oldest-first priority, completed orders are sorted newest-first for easy reference.
 
 # User Preferences
 Preferred communication style: Simple, everyday language.
