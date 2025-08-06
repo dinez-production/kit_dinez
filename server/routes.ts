@@ -8,8 +8,7 @@ import {
   insertOrderSchema, 
   insertNotificationSchema,
   insertLoginIssueSchema,
-  insertQuickOrderSchema,
-  insertTrendingItemSchema
+  insertQuickOrderSchema
 } from "@shared/schema";
 import { generateOrderNumber } from "@shared/utils";
 
@@ -567,45 +566,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/quick-orders/:id", async (req, res) => {
     try {
       await storage.deleteQuickOrder(parseInt(req.params.id));
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  // Trending Items endpoints
-  app.get("/api/trending-items", async (req, res) => {
-    try {
-      const trendingItems = await storage.getTrendingItems();
-      res.json(trendingItems);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.post("/api/trending-items", async (req, res) => {
-    try {
-      const validatedData = insertTrendingItemSchema.parse(req.body);
-      const trendingItem = await storage.createTrendingItem(validatedData);
-      res.status(201).json(trendingItem);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.put("/api/trending-items/:id", async (req, res) => {
-    try {
-      const validatedData = insertTrendingItemSchema.parse(req.body);
-      const trendingItem = await storage.updateTrendingItem(parseInt(req.params.id), validatedData);
-      res.json(trendingItem);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.delete("/api/trending-items/:id", async (req, res) => {
-    try {
-      await storage.deleteTrendingItem(parseInt(req.params.id));
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });

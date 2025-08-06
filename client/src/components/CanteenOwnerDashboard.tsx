@@ -46,7 +46,6 @@ import {
   RefreshCcw
 } from "lucide-react";
 import { QuickOrdersManager } from "@/components/admin/QuickOrdersManager";
-import { TrendingManager } from "@/components/admin/TrendingManager";
 
 export default function CanteenOwnerDashboard() {
   const [, setLocation] = useLocation();
@@ -1547,9 +1546,6 @@ export default function CanteenOwnerDashboard() {
 
             {/* Quick Orders Management */}
             <QuickOrdersManager />
-
-            {/* Trending Items Management */}
-            <TrendingManager />
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-6">

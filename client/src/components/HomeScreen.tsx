@@ -13,7 +13,6 @@ import { VegIndicator } from "@/components/ui/VegIndicator";
 import { cn } from "@/lib/utils";
 import type { MenuItem, Category } from "@shared/schema";
 import { QuickOrders } from "@/components/QuickOrders";
-import { TrendingNow } from "@/components/TrendingNow";
 
 export default function HomeScreen() {
   const [, setLocation] = useLocation();
@@ -356,11 +355,6 @@ export default function HomeScreen() {
         {/* Quick Orders - Hidden when searching */}
         {!searchQuery.trim() && (
           <QuickOrders />
-        )}
-
-        {/* Trending Now - Hidden when searching */}
-        {!searchQuery.trim() && (
-          <TrendingNow />
         )}
 
         {/* Categories - Hidden when searching */}
