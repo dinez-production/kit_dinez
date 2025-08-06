@@ -67,8 +67,20 @@ export default function PaymentCallbackPage() {
             });
           } else {
             setStatus('pending');
-            // Keep checking for a bit more
-            setTimeout(checkPaymentStatus, 3000);
+            // Keep checking for a bit more, but add timeout
+            let retryCount = (window as any).paymentRetryCount || 0;
+            if (retryCount < 10) { // Max 10 retries (30 seconds)
+              (window as any).paymentRetryCount = retryCount + 1;
+              setTimeout(checkPaymentStatus, 3000);
+            } else {
+              // After max retries, assume failure in test environment
+              setStatus('failed');
+              toast({
+                title: "Payment Timeout",
+                description: "Payment verification timed out. Please check your orders.",
+                variant: "destructive"
+              });
+            }
           }
         } else {
           setStatus('failed');

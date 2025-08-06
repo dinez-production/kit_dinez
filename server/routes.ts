@@ -753,8 +753,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // If already successful or failed, return cached status
-      if (payment.status === PAYMENT_STATUS.SUCCESS || payment.status === PAYMENT_STATUS.FAILED) {
+      // If already successful, make sure order status is updated and return cached status
+      if (payment.status === PAYMENT_STATUS.SUCCESS) {
+        // Ensure order is marked as confirmed
+        if (payment.orderId) {
+          await storage.updateOrder(payment.orderId, { status: 'preparing' });
+        }
+        return res.json({
+          success: true,
+          status: payment.status,
+          data: payment
+        });
+      }
+      
+      // If already failed, return cached status
+      if (payment.status === PAYMENT_STATUS.FAILED) {
         return res.json({
           success: true,
           status: payment.status,
@@ -798,6 +811,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           responseMessage: phonePeResponse.data.message
         });
 
+        // If payment successful, update order status
+        if (paymentStatus === PAYMENT_STATUS.SUCCESS && payment.orderId) {
+          await storage.updateOrder(payment.orderId, { status: 'preparing' });
+          
+          // Send SSE notification
+          const notification = {
+            type: 'payment_success',
+            orderId: payment.orderId,
+            merchantTransactionId,
+            message: 'Payment completed successfully'
+          };
+          
+          sseConnections.forEach(connection => {
+            connection.write(`data: ${JSON.stringify(notification)}\n\n`);
+          });
+        }
+
         res.json({
           success: true,
           status: paymentStatus,
@@ -825,6 +855,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(payments);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // TEST ENDPOINT: Simulate PhonePe payment completion for development
+  app.post("/api/payments/test-complete/:merchantTransactionId", async (req, res) => {
+    try {
+      const { merchantTransactionId } = req.params;
+      
+      // Get payment from database
+      const payment = await storage.getPaymentByMerchantTxnId(merchantTransactionId);
+      if (!payment) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "Payment not found" 
+        });
+      }
+
+      // Update payment to success
+      await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
+        phonePeTransactionId: `TEST_${Date.now()}`,
+        status: PAYMENT_STATUS.SUCCESS,
+        paymentMethod: 'UPI',
+        responseCode: 'SUCCESS',
+        responseMessage: 'Test payment completed successfully'
+      });
+
+      // Update order status
+      if (payment.orderId) {
+        await storage.updateOrder(payment.orderId, { status: 'preparing' });
+        
+        // Send SSE notification
+        const notification = {
+          type: 'payment_success',
+          orderId: payment.orderId,
+          merchantTransactionId,
+          message: 'Test payment completed successfully'
+        };
+        
+        sseConnections.forEach(connection => {
+          connection.write(`data: ${JSON.stringify(notification)}\n\n`);
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Test payment completed successfully',
+        merchantTransactionId
+      });
+    } catch (error) {
+      console.error('Test payment completion error:', error);
+      res.status(500).json({ success: false, message: 'Test payment completion failed' });
     }
   });
 
