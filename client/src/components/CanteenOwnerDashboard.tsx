@@ -201,33 +201,61 @@ export default function CanteenOwnerDashboard() {
   });
 
 
-  // Filter orders based on search query
-  const filteredOrders = (orders as any[]).filter((order: any) => {
-    if (!searchQuery) return true;
-    
-    const query = searchQuery.toLowerCase();
-    const orderNumber = order.orderNumber?.toLowerCase() || '';
-    const customerName = order.customerName?.toLowerCase() || '';
-    const orderId = order.id?.toString().toLowerCase() || '';
-    
-    // Parse items to search within them
-    let itemsText = '';
-    if (order.items && typeof order.items === 'string') {
-      try {
-        const parsedItems = JSON.parse(order.items);
-        if (Array.isArray(parsedItems)) {
-          itemsText = parsedItems.map((item: any) => item.name).join(' ').toLowerCase();
+  // Enhanced filtering with FIFO sorting
+  const filteredOrders = (orders as any[])
+    .filter((order: any) => {
+      if (!searchQuery) return true;
+      
+      const query = searchQuery.toLowerCase();
+      const orderNumber = order.orderNumber?.toLowerCase() || '';
+      const customerName = order.customerName?.toLowerCase() || '';
+      const orderId = order.id?.toString().toLowerCase() || '';
+      const barcode = order.barcode?.toLowerCase() || '';
+      
+      // Parse items to search within them
+      let itemsText = '';
+      if (order.items && typeof order.items === 'string') {
+        try {
+          const parsedItems = JSON.parse(order.items);
+          if (Array.isArray(parsedItems)) {
+            itemsText = parsedItems.map((item: any) => item.name).join(' ').toLowerCase();
+          }
+        } catch {
+          itemsText = order.items.toLowerCase();
         }
-      } catch {
-        itemsText = order.items.toLowerCase();
       }
-    }
-    
-    return orderNumber.includes(query) || 
-           customerName.includes(query) || 
-           orderId.includes(query) ||
-           itemsText.includes(query);
-  });
+      
+      return orderNumber.includes(query) || 
+             customerName.includes(query) || 
+             orderId.includes(query) ||
+             barcode.includes(query) ||
+             itemsText.includes(query);
+    })
+    // FIFO sorting: active orders first by creation time ASC, completed orders at the end
+    .sort((a: any, b: any) => {
+      // Priority sorting: preparing first, then ready, then completed
+      const statusPriority = {
+        'preparing': 1,
+        'ready': 2,
+        'completed': 3,
+        'cancelled': 3,
+        'pending': 0
+      };
+      
+      const aPriority = statusPriority[a.status as keyof typeof statusPriority] || 4;
+      const bPriority = statusPriority[b.status as keyof typeof statusPriority] || 4;
+      
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
+      }
+      
+      // Within same status, sort by creation time (FIFO - oldest first for active orders)
+      if (aPriority <= 2) { // preparing or ready orders - show oldest first
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      } else { // completed orders - show newest first
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
 
   const stats = [
     { title: "Today's Orders", value: orders.length.toString(), icon: ShoppingBag, trend: "+12%" },

@@ -65,10 +65,13 @@ export default function AdminOrderManagementPage() {
 
   const updateOrderStatus = useMutation({
     mutationFn: async ({ orderId, newStatus }: { orderId: number, newStatus: string }) => {
-      return apiRequest(`/api/orders/${orderId}`, {
+      const response = await fetch(`/api/orders/${orderId}`, {
         method: 'PATCH',
-        body: { status: newStatus }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
       });
+      if (!response.ok) throw new Error('Failed to update order');
+      return response.json();
     },
     onSuccess: (_, { orderId, newStatus }) => {
       queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
@@ -115,12 +118,42 @@ export default function AdminOrderManagementPage() {
     });
   };
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = selectedStatus === "all" || order.status === selectedStatus;
-    return matchesSearch && matchesStatus;
-  });
+  // Enhanced filtering with multiple search fields
+  const filteredOrders = orders
+    .filter(order => {
+      const matchesSearch = searchTerm === "" || 
+        order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.id.toString().includes(searchTerm) ||
+        (order.barcode && order.barcode.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesStatus = selectedStatus === "all" || order.status === selectedStatus;
+      return matchesSearch && matchesStatus;
+    })
+    // FIFO sorting: active orders (preparing, ready) by creation time ASC, completed orders at the end
+    .sort((a, b) => {
+      // Priority sorting: preparing first, then ready, then completed
+      const statusPriority = {
+        'preparing': 1,
+        'ready': 2,
+        'completed': 3,
+        'cancelled': 3,
+        'pending': 0
+      };
+      
+      const aPriority = statusPriority[a.status as keyof typeof statusPriority] || 4;
+      const bPriority = statusPriority[b.status as keyof typeof statusPriority] || 4;
+      
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
+      }
+      
+      // Within same status, sort by creation time (FIFO - oldest first for active orders)
+      if (aPriority <= 2) { // preparing or ready orders
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      } else { // completed orders - newest first
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
 
   const statusCounts = {
     all: orders.length,
@@ -158,7 +191,7 @@ export default function AdminOrderManagementPage() {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search by order ID or customer name..."
+                placeholder="Search by order ID, customer name, or barcode..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
