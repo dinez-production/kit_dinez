@@ -43,6 +43,7 @@ export const menuItems = pgTable("menu_items", {
   description: text("description"),
   addOns: text("add_ons").default('[]'), // JSON array of add-ons
   isVegetarian: boolean("is_vegetarian").notNull().default(true), // true for veg, false for non-veg
+  isTrending: boolean("is_trending").notNull().default(false), // true for trending items
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -101,13 +102,7 @@ export const quickOrders = pgTable("quick_orders", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const trendingItems = pgTable("trending_items", {
-  id: serial("id").primaryKey(),
-  menuItemId: integer("menu_item_id").references(() => menuItems.id).notNull(),
-  position: integer("position").notNull(), // 1-6 for trending positions
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+
 
 // Relations
 export const categoriesRelations = relations(categories, ({ many }) => ({
@@ -148,12 +143,7 @@ export const quickOrdersRelations = relations(quickOrders, ({ one }) => ({
   }),
 }));
 
-export const trendingItemsRelations = relations(trendingItems, ({ one }) => ({
-  menuItem: one(menuItems, {
-    fields: [trendingItems.menuItemId],
-    references: [menuItems.id],
-  }),
-}));
+
 
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -221,6 +211,7 @@ export const insertMenuItemSchema = createInsertSchema(menuItems).pick({
   description: true,
   addOns: true,
   isVegetarian: true,
+  isTrending: true,
 });
 
 export const insertOrderSchema = createInsertSchema(orders).pick({
@@ -257,11 +248,7 @@ export const insertQuickOrderSchema = createInsertSchema(quickOrders).pick({
   isActive: true,
 });
 
-export const insertTrendingItemSchema = createInsertSchema(trendingItems).pick({
-  menuItemId: true,
-  position: true,
-  isActive: true,
-});
+
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -285,5 +272,4 @@ export type LoginIssue = typeof loginIssues.$inferSelect;
 export type InsertQuickOrder = z.infer<typeof insertQuickOrderSchema>;
 export type QuickOrder = typeof quickOrders.$inferSelect;
 
-export type InsertTrendingItem = z.infer<typeof insertTrendingItemSchema>;
-export type TrendingItem = typeof trendingItems.$inferSelect;
+

@@ -17,142 +17,57 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Edit, Flame } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Plus, Flame, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { VegIndicator } from "@/components/ui/VegIndicator";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { MenuItem, TrendingItem } from "@shared/schema";
-
-type TrendingItemWithMenu = TrendingItem & { menuItem: MenuItem };
+import type { MenuItem } from "@shared/schema";
 
 export function TrendingItemsManager() {
   const { toast } = useToast();
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingTrendingItem, setEditingTrendingItem] = useState<TrendingItemWithMenu | null>(null);
-  const [selectedMenuItemId, setSelectedMenuItemId] = useState<string>("");
-  const [selectedPosition, setSelectedPosition] = useState<string>("");
 
-  const { data: trendingItems = [], isLoading: trendingItemsLoading } = useQuery<TrendingItemWithMenu[]>({
-    queryKey: ["/api/trending-items"],
+  const { data: menuItems = [], isLoading: menuItemsLoading } = useQuery<MenuItem[]>({
+    queryKey: ["/api/menu"],
     staleTime: 1000 * 30,
     refetchOnMount: true,
   });
 
-  const { data: menuItems = [], isLoading: menuItemsLoading } = useQuery<MenuItem[]>({
-    queryKey: ["/api/menu"],
-  });
-
-  const createTrendingItemMutation = useMutation({
-    mutationFn: async (data: { menuItemId: number; position: number }) => {
-      return apiRequest("/api/trending-items", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/trending-items"] });
-      setIsAddDialogOpen(false);
-      setSelectedMenuItemId("");
-      setSelectedPosition("");
-      toast({
-        title: "Trending item added",
-        description: "The trending item has been successfully configured.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to add trending item. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateTrendingItemMutation = useMutation({
-    mutationFn: async (data: { id: number; menuItemId: number; position: number }) => {
-      return apiRequest(`/api/trending-items/${data.id}`, {
+  const updateMenuItemMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<MenuItem> }) => {
+      return apiRequest(`/api/menu/${id}`, {
         method: "PUT",
-        body: JSON.stringify({ menuItemId: data.menuItemId, position: data.position, isActive: true }),
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" },
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/trending-items"] });
-      setEditingTrendingItem(null);
-      setSelectedMenuItemId("");
-      setSelectedPosition("");
+      queryClient.invalidateQueries({ queryKey: ["/api/menu"] });
       toast({
-        title: "Trending item updated",
-        description: "The trending item has been successfully updated.",
+        title: "Trending status updated",
+        description: "The menu item's trending status has been updated.",
       });
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to update trending item. Please try again.",
+        description: "Failed to update trending status. Please try again.",
         variant: "destructive",
       });
     },
   });
 
-  const deleteTrendingItemMutation = useMutation({
-    mutationFn: async (id: number) => {
-      return apiRequest(`/api/trending-items/${id}`, {
-        method: "DELETE",
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/trending-items"] });
-      toast({
-        title: "Trending item removed",
-        description: "The trending item has been successfully removed.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to remove trending item. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleAddTrendingItem = () => {
-    if (!selectedMenuItemId || !selectedPosition) return;
-    
-    createTrendingItemMutation.mutate({
-      menuItemId: parseInt(selectedMenuItemId),
-      position: parseInt(selectedPosition),
+  const handleToggleTrending = (menuItem: MenuItem) => {
+    updateMenuItemMutation.mutate({
+      id: menuItem.id,
+      data: { isTrending: !menuItem.isTrending },
     });
   };
 
-  const handleUpdateTrendingItem = () => {
-    if (!editingTrendingItem || !selectedMenuItemId || !selectedPosition) return;
-    
-    updateTrendingItemMutation.mutate({
-      id: editingTrendingItem.id,
-      menuItemId: parseInt(selectedMenuItemId),
-      position: parseInt(selectedPosition),
-    });
-  };
+  const trendingItems = menuItems.filter(item => item.isTrending);
+  const availableItems = menuItems.filter(item => item.available);
 
-  const handleEditTrendingItem = (item: TrendingItemWithMenu) => {
-    setEditingTrendingItem(item);
-    setSelectedMenuItemId(item.menuItemId.toString());
-    setSelectedPosition(item.position.toString());
-  };
-
-  const handleCancelEdit = () => {
-    setEditingTrendingItem(null);
-    setSelectedMenuItemId("");
-    setSelectedPosition("");
-  };
-
-  const availableMenuItems = menuItems.filter(item => item.available);
-  const availablePositions = [1, 2, 3, 4, 5, 6].filter(pos => 
-    !trendingItems.some(item => item.position === pos && item.id !== editingTrendingItem?.id)
-  );
-
-  if (trendingItemsLoading || menuItemsLoading) {
+  if (menuItemsLoading) {
     return (
       <Card>
         <CardHeader>
@@ -163,7 +78,7 @@ export function TrendingItemsManager() {
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
-            <div className="text-muted-foreground">Loading trending items...</div>
+            <div className="text-muted-foreground">Loading menu items...</div>
           </div>
         </CardContent>
       </Card>
@@ -179,178 +94,107 @@ export function TrendingItemsManager() {
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           Configure which menu items appear in the "Trending Now" section on users' home page.
-          You can set up to 6 trending items in specific positions.
+          Simply toggle the trending status for any menu item.
         </p>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex justify-between items-center">
-          <div className="text-sm text-muted-foreground">
-            {trendingItems.length} of 6 trending slots configured
-          </div>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button disabled={trendingItems.length >= 6}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Trending Item
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add Trending Item</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium">Menu Item</label>
-                  <Select value={selectedMenuItemId} onValueChange={setSelectedMenuItemId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a menu item" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableMenuItems.map((item) => (
-                        <SelectItem key={item.id} value={item.id.toString()}>
-                          <div className="flex items-center gap-2">
-                            <VegIndicator isVegetarian={item.isVegetarian} size="sm" />
-                            {item.name} - ₹{item.price}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Position</label>
-                  <Select value={selectedPosition} onValueChange={setSelectedPosition}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select position" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availablePositions.map((pos) => (
-                        <SelectItem key={pos} value={pos.toString()}>
-                          Position {pos}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex gap-2 pt-4">
-                  <Button
-                    onClick={handleAddTrendingItem}
-                    disabled={!selectedMenuItemId || !selectedPosition || createTrendingItemMutation.isPending}
-                  >
-                    Add Trending Item
-                  </Button>
-                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                </div>
+      <CardContent className="space-y-6">
+        <div className="flex justify-between items-center p-4 bg-orange-50 dark:bg-orange-950/20 rounded-lg border">
+          <div className="flex items-center gap-2">
+            <Star className="w-5 h-5 text-orange-600" />
+            <div>
+              <div className="font-medium">Currently Trending</div>
+              <div className="text-sm text-muted-foreground">
+                {trendingItems.length} items marked as trending
               </div>
-            </DialogContent>
-          </Dialog>
+            </div>
+          </div>
+          <Badge variant="secondary" className="bg-orange-100 text-orange-700">
+            {trendingItems.length} trending
+          </Badge>
         </div>
 
-        {trendingItems.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            No trending items configured. Add some items to feature in the trending section.
-          </div>
-        ) : (
-          <div className="grid gap-4">
-            {trendingItems
-              .sort((a, b) => a.position - b.position)
-              .map((item) => (
+        <div className="space-y-4">
+          <h3 className="font-medium">All Menu Items</h3>
+          {availableItems.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No menu items available. Add some menu items first.
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {availableItems.map((item) => (
                 <Card key={item.id} className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <Badge variant="secondary" className="bg-orange-100 text-orange-700">
-                        Position {item.position}
-                      </Badge>
-                      <VegIndicator isVegetarian={item.menuItem.isVegetarian} size="sm" />
-                      <div>
-                        <div className="font-medium">{item.menuItem.name}</div>
-                        <div className="text-sm text-muted-foreground">₹{item.menuItem.price}</div>
+                      <VegIndicator isVegetarian={item.isVegetarian} size="sm" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className="font-medium">{item.name}</div>
+                          {item.isTrending && (
+                            <Badge variant="secondary" className="bg-orange-100 text-orange-700 text-xs">
+                              <Flame className="w-3 h-3 mr-1" />
+                              Trending
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          ₹{item.price} • Stock: {item.stock}
+                        </div>
+                        {item.description && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {item.description}
+                          </div>
+                        )}
                       </div>
-                      {!item.menuItem.available && (
-                        <Badge variant="secondary" className="bg-red-100 text-red-700">
-                          Unavailable
-                        </Badge>
-                      )}
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditTrendingItem(item)}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => deleteTrendingItemMutation.mutate(item.id)}
-                        disabled={deleteTrendingItemMutation.isPending}
-                      >
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                      </Button>
+                    <div className="flex items-center gap-3">
+                      <div className="text-sm text-muted-foreground">
+                        {item.isTrending ? "Trending" : "Not trending"}
+                      </div>
+                      <Switch
+                        checked={item.isTrending}
+                        onCheckedChange={() => handleToggleTrending(item)}
+                        disabled={updateMenuItemMutation.isPending}
+                      />
                     </div>
                   </div>
                 </Card>
               ))}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
 
-        {/* Edit Dialog */}
-        <Dialog open={!!editingTrendingItem} onOpenChange={(open) => !open && handleCancelEdit()}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Trending Item</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Menu Item</label>
-                <Select value={selectedMenuItemId} onValueChange={setSelectedMenuItemId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a menu item" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableMenuItems.map((item) => (
-                      <SelectItem key={item.id} value={item.id.toString()}>
-                        <div className="flex items-center gap-2">
-                          <VegIndicator isVegetarian={item.isVegetarian} size="sm" />
-                          {item.name} - ₹{item.price}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        {trendingItems.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="font-medium">Preview: Trending Items</h3>
+            <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+              <div className="text-sm text-muted-foreground mb-3">
+                This is how these items will appear in the "Trending Now" section:
               </div>
-              <div>
-                <label className="text-sm font-medium">Position</label>
-                <Select value={selectedPosition} onValueChange={setSelectedPosition}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select position" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availablePositions.map((pos) => (
-                      <SelectItem key={pos} value={pos.toString()}>
-                        Position {pos}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex gap-2 pt-4">
-                <Button
-                  onClick={handleUpdateTrendingItem}
-                  disabled={!selectedMenuItemId || !selectedPosition || updateTrendingItemMutation.isPending}
-                >
-                  Update Trending Item
-                </Button>
-                <Button variant="outline" onClick={handleCancelEdit}>
-                  Cancel
-                </Button>
+              <div className="grid gap-3">
+                {trendingItems.map((item) => (
+                  <div key={item.id} className="flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border">
+                    <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-red-500 rounded-lg flex-shrink-0 flex items-center justify-center">
+                      <Flame className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <div className="font-medium">{item.name}</div>
+                        <VegIndicator isVegetarian={item.isVegetarian} size="sm" />
+                        <Badge variant="secondary" className="bg-orange-100 text-orange-700 text-xs">
+                          🔥 Trending
+                        </Badge>
+                      </div>
+                      <div className="text-sm text-muted-foreground">Available now</div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold">₹{item.price}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
