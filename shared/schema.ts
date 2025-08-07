@@ -1,19 +1,113 @@
-// Re-export Prisma types for compatibility
+// Re-export Prisma types for User (PostgreSQL)
 export type { 
-  User, Category, MenuItem, Order, OrderItem, Notification, LoginIssue, QuickOrder, Payment,
+  User,
   Prisma
 } from '@prisma/client';
 
 // Re-export insert types from Prisma
 export type InsertUser = Prisma.UserCreateInput;
-export type InsertCategory = Prisma.CategoryCreateInput;
-export type InsertMenuItem = Prisma.MenuItemCreateInput;
-export type InsertOrder = Prisma.OrderCreateInput;
-export type InsertOrderItem = Prisma.OrderItemCreateInput;
-export type InsertNotification = Prisma.NotificationCreateInput;
-export type InsertLoginIssue = Prisma.LoginIssueCreateInput;
-export type InsertQuickOrder = Prisma.QuickOrderCreateInput;
-export type InsertPayment = Prisma.PaymentCreateInput;
+
+// MongoDB types (defined in mongodb-models.ts)
+export type Category = {
+  id: string;
+  name: string;
+  createdAt: Date;
+};
+
+export type MenuItem = {
+  id: string;
+  name: string;
+  price: number;
+  categoryId?: string;
+  available: boolean;
+  stock: number;
+  description?: string;
+  addOns: string;
+  isVegetarian: boolean;
+  isTrending: boolean;
+  createdAt: Date;
+};
+
+export type Order = {
+  id: string;
+  orderNumber: string;
+  customerId?: number; // PostgreSQL user ID
+  customerName: string;
+  items: string;
+  amount: number;
+  status: string;
+  estimatedTime: number;
+  barcode: string;
+  barcodeUsed: boolean;
+  deliveredAt?: Date;
+  createdAt: Date;
+};
+
+export type OrderItem = {
+  id: string;
+  orderId: string;
+  menuItemId: string;
+  quantity: number;
+  price: number;
+};
+
+export type Notification = {
+  id: string;
+  type: string;
+  message: string;
+  read: boolean;
+  createdAt: Date;
+};
+
+export type LoginIssue = {
+  id: string;
+  name: string;
+  email?: string;
+  phoneNumber?: string;
+  registerNumber?: string;
+  staffId?: string;
+  issueType: string;
+  description: string;
+  status: string;
+  adminNotes?: string;
+  resolvedBy?: string;
+  resolvedAt?: Date;
+  createdAt: Date;
+};
+
+export type QuickOrder = {
+  id: string;
+  menuItemId: string;
+  position: number;
+  isActive: boolean;
+  createdAt: Date;
+};
+
+export type Payment = {
+  id: string;
+  orderId?: string;
+  merchantTransactionId: string;
+  phonePeTransactionId?: string;
+  amount: number;
+  status: string;
+  paymentMethod?: string;
+  responseCode?: string;
+  responseMessage?: string;
+  checksum?: string;
+  metadata?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+// Insert types for MongoDB models
+export type InsertCategory = Omit<Category, 'id' | 'createdAt'>;
+export type InsertMenuItem = Omit<MenuItem, 'id' | 'createdAt'>;
+export type InsertOrder = Omit<Order, 'id' | 'createdAt'>;
+export type InsertOrderItem = Omit<OrderItem, 'id'>;
+export type InsertNotification = Omit<Notification, 'id' | 'createdAt'>;
+export type InsertLoginIssue = Omit<LoginIssue, 'id' | 'createdAt'>;
+export type InsertQuickOrder = Omit<QuickOrder, 'id' | 'createdAt'>;
+export type InsertPayment = Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>;
 
 // Keep validation schemas using Zod for form validation
 import { z } from "zod";

@@ -15,9 +15,10 @@ export async function performStartupCheck(): Promise<boolean> {
       return false;
     }
     
-    // Test PostgreSQL connectivity by querying users table
+    // Test PostgreSQL connectivity with a simple connection test
     const db = getDb();
-    await db.user.findMany({ take: 1 });
+    // Use $executeRaw to avoid cached plan issues
+    await db.$executeRaw`SELECT 1`;
     console.log("✅ PostgreSQL connection successful");
     
     // Test MongoDB connectivity (optional for development)
