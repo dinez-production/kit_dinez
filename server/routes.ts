@@ -680,7 +680,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Store payment record with order data for later order creation
       await storage.createPayment({
-        orderId: null, // No order created yet
         merchantTransactionId,
         amount: amount * 100, // Store in paise
         status: PAYMENT_STATUS.PENDING,
@@ -789,7 +788,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Create the order
           const newOrder = await storage.createOrder(completeOrderData);
           
-          // Update payment with order ID
+          // Update payment with order connection
           await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
             orderId: newOrder.id
           });

@@ -2,7 +2,6 @@
  * Startup health check to ensure database connectivity
  * This prevents the common DATABASE_URL issues during remixing
  */
-import { users } from "@shared/schema";
 import { db as getDb } from "./db";
 
 export async function performStartupCheck(): Promise<boolean> {
@@ -17,7 +16,7 @@ export async function performStartupCheck(): Promise<boolean> {
     
     // Test database connectivity by querying users table
     const db = getDb();
-    await db.select().from(users).limit(1);
+    await db.user.findMany({ take: 1 });
     
     console.log("✅ Database connection successful");
     console.log("✅ Startup health check passed");

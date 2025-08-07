@@ -1,16 +1,19 @@
-import { 
-  users, categories, menuItems, orders, notifications, loginIssues, quickOrders, payments,
-  type User, type InsertUser,
-  type Category, type InsertCategory,
-  type MenuItem, type InsertMenuItem,
-  type Order, type InsertOrder,
-  type Notification, type InsertNotification,
-  type LoginIssue, type InsertLoginIssue,
-  type QuickOrder, type InsertQuickOrder,
-  type Payment, type InsertPayment
-} from "@shared/schema";
+import { PrismaClient } from '@prisma/client';
+import type { 
+  User, Category, MenuItem, Order, Notification, LoginIssue, QuickOrder, Payment,
+  Prisma
+} from '@prisma/client';
 import { db as getDb } from "./db";
-import { eq, desc } from "drizzle-orm";
+
+// Type definitions for insert operations
+export type InsertUser = Prisma.UserCreateInput;
+export type InsertCategory = Prisma.CategoryCreateInput;
+export type InsertMenuItem = Prisma.MenuItemCreateInput;
+export type InsertOrder = Prisma.OrderCreateInput;
+export type InsertNotification = Prisma.NotificationCreateInput;
+export type InsertLoginIssue = Prisma.LoginIssueCreateInput;
+export type InsertQuickOrder = { menuItemId: number; position: number; isActive?: boolean };
+export type InsertPayment = { orderId?: number | null; merchantTransactionId: string; phonePeTransactionId?: string; amount: number; status?: string; paymentMethod?: string; responseCode?: string; responseMessage?: string; checksum?: string; metadata?: string };
 
 // modify the interface with any CRUD methods
 // you might need
@@ -42,6 +45,7 @@ export interface IStorage {
   getOrders(): Promise<Order[]>;
   getOrder(id: number): Promise<Order | undefined>;
   getOrderByBarcode(barcode: string): Promise<Order | undefined>;
+  getOrderByOrderNumber(orderNumber: string): Promise<Order | undefined>;
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrder(id: number, order: Partial<InsertOrder & { deliveredAt?: Date; barcodeUsed?: boolean }>): Promise<Order>;
   
@@ -71,340 +75,350 @@ export interface IStorage {
   createPayment(payment: InsertPayment): Promise<Payment>;
   updatePayment(id: number, payment: Partial<InsertPayment>): Promise<Payment>;
   updatePaymentByMerchantTxnId(merchantTransactionId: string, payment: Partial<InsertPayment>): Promise<Payment | undefined>;
-
 }
 
 export class DatabaseStorage implements IStorage {
   // Users
   async getUser(id: number): Promise<User | undefined> {
     const db = getDb();
-    const [user] = await db.select().from(users).where(eq(users.id, id));
+    const user = await db.user.findUnique({
+      where: { id }
+    });
     return user || undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     const db = getDb();
-    const [user] = await db.select().from(users).where(eq(users.email, email));
+    const user = await db.user.findUnique({
+      where: { email }
+    });
     return user || undefined;
   }
 
   async getUserByRegisterNumber(registerNumber: string): Promise<User | undefined> {
     const db = getDb();
-    const [user] = await db.select().from(users).where(eq(users.registerNumber, registerNumber));
+    const user = await db.user.findUnique({
+      where: { registerNumber }
+    });
     return user || undefined;
   }
 
   async getUserByStaffId(staffId: string): Promise<User | undefined> {
     const db = getDb();
-    const [user] = await db.select().from(users).where(eq(users.staffId, staffId));
+    const user = await db.user.findUnique({
+      where: { staffId }
+    });
     return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const db = getDb();
-    const [user] = await db
-      .insert(users)
-      .values(insertUser)
-      .returning();
+    const user = await db.user.create({
+      data: insertUser
+    });
     return user;
   }
 
   async updateUser(id: number, updateData: Partial<InsertUser>): Promise<User> {
     const db = getDb();
-    const [user] = await db
-      .update(users)
-      .set(updateData)
-      .where(eq(users.id, id))
-      .returning();
+    const user = await db.user.update({
+      where: { id },
+      data: updateData
+    });
     return user;
   }
 
   async updateUserEmail(id: number, email: string): Promise<User | undefined> {
     const db = getDb();
-    const [user] = await db
-      .update(users)
-      .set({ email })
-      .where(eq(users.id, id))
-      .returning();
-    return user || undefined;
+    try {
+      const user = await db.user.update({
+        where: { id },
+        data: { email }
+      });
+      return user;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async deleteAllUsers(): Promise<void> {
     const db = getDb();
-    await db.delete(users);
+    await db.user.deleteMany();
   }
 
   // Categories
   async getCategories(): Promise<Category[]> {
     const db = getDb();
-    return await db.select().from(categories).orderBy(categories.name);
+    return await db.category.findMany({
+      orderBy: { name: 'asc' }
+    });
   }
 
   async createCategory(category: InsertCategory): Promise<Category> {
     const db = getDb();
-    const [newCategory] = await db
-      .insert(categories)
-      .values(category)
-      .returning();
+    const newCategory = await db.category.create({
+      data: category
+    });
     return newCategory;
   }
 
   async deleteCategory(id: number): Promise<void> {
     const db = getDb();
-    await db.delete(categories).where(eq(categories.id, id));
+    await db.category.delete({
+      where: { id }
+    });
   }
 
   // Menu Items
   async getMenuItems(): Promise<MenuItem[]> {
     const db = getDb();
-    return await db.select().from(menuItems).orderBy(menuItems.name);
+    return await db.menuItem.findMany({
+      orderBy: { name: 'asc' }
+    });
   }
 
   async getMenuItem(id: number): Promise<MenuItem | undefined> {
     const db = getDb();
-    const [item] = await db.select().from(menuItems).where(eq(menuItems.id, id));
+    const item = await db.menuItem.findUnique({
+      where: { id }
+    });
     return item || undefined;
   }
 
   async createMenuItem(item: InsertMenuItem): Promise<MenuItem> {
     const db = getDb();
-    const [newItem] = await db
-      .insert(menuItems)
-      .values(item)
-      .returning();
+    const newItem = await db.menuItem.create({
+      data: item
+    });
     return newItem;
   }
 
   async updateMenuItem(id: number, item: Partial<InsertMenuItem>): Promise<MenuItem> {
     const db = getDb();
-    const [updatedItem] = await db
-      .update(menuItems)
-      .set(item)
-      .where(eq(menuItems.id, id))
-      .returning();
+    const updatedItem = await db.menuItem.update({
+      where: { id },
+      data: item
+    });
     return updatedItem;
   }
 
   async deleteMenuItem(id: number): Promise<void> {
     const db = getDb();
-    await db.delete(menuItems).where(eq(menuItems.id, id));
+    await db.menuItem.delete({
+      where: { id }
+    });
   }
 
   // Orders
   async getOrders(): Promise<Order[]> {
     const db = getDb();
-    return await db.select().from(orders).orderBy(desc(orders.createdAt));
+    return await db.order.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
   }
 
   async getOrder(id: number): Promise<Order | undefined> {
     const db = getDb();
-    const [order] = await db.select().from(orders).where(eq(orders.id, id));
+    const order = await db.order.findUnique({
+      where: { id }
+    });
     return order || undefined;
   }
 
   async createOrder(order: InsertOrder): Promise<Order> {
     const db = getDb();
-    const [newOrder] = await db
-      .insert(orders)
-      .values(order)
-      .returning();
+    const newOrder = await db.order.create({
+      data: order
+    });
     return newOrder;
   }
 
   async updateOrder(id: number, order: Partial<InsertOrder & { deliveredAt?: Date; barcodeUsed?: boolean }>): Promise<Order> {
     const db = getDb();
-    const [updatedOrder] = await db
-      .update(orders)
-      .set(order)
-      .where(eq(orders.id, id))
-      .returning();
+    const updatedOrder = await db.order.update({
+      where: { id },
+      data: order
+    });
     return updatedOrder;
   }
 
   async getOrderByBarcode(barcode: string): Promise<Order | undefined> {
     const db = getDb();
-    const [order] = await db.select().from(orders).where(eq(orders.barcode, barcode));
+    const order = await db.order.findUnique({
+      where: { barcode }
+    });
     return order || undefined;
   }
 
   async getOrderByOrderNumber(orderNumber: string): Promise<Order | undefined> {
     const db = getDb();
-    const [order] = await db.select().from(orders).where(eq(orders.orderNumber, orderNumber));
+    const order = await db.order.findUnique({
+      where: { orderNumber }
+    });
     return order || undefined;
   }
 
   // Notifications
   async getNotifications(): Promise<Notification[]> {
     const db = getDb();
-    return await db.select().from(notifications).orderBy(desc(notifications.createdAt));
+    return await db.notification.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
   }
 
   async createNotification(notification: InsertNotification): Promise<Notification> {
     const db = getDb();
-    const [newNotification] = await db
-      .insert(notifications)
-      .values(notification)
-      .returning();
+    const newNotification = await db.notification.create({
+      data: notification
+    });
     return newNotification;
   }
 
   async updateNotification(id: number, notification: Partial<InsertNotification>): Promise<Notification> {
     const db = getDb();
-    const [updatedNotification] = await db
-      .update(notifications)
-      .set(notification)
-      .where(eq(notifications.id, id))
-      .returning();
+    const updatedNotification = await db.notification.update({
+      where: { id },
+      data: notification
+    });
     return updatedNotification;
   }
 
   async deleteNotification(id: number): Promise<void> {
     const db = getDb();
-    await db.delete(notifications).where(eq(notifications.id, id));
+    await db.notification.delete({
+      where: { id }
+    });
   }
 
   // Login Issues
   async getLoginIssues(): Promise<LoginIssue[]> {
     const db = getDb();
-    return await db.select().from(loginIssues).orderBy(desc(loginIssues.createdAt));
+    return await db.loginIssue.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
   }
 
   async getLoginIssue(id: number): Promise<LoginIssue | undefined> {
     const db = getDb();
-    const [issue] = await db.select().from(loginIssues).where(eq(loginIssues.id, id));
+    const issue = await db.loginIssue.findUnique({
+      where: { id }
+    });
     return issue || undefined;
   }
 
   async createLoginIssue(issue: InsertLoginIssue): Promise<LoginIssue> {
     const db = getDb();
-    const [newIssue] = await db
-      .insert(loginIssues)
-      .values(issue)
-      .returning();
+    const newIssue = await db.loginIssue.create({
+      data: issue
+    });
     return newIssue;
   }
 
   async updateLoginIssue(id: number, updateData: Partial<LoginIssue>): Promise<LoginIssue> {
     const db = getDb();
-    const [updatedIssue] = await db
-      .update(loginIssues)
-      .set(updateData)
-      .where(eq(loginIssues.id, id))
-      .returning();
+    const updatedIssue = await db.loginIssue.update({
+      where: { id },
+      data: updateData
+    });
     return updatedIssue;
   }
 
   async deleteLoginIssue(id: number): Promise<void> {
     const db = getDb();
-    await db.delete(loginIssues).where(eq(loginIssues.id, id));
+    await db.loginIssue.delete({
+      where: { id }
+    });
   }
 
   // Quick Orders
   async getQuickOrders(): Promise<(QuickOrder & { menuItem: MenuItem })[]> {
     const db = getDb();
-    const result = await db
-      .select({
-        id: quickOrders.id,
-        menuItemId: quickOrders.menuItemId,
-        position: quickOrders.position,
-        isActive: quickOrders.isActive,
-        createdAt: quickOrders.createdAt,
-        menuItem: {
-          id: menuItems.id,
-          name: menuItems.name,
-          price: menuItems.price,
-          categoryId: menuItems.categoryId,
-          available: menuItems.available,
-          stock: menuItems.stock,
-          description: menuItems.description,
-          addOns: menuItems.addOns,
-          isVegetarian: menuItems.isVegetarian,
-          isTrending: menuItems.isTrending,
-          createdAt: menuItems.createdAt,
-        }
-      })
-      .from(quickOrders)
-      .innerJoin(menuItems, eq(quickOrders.menuItemId, menuItems.id))
-      .where(eq(quickOrders.isActive, true))
-      .orderBy(quickOrders.position);
+    const result = await db.quickOrder.findMany({
+      where: { isActive: true },
+      include: { menuItem: true },
+      orderBy: { position: 'asc' }
+    });
     
-    return result.map(row => ({
-      ...row,
-      menuItem: row.menuItem
-    }));
+    return result;
   }
 
   async createQuickOrder(quickOrder: InsertQuickOrder): Promise<QuickOrder> {
     const db = getDb();
-    const [newQuickOrder] = await db
-      .insert(quickOrders)
-      .values(quickOrder)
-      .returning();
+    const newQuickOrder = await db.quickOrder.create({
+      data: quickOrder
+    });
     return newQuickOrder;
   }
 
   async updateQuickOrder(id: number, quickOrder: Partial<InsertQuickOrder>): Promise<QuickOrder> {
     const db = getDb();
-    const [updatedQuickOrder] = await db
-      .update(quickOrders)
-      .set(quickOrder)
-      .where(eq(quickOrders.id, id))
-      .returning();
+    const updatedQuickOrder = await db.quickOrder.update({
+      where: { id },
+      data: quickOrder
+    });
     return updatedQuickOrder;
   }
 
   async deleteQuickOrder(id: number): Promise<void> {
     const db = getDb();
-    await db.delete(quickOrders).where(eq(quickOrders.id, id));
+    await db.quickOrder.delete({
+      where: { id }
+    });
   }
 
   // Payments
   async getPayments(): Promise<Payment[]> {
     const db = getDb();
-    return await db.select().from(payments).orderBy(desc(payments.createdAt));
+    return await db.payment.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
   }
 
   async getPayment(id: number): Promise<Payment | undefined> {
     const db = getDb();
-    const [payment] = await db.select().from(payments).where(eq(payments.id, id));
+    const payment = await db.payment.findUnique({
+      where: { id }
+    });
     return payment || undefined;
   }
 
   async getPaymentByMerchantTxnId(merchantTransactionId: string): Promise<Payment | undefined> {
     const db = getDb();
-    const [payment] = await db.select().from(payments).where(eq(payments.merchantTransactionId, merchantTransactionId));
+    const payment = await db.payment.findUnique({
+      where: { merchantTransactionId }
+    });
     return payment || undefined;
   }
 
   async createPayment(payment: InsertPayment): Promise<Payment> {
     const db = getDb();
-    const [newPayment] = await db
-      .insert(payments)
-      .values(payment)
-      .returning();
+    const newPayment = await db.payment.create({
+      data: payment
+    });
     return newPayment;
   }
 
   async updatePayment(id: number, payment: Partial<InsertPayment>): Promise<Payment> {
     const db = getDb();
-    const [updatedPayment] = await db
-      .update(payments)
-      .set({...payment, updatedAt: new Date()})
-      .where(eq(payments.id, id))
-      .returning();
+    const updatedPayment = await db.payment.update({
+      where: { id },
+      data: { ...payment, updatedAt: new Date() }
+    });
     return updatedPayment;
   }
 
   async updatePaymentByMerchantTxnId(merchantTransactionId: string, payment: Partial<InsertPayment>): Promise<Payment | undefined> {
     const db = getDb();
-    const [updatedPayment] = await db
-      .update(payments)
-      .set({...payment, updatedAt: new Date()})
-      .where(eq(payments.merchantTransactionId, merchantTransactionId))
-      .returning();
-    return updatedPayment || undefined;
+    try {
+      const updatedPayment = await db.payment.update({
+        where: { merchantTransactionId },
+        data: { ...payment, updatedAt: new Date() }
+      });
+      return updatedPayment;
+    } catch (error) {
+      return undefined;
+    }
   }
-
 }
 
 export const storage = new DatabaseStorage();

@@ -1,0 +1,170 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  Int      @id @default(autoincrement())
+  email               String   @unique
+  name                String
+  phoneNumber         String?  @map("phone_number")
+  role                String   // "student" or "staff"
+  
+  // For students
+  registerNumber      String?  @unique @map("register_number")
+  department          String?
+  joiningYear         Int?     @map("joining_year")
+  passingOutYear      Int?     @map("passing_out_year")
+  currentStudyYear    Int?     @map("current_study_year")
+  isPassed            Boolean? @default(false) @map("is_passed")
+  
+  // For staff
+  staffId             String?  @unique @map("staff_id")
+  
+  // Profile completion status
+  isProfileComplete   Boolean? @default(false) @map("is_profile_complete")
+  
+  createdAt           DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  orders              Order[]
+  
+  @@map("users")
+}
+
+model Category {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  menuItems MenuItem[]
+  
+  @@map("categories")
+}
+
+model MenuItem {
+  id           Int      @id @default(autoincrement())
+  name         String
+  price        Int
+  categoryId   Int?     @map("category_id")
+  available    Boolean  @default(true)
+  stock        Int      @default(0)
+  description  String?
+  addOns       String   @default("[]") @map("add_ons") // JSON array of add-ons
+  isVegetarian Boolean  @default(true) @map("is_vegetarian") // true for veg, false for non-veg
+  isTrending   Boolean  @default(false) @map("is_trending") // true for trending items
+  createdAt    DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  category     Category?   @relation(fields: [categoryId], references: [id])
+  orderItems   OrderItem[]
+  quickOrders  QuickOrder[]
+  
+  @@map("menu_items")
+}
+
+model Order {
+  id            Int       @id @default(autoincrement())
+  orderNumber   String    @unique @map("order_number")
+  customerId    Int?      @map("customer_id")
+  customerName  String    @map("customer_name")
+  items         String    // JSON string
+  amount        Int
+  status        String    @default("preparing")
+  estimatedTime Int       @default(15) @map("estimated_time")
+  barcode       String    @unique // unique barcode for delivery verification
+  barcodeUsed   Boolean   @default(false) @map("barcode_used") // prevents barcode reuse
+  deliveredAt   DateTime? @map("delivered_at") // timestamp when order was delivered
+  createdAt     DateTime  @default(now()) @map("created_at")
+  
+  // Relations
+  customer      User?       @relation(fields: [customerId], references: [id])
+  orderItems    OrderItem[]
+  payments      Payment[]
+  
+  @@map("orders")
+}
+
+model OrderItem {
+  id         Int @id @default(autoincrement())
+  orderId    Int @map("order_id")
+  menuItemId Int @map("menu_item_id")
+  quantity   Int
+  price      Int
+  
+  // Relations
+  order      Order    @relation(fields: [orderId], references: [id])
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  
+  @@map("order_items")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  type      String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  @@map("notifications")
+}
+
+model LoginIssue {
+  id             Int       @id @default(autoincrement())
+  name           String
+  email          String?
+  phoneNumber    String?   @map("phone_number")
+  registerNumber String?   @map("register_number")
+  staffId        String?   @map("staff_id")
+  issueType      String    @map("issue_type") // "forgot_password", "account_locked", "email_changed", "other"
+  description    String
+  status         String    @default("pending") // "pending", "in_progress", "resolved"
+  adminNotes     String?   @map("admin_notes")
+  resolvedBy     String?   @map("resolved_by")
+  resolvedAt     DateTime? @map("resolved_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  
+  @@map("login_issues")
+}
+
+model QuickOrder {
+  id         Int      @id @default(autoincrement())
+  menuItemId Int      @map("menu_item_id")
+  position   Int      // 1-4 for grid positions
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  
+  @@map("quick_orders")
+}
+
+model Payment {
+  id                    Int      @id @default(autoincrement())
+  orderId               Int?     @map("order_id")
+  merchantTransactionId String   @unique @map("merchant_transaction_id")
+  phonePeTransactionId  String?  @map("phonepe_transaction_id")
+  amount                Int
+  status                String   @default("pending") // pending, success, failed, timeout
+  paymentMethod         String?  @map("payment_method") // UPI, CARD, NET_BANKING
+  responseCode          String?  @map("response_code")
+  responseMessage       String?  @map("response_message")
+  checksum              String?
+  metadata              String?  // Store order data for payment completion
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @default(now()) @updatedAt @map("updated_at")
+  
+  // Relations
+  order                 Order?   @relation(fields: [orderId], references: [id])
+  
+  @@map("payments")
+}

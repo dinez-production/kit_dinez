@@ -1,188 +1,22 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { relations } from "drizzle-orm";
+// Re-export Prisma types for compatibility
+export type { 
+  User, Category, MenuItem, Order, OrderItem, Notification, LoginIssue, QuickOrder, Payment,
+  Prisma
+} from '@prisma/client';
+
+// Re-export insert types from Prisma
+export type InsertUser = Prisma.UserCreateInput;
+export type InsertCategory = Prisma.CategoryCreateInput;
+export type InsertMenuItem = Prisma.MenuItemCreateInput;
+export type InsertOrder = Prisma.OrderCreateInput;
+export type InsertOrderItem = Prisma.OrderItemCreateInput;
+export type InsertNotification = Prisma.NotificationCreateInput;
+export type InsertLoginIssue = Prisma.LoginIssueCreateInput;
+export type InsertQuickOrder = Prisma.QuickOrderCreateInput;
+export type InsertPayment = Prisma.PaymentCreateInput;
+
+// Keep validation schemas using Zod for form validation
 import { z } from "zod";
-
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  email: text("email").notNull().unique(),
-  name: text("name").notNull(),
-  phoneNumber: text("phone_number"),
-  role: text("role").notNull(), // "student" or "staff"
-  
-  // For students
-  registerNumber: text("register_number").unique(),
-  department: text("department"),
-  joiningYear: integer("joining_year"),
-  passingOutYear: integer("passing_out_year"),
-  currentStudyYear: integer("current_study_year"),
-  isPassed: boolean("is_passed").default(false),
-  
-  // For staff
-  staffId: text("staff_id").unique(),
-  
-  // Profile completion status
-  isProfileComplete: boolean("is_profile_complete").default(false),
-  
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const categories = pgTable("categories", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull().unique(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const menuItems = pgTable("menu_items", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  price: integer("price").notNull(),
-  categoryId: integer("category_id").references(() => categories.id),
-  available: boolean("available").notNull().default(true),
-  stock: integer("stock").notNull().default(0),
-  description: text("description"),
-  addOns: text("add_ons").default('[]'), // JSON array of add-ons
-  isVegetarian: boolean("is_vegetarian").notNull().default(true), // true for veg, false for non-veg
-  isTrending: boolean("is_trending").notNull().default(false), // true for trending items
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const orders = pgTable("orders", {
-  id: serial("id").primaryKey(),
-  orderNumber: text("order_number").notNull().unique(),
-  customerId: integer("customer_id").references(() => users.id),
-  customerName: text("customer_name").notNull(),
-  items: text("items").notNull(),
-  amount: integer("amount").notNull(),
-  status: text("status").notNull().default("preparing"),
-  estimatedTime: integer("estimated_time").notNull().default(15),
-  barcode: text("barcode").notNull(), // unique barcode for delivery verification
-  barcodeUsed: boolean("barcode_used").default(false).notNull(), // prevents barcode reuse
-  deliveredAt: timestamp("delivered_at"), // timestamp when order was delivered
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const orderItems = pgTable("order_items", {
-  id: serial("id").primaryKey(),
-  orderId: integer("order_id").references(() => orders.id),
-  menuItemId: integer("menu_item_id").references(() => menuItems.id),
-  quantity: integer("quantity").notNull(),
-  price: integer("price").notNull(),
-});
-
-export const notifications = pgTable("notifications", {
-  id: serial("id").primaryKey(),
-  type: text("type").notNull(),
-  message: text("message").notNull(),
-  read: boolean("read").notNull().default(false),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const loginIssues = pgTable("login_issues", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email"),
-  phoneNumber: text("phone_number"),
-  registerNumber: text("register_number"),
-  staffId: text("staff_id"),
-  issueType: text("issue_type").notNull(), // "forgot_password", "account_locked", "email_changed", "other"
-  description: text("description").notNull(),
-  status: text("status").notNull().default("pending"), // "pending", "in_progress", "resolved"
-  adminNotes: text("admin_notes"),
-  resolvedBy: text("resolved_by"),
-  resolvedAt: timestamp("resolved_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const quickOrders = pgTable("quick_orders", {
-  id: serial("id").primaryKey(),
-  menuItemId: integer("menu_item_id").references(() => menuItems.id).notNull(),
-  position: integer("position").notNull(), // 1-4 for grid positions
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const payments = pgTable("payments", {
-  id: serial("id").primaryKey(),
-  orderId: integer("order_id").references(() => orders.id),
-  merchantTransactionId: text("merchant_transaction_id").notNull().unique(),
-  phonePeTransactionId: text("phonepe_transaction_id"),
-  amount: integer("amount").notNull(),
-  status: text("status").notNull().default("pending"), // pending, success, failed, timeout
-  paymentMethod: text("payment_method"), // UPI, CARD, NET_BANKING
-  responseCode: text("response_code"),
-  responseMessage: text("response_message"),
-  checksum: text("checksum"),
-  metadata: text("metadata"), // Store order data for payment completion
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-
-
-// Relations
-export const categoriesRelations = relations(categories, ({ many }) => ({
-  menuItems: many(menuItems),
-}));
-
-export const menuItemsRelations = relations(menuItems, ({ one, many }) => ({
-  category: one(categories, {
-    fields: [menuItems.categoryId],
-    references: [categories.id],
-  }),
-  orderItems: many(orderItems),
-}));
-
-export const ordersRelations = relations(orders, ({ one, many }) => ({
-  customer: one(users, {
-    fields: [orders.customerId],
-    references: [users.id],
-  }),
-  orderItems: many(orderItems),
-}));
-
-export const orderItemsRelations = relations(orderItems, ({ one }) => ({
-  order: one(orders, {
-    fields: [orderItems.orderId],
-    references: [orders.id],
-  }),
-  menuItem: one(menuItems, {
-    fields: [orderItems.menuItemId],
-    references: [menuItems.id],
-  }),
-}));
-
-export const quickOrdersRelations = relations(quickOrders, ({ one }) => ({
-  menuItem: one(menuItems, {
-    fields: [quickOrders.menuItemId],
-    references: [menuItems.id],
-  }),
-}));
-
-export const paymentsRelations = relations(payments, ({ one }) => ({
-  order: one(orders, {
-    fields: [payments.orderId],
-    references: [orders.id],
-  }),
-}));
-
-
-
-// Insert schemas
-export const insertUserSchema = createInsertSchema(users).pick({
-  email: true,
-  name: true,
-  phoneNumber: true,
-  role: true,
-  registerNumber: true,
-  department: true,
-  joiningYear: true,
-  passingOutYear: true,
-  currentStudyYear: true,
-  isPassed: true,
-  staffId: true,
-  isProfileComplete: true,
-});
 
 // Profile completion schema for new users
 export const profileCompletionSchema = z.object({
@@ -221,94 +55,84 @@ export const staffIdSchema = z.string().regex(
   "Staff ID must be 6 digits (e.g., 000001)"
 );
 
-export const insertCategorySchema = createInsertSchema(categories).pick({
-  name: true,
+// Form validation schemas for API endpoints
+export const insertUserSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1),
+  phoneNumber: z.string().optional(),
+  role: z.string(),
+  registerNumber: z.string().optional(),
+  department: z.string().optional(),
+  joiningYear: z.number().optional(),
+  passingOutYear: z.number().optional(),
+  currentStudyYear: z.number().optional(),
+  isPassed: z.boolean().optional(),
+  staffId: z.string().optional(),
+  isProfileComplete: z.boolean().optional(),
 });
 
-export const insertMenuItemSchema = createInsertSchema(menuItems).pick({
-  name: true,
-  price: true,
-  categoryId: true,
-  available: true,
-  stock: true,
-  description: true,
-  addOns: true,
-  isVegetarian: true,
-  isTrending: true,
+export const insertCategorySchema = z.object({
+  name: z.string().min(1),
 });
 
-export const insertOrderSchema = createInsertSchema(orders).pick({
-  orderNumber: true,
-  customerId: true,
-  customerName: true,
-  items: true,
-  amount: true,
-  status: true,
-  estimatedTime: true,
-  barcode: true,
+export const insertMenuItemSchema = z.object({
+  name: z.string().min(1),
+  price: z.number().positive(),
+  categoryId: z.number().optional(),
+  available: z.boolean().optional(),
+  stock: z.number().min(0).optional(),
+  description: z.string().optional(),
+  addOns: z.string().optional(),
+  isVegetarian: z.boolean().optional(),
+  isTrending: z.boolean().optional(),
 });
 
-export const insertNotificationSchema = createInsertSchema(notifications).pick({
-  type: true,
-  message: true,
-  read: true,
+export const insertOrderSchema = z.object({
+  orderNumber: z.string(),
+  customerId: z.number().optional(),
+  customerName: z.string().min(1),
+  items: z.string(),
+  amount: z.number().positive(),
+  status: z.string().optional(),
+  estimatedTime: z.number().optional(),
+  barcode: z.string(),
 });
 
-export const insertLoginIssueSchema = createInsertSchema(loginIssues).pick({
-  name: true,
-  email: true,
-  phoneNumber: true,
-  registerNumber: true,
-  staffId: true,
-  issueType: true,
-  description: true,
-  status: true,
+export const insertNotificationSchema = z.object({
+  type: z.string(),
+  message: z.string(),
+  read: z.boolean().optional(),
 });
 
-export const insertQuickOrderSchema = createInsertSchema(quickOrders).pick({
-  menuItemId: true,
-  position: true,
-  isActive: true,
+export const insertLoginIssueSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().optional(),
+  phoneNumber: z.string().optional(),
+  registerNumber: z.string().optional(),
+  staffId: z.string().optional(),
+  issueType: z.string(),
+  description: z.string().min(1),
+  status: z.string().optional(),
 });
 
-export const insertPaymentSchema = createInsertSchema(payments).pick({
-  orderId: true,
-  merchantTransactionId: true,
-  phonePeTransactionId: true,
-  amount: true,
-  status: true,
-  paymentMethod: true,
-  responseCode: true,
-  responseMessage: true,
-  checksum: true,
-  metadata: true,
+export const insertQuickOrderSchema = z.object({
+  menuItemId: z.number(),
+  position: z.number().min(1).max(4),
+  isActive: z.boolean().optional(),
 });
 
+export const insertPaymentSchema = z.object({
+  orderId: z.number().optional(),
+  merchantTransactionId: z.string(),
+  phonePeTransactionId: z.string().optional(),
+  amount: z.number().positive(),
+  status: z.string().optional(),
+  paymentMethod: z.string().optional(),
+  responseCode: z.string().optional(),
+  responseMessage: z.string().optional(),
+  checksum: z.string().optional(),
+  metadata: z.string().optional(),
+});
 
-
-// Types
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
-
-export type InsertCategory = z.infer<typeof insertCategorySchema>;
-export type Category = typeof categories.$inferSelect;
-
-export type InsertMenuItem = z.infer<typeof insertMenuItemSchema>;
-export type MenuItem = typeof menuItems.$inferSelect;
-
-export type InsertOrder = z.infer<typeof insertOrderSchema>;
-export type Order = typeof orders.$inferSelect;
-
-export type InsertNotification = z.infer<typeof insertNotificationSchema>;
-export type Notification = typeof notifications.$inferSelect;
-
-export type InsertLoginIssue = z.infer<typeof insertLoginIssueSchema>;
-export type LoginIssue = typeof loginIssues.$inferSelect;
-
-export type InsertQuickOrder = z.infer<typeof insertQuickOrderSchema>;
-export type QuickOrder = typeof quickOrders.$inferSelect;
-
-export type InsertPayment = z.infer<typeof insertPaymentSchema>;
-export type Payment = typeof payments.$inferSelect;
-
-
+// Import Prisma namespace for type inference
+import type { Prisma } from '@prisma/client';

@@ -1,12 +1,6 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
-import * as schema from "@shared/schema";
+import { PrismaClient } from '@prisma/client';
 
-neonConfig.webSocketConstructor = ws;
-
-let pool: Pool | null = null;
-let db: ReturnType<typeof drizzle> | null = null;
+let prisma: PrismaClient | null = null;
 
 function getDatabase() {
   if (!process.env.DATABASE_URL) {
@@ -15,15 +9,17 @@ function getDatabase() {
     );
   }
 
-  if (!pool) {
-    pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  if (!prisma) {
+    prisma = new PrismaClient({
+      datasources: {
+        db: {
+          url: process.env.DATABASE_URL,
+        },
+      },
+    });
   }
 
-  if (!db) {
-    db = drizzle({ client: pool, schema });
-  }
-
-  return db;
+  return prisma;
 }
 
 export { getDatabase as db };
