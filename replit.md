@@ -2,6 +2,13 @@
 KIT-Canteen is a modern food ordering application for college campuses, enabling students, faculty, and staff to browse menus, place orders, and manage preferences via a web application. It offers both customer-facing features and administrative panels for canteen management, aiming to provide a complete solution for campus food service operations. The project's vision is to streamline campus food services, enhance user experience, and provide efficient management tools for canteen operators.
 
 ## Recent Changes (August 2025)
+- **Database Migration to Hybrid Architecture (August 7, 2025)**: Successfully migrated from PostgreSQL-only to hybrid PostgreSQL + MongoDB architecture.
+  - Migrated all business data (categories, menu items, orders, payments, notifications, quick orders) to MongoDB
+  - Kept user authentication data in PostgreSQL for consistency with existing auth flow
+  - Implemented `HybridStorage` class managing both databases seamlessly
+  - Updated error handling from PostgreSQL codes to MongoDB error codes for non-user operations
+  - Maintained full API compatibility - all endpoints work exactly as before
+  - Created comprehensive migration documentation and verified all data integrity
 - **PhonePe Payment Gateway Integration**: Completely removed Razorpay and integrated PhonePe Test Gateway for payment processing.
   - Added comprehensive payment table to database schema with payment status tracking
   - Implemented secure PhonePe API integration with proper checksum validation
@@ -34,14 +41,14 @@ The application is built as a **React-based SPA** using **React 18** and **TypeS
 
 The backend is a **Node.js Express server** written in TypeScript, leveraging **ESM modules** and a middleware-based architecture. It uses an **abstract storage interface** (`IStorage`) for flexible data persistence.
 
-Data storage employs a **dual approach**: in-memory storage (`MemStorage`) for development and **PostgreSQL with Drizzle ORM** for production, ensuring type-safe database operations. Database migrations are managed via Drizzle Kit, adhering to a schema-first approach.
+Data storage employs a **hybrid database architecture**: **PostgreSQL with Drizzle ORM** for user authentication and **MongoDB with Mongoose** for all business data (categories, menu items, orders, payments, etc.). This approach optimizes for authentication consistency while leveraging MongoDB's flexibility for complex business entities. The `HybridStorage` class provides a unified interface managing both databases seamlessly.
 
 Authentication is **flexible**, supporting **Google OAuth** and guest access. It implements **role-based permissions** (Student, Faculty, Staff, Admin, Super Admin) and session-based authentication with granular admin controls.
 
 # External Dependencies
 **UI and Styling:** @radix-ui, Tailwind CSS, shadcn/ui, Lucide React
 **State Management & Data Fetching:** @tanstack/react-query, React Hook Form, @hookform/resolvers
-**Database & ORM:** Drizzle ORM, @neondatabase/serverless, Drizzle Zod
+**Database & ORM:** Drizzle ORM (PostgreSQL), Mongoose (MongoDB), @neondatabase/serverless, Drizzle Zod
 **Development & Build Tools:** Vite, TypeScript, ESBuild, PostCSS, Autoprefixer
 **Mobile & PWA Features:** @capacitor-community/barcode-scanner
 **Payment Processing:** PhonePe Test Gateway, axios (for payment API calls)
