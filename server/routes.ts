@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage } from "./storage-hybrid";
 import { 
   insertUserSchema, 
   insertCategorySchema, 
@@ -187,7 +187,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/categories/:id", async (req, res) => {
     try {
-      await storage.deleteCategory(parseInt(req.params.id));
+      await storage.deleteCategory(req.params.id);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -206,7 +206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/menu/:id", async (req, res) => {
     try {
-      const menuItem = await storage.getMenuItem(parseInt(req.params.id));
+      const menuItem = await storage.getMenuItem(req.params.id);
       if (!menuItem) {
         return res.status(404).json({ message: "Menu item not found" });
       }
@@ -219,7 +219,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/menu", async (req, res) => {
     try {
       const validatedData = insertMenuItemSchema.parse(req.body);
-      const menuItem = await storage.createMenuItem(validatedData);
+      // Convert categoryId to string if it exists
+      const menuItemData = {
+        ...validatedData,
+        categoryId: validatedData.categoryId ? validatedData.categoryId.toString() : undefined
+      };
+      const menuItem = await storage.createMenuItem(menuItemData);
       res.status(201).json(menuItem);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -234,7 +239,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertMenuItemSchema.partial().parse(req.body);
       console.log("PUT /api/menu/:id - Validated data:", validatedData);
       
-      const menuItem = await storage.updateMenuItem(parseInt(req.params.id), validatedData);
+      // Convert categoryId to string if it exists
+      const updateData = {
+        ...validatedData,
+        categoryId: validatedData.categoryId ? validatedData.categoryId.toString() : undefined
+      };
+      const menuItem = await storage.updateMenuItem(req.params.id, updateData);
       res.json(menuItem);
     } catch (error) {
       console.error("Error updating menu item:", error);
@@ -244,7 +254,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/menu/:id", async (req, res) => {
     try {
-      await storage.deleteMenuItem(parseInt(req.params.id));
+      await storage.deleteMenuItem(req.params.id);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -263,7 +273,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/orders/:id", async (req, res) => {
     try {
-      const order = await storage.getOrder(parseInt(req.params.id));
+      const order = await storage.getOrder(req.params.id);
       if (!order) {
         return res.status(404).json({ message: "Order not found" });
       }
@@ -365,7 +375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/orders/:id", async (req, res) => {
     try {
-      const order = await storage.updateOrder(parseInt(req.params.id), req.body);
+      const order = await storage.updateOrder(req.params.id, req.body);
       res.json(order);
     } catch (error) {
       console.error("Error updating order:", error);
@@ -376,7 +386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/orders/:id", async (req, res) => {
     try {
       console.log(`Updating order ${req.params.id} with data:`, req.body);
-      const order = await storage.updateOrder(parseInt(req.params.id), req.body);
+      const order = await storage.updateOrder(req.params.id, req.body);
       console.log("Updated order:", order);
       res.json(order);
     } catch (error) {
@@ -407,7 +417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/notifications/:id", async (req, res) => {
     try {
-      const notification = await storage.updateNotification(parseInt(req.params.id), req.body);
+      const notification = await storage.updateNotification(req.params.id, req.body);
       res.json(notification);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -416,7 +426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/notifications/:id", async (req, res) => {
     try {
-      await storage.deleteNotification(parseInt(req.params.id));
+      await storage.deleteNotification(req.params.id);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -551,7 +561,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/login-issues/:id", async (req, res) => {
     try {
-      const issue = await storage.getLoginIssue(parseInt(req.params.id));
+      const issue = await storage.getLoginIssue(req.params.id);
       if (!issue) {
         return res.status(404).json({ message: "Login issue not found" });
       }
@@ -573,7 +583,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/login-issues/:id", async (req, res) => {
     try {
-      const issueId = parseInt(req.params.id);
+      const issueId = req.params.id;
       const { status, adminNotes, resolvedBy } = req.body;
       
       const updateData: any = {};
@@ -591,7 +601,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/login-issues/:id", async (req, res) => {
     try {
-      await storage.deleteLoginIssue(parseInt(req.params.id));
+      await storage.deleteLoginIssue(req.params.id);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -611,7 +621,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quick-orders", async (req, res) => {
     try {
       const validatedData = insertQuickOrderSchema.parse(req.body);
-      const quickOrder = await storage.createQuickOrder(validatedData);
+      // Convert menuItemId to string
+      const quickOrderData = {
+        ...validatedData,
+        menuItemId: validatedData.menuItemId.toString()
+      };
+      const quickOrder = await storage.createQuickOrder(quickOrderData);
       res.status(201).json(quickOrder);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -621,7 +636,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/quick-orders/:id", async (req, res) => {
     try {
       const validatedData = insertQuickOrderSchema.parse(req.body);
-      const quickOrder = await storage.updateQuickOrder(parseInt(req.params.id), validatedData);
+      // Convert menuItemId to string if it exists
+      const updateData = {
+        ...validatedData,
+        menuItemId: validatedData.menuItemId ? validatedData.menuItemId.toString() : undefined
+      };
+      const quickOrder = await storage.updateQuickOrder(req.params.id, updateData);
       res.json(quickOrder);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -630,7 +650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/quick-orders/:id", async (req, res) => {
     try {
-      await storage.deleteQuickOrder(parseInt(req.params.id));
+      await storage.deleteQuickOrder(req.params.id);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
