@@ -71,7 +71,7 @@ export default function CanteenOwnerDashboard() {
   // Offline order state
   const [offlineSearchQuery, setOfflineSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [cart, setCart] = useState<Array<{id: number, name: string, price: number, quantity: number}>>([]);
+  const [cart, setCart] = useState<Array<{id: string, name: string, price: number, quantity: number}>>([]);
   const [paymentMode, setPaymentMode] = useState<'cash' | 'online'>('cash');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
@@ -832,7 +832,7 @@ export default function CanteenOwnerDashboard() {
     });
   };
 
-  const updateCartQuantity = (id: number, quantity: number) => {
+  const updateCartQuantity = (id: string, quantity: number) => {
     if (quantity <= 0) {
       setCart(prevCart => prevCart.filter(item => item.id !== id));
     } else {
@@ -849,7 +849,7 @@ export default function CanteenOwnerDashboard() {
     }
   };
 
-  const removeFromCart = (id: number) => {
+  const removeFromCart = (id: string) => {
     setCart(prevCart => prevCart.filter(item => item.id !== id));
   };
 
