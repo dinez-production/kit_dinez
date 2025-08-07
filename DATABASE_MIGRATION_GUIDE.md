@@ -24,12 +24,15 @@ This document outlines the migration from a PostgreSQL-only setup to a hybrid Po
 ### PostgreSQL (Authentication Data)
 ```
 📊 Tables Remaining:
-└── users (6 records)
+└── users (6 records) - ONLY TABLE IN POSTGRESQL
     ├── id, email, name, phoneNumber
     ├── role, registerNumber, department
     ├── joiningYear, passingOutYear, currentStudyYear
     ├── isPassed, staffId, isProfileComplete
     └── createdAt
+    
+📊 Constraints: users_pkey, users_email_key, users_register_number_key, users_staff_id_key
+📊 Indexes: 4 user-related indexes only
 ```
 
 ### MongoDB (Business Data)
@@ -65,6 +68,8 @@ This document outlines the migration from a PostgreSQL-only setup to a hybrid Po
   - pending_orders
 - ✅ Updated foreign key constraints
 - ✅ Ran Prisma database push to sync schema
+- ✅ Verified only `users` table remains in PostgreSQL
+- ✅ Confirmed all indexes and constraints are clean
 
 ## Code Changes
 
