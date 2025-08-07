@@ -621,14 +621,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quick-orders", async (req, res) => {
     try {
       const validatedData = insertQuickOrderSchema.parse(req.body);
-      // Convert menuItemId to string
-      const quickOrderData = {
-        ...validatedData,
-        menuItemId: validatedData.menuItemId.toString()
-      };
-      const quickOrder = await storage.createQuickOrder(quickOrderData);
+      const quickOrder = await storage.createQuickOrder(validatedData);
       res.status(201).json(quickOrder);
     } catch (error) {
+      console.error("Error creating quick order:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -636,14 +632,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/quick-orders/:id", async (req, res) => {
     try {
       const validatedData = insertQuickOrderSchema.parse(req.body);
-      // Convert menuItemId to string if it exists
-      const updateData = {
-        ...validatedData,
-        menuItemId: validatedData.menuItemId ? validatedData.menuItemId.toString() : undefined
-      };
-      const quickOrder = await storage.updateQuickOrder(req.params.id, updateData);
+      const quickOrder = await storage.updateQuickOrder(req.params.id, validatedData);
       res.json(quickOrder);
     } catch (error) {
+      console.error("Error updating quick order:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

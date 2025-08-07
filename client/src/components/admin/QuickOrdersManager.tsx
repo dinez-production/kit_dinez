@@ -14,8 +14,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { MenuItem } from "@shared/schema";
 
 type QuickOrder = {
-  id: number;
-  menuItemId: number;
+  id: string;
+  menuItemId: string;
   position: number;
   isActive: boolean;
   createdAt: string;
@@ -38,7 +38,7 @@ export function QuickOrdersManager() {
   });
 
   const createQuickOrderMutation = useMutation({
-    mutationFn: async (data: { menuItemId: number; position: number }) => {
+    mutationFn: async (data: { menuItemId: string; position: number }) => {
       return apiRequest("/api/quick-orders", {
         method: "POST",
         body: JSON.stringify(data),
@@ -64,7 +64,7 @@ export function QuickOrdersManager() {
   });
 
   const updateQuickOrderMutation = useMutation({
-    mutationFn: async (data: { id: number; menuItemId: number; position: number }) => {
+    mutationFn: async (data: { id: string; menuItemId: string; position: number }) => {
       return apiRequest(`/api/quick-orders/${data.id}`, {
         method: "PUT",
         body: JSON.stringify({ menuItemId: data.menuItemId, position: data.position, isActive: true }),
@@ -90,7 +90,7 @@ export function QuickOrdersManager() {
   });
 
   const deleteQuickOrderMutation = useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (id: string) => {
       return apiRequest(`/api/quick-orders/${id}`, {
         method: "DELETE",
       });
@@ -131,7 +131,7 @@ export function QuickOrdersManager() {
     }
 
     createQuickOrderMutation.mutate({
-      menuItemId: parseInt(selectedMenuItemId),
+      menuItemId: selectedMenuItemId,
       position: parseInt(selectedPosition),
     });
   };
@@ -141,14 +141,14 @@ export function QuickOrdersManager() {
 
     updateQuickOrderMutation.mutate({
       id: editingQuickOrder.id,
-      menuItemId: parseInt(selectedMenuItemId),
+      menuItemId: selectedMenuItemId,
       position: parseInt(selectedPosition),
     });
   };
 
   const openEditDialog = (quickOrder: QuickOrder) => {
     setEditingQuickOrder(quickOrder);
-    setSelectedMenuItemId(quickOrder.menuItemId.toString());
+    setSelectedMenuItemId(quickOrder.menuItemId);
     setSelectedPosition(quickOrder.position.toString());
   };
 

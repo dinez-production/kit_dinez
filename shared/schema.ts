@@ -210,7 +210,7 @@ export const insertLoginIssueSchema = z.object({
 });
 
 export const insertQuickOrderSchema = z.object({
-  menuItemId: z.number(),
+  menuItemId: z.string(),
   position: z.number().min(1).max(4),
   isActive: z.boolean().optional(),
 });

@@ -346,14 +346,42 @@ export class HybridStorage implements IStorage {
   }
 
   async createQuickOrder(quickOrder: InsertQuickOrder): Promise<any> {
-    const newQuickOrder = new QuickOrder(quickOrder);
+    const newQuickOrder = new QuickOrder({
+      ...quickOrder,
+      menuItemId: new mongoose.Types.ObjectId(quickOrder.menuItemId)
+    });
     const saved = await newQuickOrder.save();
-    return mongoToPlain(saved);
+    await saved.populate('menuItemId');
+    return mongoToPlain({
+      id: (saved._id as any).toString(),
+      menuItemId: (saved.menuItemId as any)._id.toString(),
+      position: saved.position,
+      isActive: saved.isActive,
+      createdAt: saved.createdAt,
+      menuItem: mongoToPlain(saved.menuItemId)
+    });
   }
 
   async updateQuickOrder(id: string, quickOrder: Partial<InsertQuickOrder>): Promise<any> {
-    const updatedQuickOrder = await QuickOrder.findByIdAndUpdate(id, quickOrder, { new: true });
-    return mongoToPlain(updatedQuickOrder);
+    const updateData = {
+      ...quickOrder,
+      ...(quickOrder.menuItemId && { menuItemId: new mongoose.Types.ObjectId(quickOrder.menuItemId) })
+    };
+    const updatedQuickOrder = await QuickOrder.findByIdAndUpdate(id, updateData, { new: true })
+      .populate('menuItemId');
+    
+    if (!updatedQuickOrder) {
+      throw new Error('QuickOrder not found');
+    }
+    
+    return mongoToPlain({
+      id: (updatedQuickOrder._id as any).toString(),
+      menuItemId: (updatedQuickOrder.menuItemId as any)._id.toString(),
+      position: updatedQuickOrder.position,
+      isActive: updatedQuickOrder.isActive,
+      createdAt: updatedQuickOrder.createdAt,
+      menuItem: mongoToPlain(updatedQuickOrder.menuItemId)
+    });
   }
 
   async deleteQuickOrder(id: string): Promise<void> {
