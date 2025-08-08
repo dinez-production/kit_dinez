@@ -27,7 +27,8 @@ export function useDataSync() {
     queryKey: ['/api/orders'],
     staleTime: 1000 * 60, // 1 minute for orders
     refetchOnMount: true,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false, // Disable window focus refetch
+    refetchInterval: false, // Disable polling - using SSE for real-time updates
   });
 
   // Analytics query - least frequent

@@ -165,6 +165,8 @@ export default function CanteenOwnerDashboardSidebar() {
 
   const { data: orders = [], isLoading: ordersLoading, refetch: refetchOrders } = useQuery<Order[]>({
     queryKey: ["/api/orders"],
+    refetchInterval: false, // Disable polling since we use SSE for real-time updates
+    refetchOnWindowFocus: false, // Disable refetch on window focus
   });
 
   const { data: notifications = [], isLoading: notificationsLoading } = useQuery<any[]>({

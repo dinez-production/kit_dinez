@@ -22,7 +22,7 @@ KIT-Canteen is a modern food ordering application for college campuses, enabling
 - Updated order generation in `shared/utils.ts` to use 8 random digits + 4 timestamp-based digits for uniqueness.
 - Enhanced all order displays (CanteenOwnerDashboard, OrderStatusPage, BarcodeScannerPage, AdminOrderManagementPage) with highlighted last 4 digits using colored backgrounds.
 - Updated barcode scanner validation to accept only 12-digit numeric format with clear error messages.
-- **Real-time Order Notifications**: Implemented Server-Sent Events (SSE) for automatic order updates in canteen owner dashboard when students place orders, eliminating the need for manual page refreshes.
+- **Real-time Order Notifications**: Implemented Server-Sent Events (SSE) for automatic order updates in canteen owner dashboard when students place orders, eliminating the need for manual page refreshes. Disabled React Query polling to prevent unnecessary API calls since real-time updates handle all order synchronization.
 - Fixed "Mark Ready" button issue that was incorrectly calling menu update API instead of order update API.
 - Added comprehensive error handling and duplicate prevention in barcode scanner functionality.
 - **Complete User Profile System**: Fixed ProfilePage to use new UserProfileDisplay component showing complete student and staff information including register numbers, departments, staff IDs, and academic status.

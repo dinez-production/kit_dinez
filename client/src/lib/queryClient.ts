@@ -7,9 +7,9 @@ export const queryClient = new QueryClient({
       staleTime: 1000 * 60 * 5, // 5 minutes - balanced performance
       gcTime: 1000 * 60 * 10, // 10 minutes
       retry: 1,
-      refetchOnWindowFocus: true, // Refetch when switching between dashboards
-      refetchOnMount: true, // Always refetch on component mount
-      refetchInterval: false, // Disable automatic refetch for better performance
+      refetchOnWindowFocus: false, // Disable to prevent unnecessary API calls
+      refetchOnMount: true, // Only refetch on component mount
+      refetchInterval: false, // Disable automatic polling - using SSE for real-time updates
       queryFn: async ({ queryKey }) => {
         const [url] = queryKey as [string];
         const response = await fetch(url);

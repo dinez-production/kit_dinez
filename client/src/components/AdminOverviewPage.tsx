@@ -21,6 +21,7 @@ export default function AdminOverviewPage() {
   // Fetch real data from database
   const { data: orders = [], isLoading: ordersLoading, refetch: refetchOrders } = useQuery<Order[]>({
     queryKey: ['/api/orders'],
+    refetchInterval: false, // Disable polling - using SSE for real-time updates
   });
 
   const { data: users = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery<User[]>({
