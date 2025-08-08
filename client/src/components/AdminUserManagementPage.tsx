@@ -57,12 +57,12 @@ export default function AdminUserManagementPage() {
   });
 
   // Real complaints data from API
-  const { data: complaintsData = [], isLoading: complaintsLoading, refetch: refetchComplaints } = useQuery({
+  const { data: complaintsData = [], isLoading: complaintsLoading, refetch: refetchComplaints } = useQuery<any[]>({
     queryKey: ["/api/complaints"],
     refetchInterval: 60000, // Refresh every minute
   });
 
-  const [complaints, setComplaints] = useState(complaintsData);
+  const [complaints, setComplaints] = useState<any[]>(complaintsData);
 
   // Update complaints when API data changes
   useEffect(() => {
@@ -1136,12 +1136,8 @@ export default function AdminUserManagementPage() {
                     <Button 
                       variant="outline" 
                       className="h-auto p-4 flex flex-col items-center space-y-2"
-                      onClick={() => {
-                        toast({
-                          title: "Email Campaign",
-                          description: "Bulk email feature will be available soon",
-                        });
-                      }}
+                      onClick={() => setLocation("/admin/user-management/send-email")}
+                      data-testid="button-send-email"
                     >
                       <Mail className="w-6 h-6" />
                       <span className="text-sm">Send Email</span>
@@ -1149,12 +1145,8 @@ export default function AdminUserManagementPage() {
                     <Button 
                       variant="outline" 
                       className="h-auto p-4 flex flex-col items-center space-y-2"
-                      onClick={() => {
-                        toast({
-                          title: "Loyalty Program",
-                          description: "Added 100 loyalty points to all active users",
-                        });
-                      }}
+                      onClick={() => setLocation("/admin/user-management/add-loyalty-points")}
+                      data-testid="button-add-loyalty-points"
                     >
                       <Gift className="w-6 h-6" />
                       <span className="text-sm">Add Loyalty Points</span>
@@ -1162,12 +1154,8 @@ export default function AdminUserManagementPage() {
                     <Button 
                       variant="outline" 
                       className="h-auto p-4 flex flex-col items-center space-y-2"
-                      onClick={() => {
-                        toast({
-                          title: "Discount Applied",
-                          description: "10% discount applied to all student accounts",
-                        });
-                      }}
+                      onClick={() => setLocation("/admin/user-management/apply-discount")}
+                      data-testid="button-apply-discount"
                     >
                       <CreditCard className="w-6 h-6" />
                       <span className="text-sm">Apply Discount</span>
@@ -1177,10 +1165,11 @@ export default function AdminUserManagementPage() {
                       className="h-auto p-4 flex flex-col items-center space-y-2"
                       onClick={() => {
                         toast({
-                          title: "Warning Sent",
-                          description: "Warning notifications sent to flagged accounts",
+                          title: "Warning Feature",
+                          description: "Warning notification system will be available soon",
                         });
                       }}
+                      data-testid="button-send-warning"
                     >
                       <AlertTriangle className="w-6 h-6" />
                       <span className="text-sm">Send Warning</span>
@@ -1195,34 +1184,70 @@ export default function AdminUserManagementPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <Button variant="outline" onClick={() => setLocation("/admin/user-management/export-data")}>Export User Data</Button>
-                    <Button variant="outline" onClick={() => setLocation("/admin/user-management/import-users")}>Import Users</Button>
-                    <Button variant="outline" onClick={() => {
-                      toast({
-                        title: "Database Backup",
-                        description: "Database backup has been initiated",
-                      });
-                    }}>Backup Database</Button>
-                    <Button variant="outline" onClick={() => {
-                      toast({
-                        title: "Report Generated",
-                        description: "User report has been generated successfully",
-                      });
-                    }}>Generate Report</Button>
-                    <Button variant="outline" onClick={() => {
-                      if (window.confirm('Are you sure you want to clean inactive users?')) {
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setLocation("/admin/user-management/export-data")}
+                      data-testid="button-export-data"
+                    >
+                      Export User Data
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setLocation("/admin/user-management/import-users")}
+                      data-testid="button-import-users"
+                    >
+                      Import Users
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
                         toast({
-                          title: "Cleanup Complete",
-                          description: "Inactive users have been cleaned up",
+                          title: "Database Backup",
+                          description: "Database backup has been initiated",
                         });
-                      }
-                    }}>Clean Inactive Users</Button>
-                    <Button variant="outline" onClick={() => {
-                      toast({
-                        title: "Permissions Updated",
-                        description: "User permissions have been updated",
-                      });
-                    }}>Update Permissions</Button>
+                      }}
+                      data-testid="button-backup-database"
+                    >
+                      Backup Database
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        toast({
+                          title: "Report Generated",
+                          description: "User report has been generated successfully",
+                        });
+                      }}
+                      data-testid="button-generate-report"
+                    >
+                      Generate Report
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        if (window.confirm('Are you sure you want to clean inactive users?')) {
+                          toast({
+                            title: "Cleanup Complete",
+                            description: "Inactive users have been cleaned up",
+                          });
+                        }
+                      }}
+                      data-testid="button-clean-inactive-users"
+                    >
+                      Clean Inactive Users
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        toast({
+                          title: "Permissions Updated",
+                          description: "User permissions have been updated",
+                        });
+                      }}
+                      data-testid="button-update-permissions"
+                    >
+                      Update Permissions
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
