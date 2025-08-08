@@ -229,9 +229,23 @@ export default function CanteenOwnerDashboardSidebar() {
   // Filter orders
   // Filter and sort active orders - Priority queue: preparing > ready > pending
   const activeOrders = (orders as any[])
-    .filter((order: any) => 
-      order.status === "pending" || order.status === "preparing" || order.status === "ready"
-    )
+    .filter((order: any) => {
+      // Filter by status first
+      const isActiveStatus = order.status === "pending" || order.status === "preparing" || order.status === "ready";
+      
+      // If no search query, return all active orders
+      if (!searchQuery) return isActiveStatus;
+      
+      // If there's a search query, also apply search filter
+      if (isActiveStatus) {
+        const searchLower = searchQuery.toLowerCase();
+        return order.orderNumber?.toLowerCase().includes(searchLower) ||
+               order.customerName?.toLowerCase().includes(searchLower) ||
+               order.items?.toLowerCase().includes(searchLower);
+      }
+      
+      return false;
+    })
     .sort((a: any, b: any) => {
       // First sort by priority (preparing > ready > pending)
       const priorityDiff = getOrderPriority(a.status) - getOrderPriority(b.status);
