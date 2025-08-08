@@ -2,6 +2,17 @@
 KIT-Canteen is a modern food ordering application for college campuses, enabling students, faculty, and staff to browse menus, place orders, and manage preferences via a web application. It offers both customer-facing features and administrative panels for canteen management, aiming to provide a complete solution for campus food service operations. The project's vision is to streamline campus food services, enhance user experience, and provide efficient management tools for canteen operators.
 
 ## Recent Changes (August 2025)
+- **MongoDB 3.6+ Configuration & Auto-Detection (August 8, 2025)**: Enhanced MongoDB setup with automatic environment detection and full 3.6+ compatibility.
+  - Added comprehensive MongoDB 3.6+ support with version validation and compatibility checks
+  - Implemented automatic environment detection (local/Atlas/custom) with intelligent fallback
+  - Created `getDatabaseConfig()` system for centralized database configuration management
+  - Added MongoDB version checking with warnings for unsupported versions (<3.6)
+  - Enhanced connection options optimized for MongoDB 3.6+ with proper TypeScript types
+  - Created comprehensive health check endpoint (`/api/health`) for database status monitoring
+  - Added detailed troubleshooting and error handling for different connection types
+  - Updated startup check to include MongoDB version validation and compatibility warnings
+  - Created detailed setup guide (MONGODB_36_SETUP_GUIDE.md) and environment template (.env.example)
+  - Added configuration check script for environment validation and setup assistance
 - **Database Migration to Hybrid Architecture (August 7, 2025)**: Successfully migrated from PostgreSQL-only to hybrid PostgreSQL + MongoDB architecture.
   - Migrated all business data (categories, menu items, orders, payments, notifications, quick orders) to MongoDB
   - Kept user authentication data in PostgreSQL for consistency with existing auth flow

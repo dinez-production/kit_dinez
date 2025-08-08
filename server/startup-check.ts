@@ -4,6 +4,7 @@
  */
 import { db as getDb } from "./db";
 import { connectToMongoDB } from "./mongodb";
+import { mongoVersionCheck } from "./health-check";
 
 export async function performStartupCheck(): Promise<boolean> {
   try {
@@ -21,13 +22,18 @@ export async function performStartupCheck(): Promise<boolean> {
     await db.$executeRaw`SELECT 1`;
     console.log("✅ PostgreSQL connection successful");
     
-    // Test MongoDB connectivity (optional for development)
+    // Test MongoDB connectivity and version check
     try {
       await connectToMongoDB();
-      console.log("✅ MongoDB Atlas connection successful");
+      console.log("✅ MongoDB connection successful");
+      
+      // Perform MongoDB version check
+      await mongoVersionCheck();
     } catch (mongoError) {
-      console.log("⚠️ MongoDB Atlas connection failed (continuing with PostgreSQL only)");
-      console.log("💡 Tip: Add Replit's IP (0.0.0.0/0 for development) to your MongoDB Atlas IP whitelist");
+      console.log("⚠️ MongoDB connection failed (continuing with PostgreSQL only)");
+      console.log("💡 Tip: Check your MongoDB configuration and connection string");
+      console.log("📋 Local MongoDB: Ensure service is running on port 27017");
+      console.log("🌐 Atlas MongoDB: Verify IP whitelist includes 0.0.0.0/0 for development");
     }
     console.log("✅ Startup health check passed");
     return true;

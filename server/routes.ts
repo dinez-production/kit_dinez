@@ -22,14 +22,18 @@ import {
   PAYMENT_STATUS,
   PHONEPE_RESPONSE_CODES
 } from "@shared/phonepe";
+import { healthCheckHandler } from "./health-check";
 import axios from "axios";
 
 // Store SSE connections for real-time notifications
 const sseConnections = new Set<any>();
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Health check endpoint
-  app.get("/api/health", (req, res) => {
+  // Health check endpoint with comprehensive database status
+  app.get("/api/health", healthCheckHandler);
+
+  // Simple health check endpoint for quick status
+  app.get("/api/status", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
