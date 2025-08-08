@@ -307,10 +307,12 @@ export default function CanteenOwnerDashboardSidebar() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      // Refresh scan result to show updated status
       if (variables.status === "delivered") {
-        toast.success("Order marked as delivered!");
-      } else {
-        toast.success("Order status updated!");
+        setTimeout(() => {
+          setScannedOrderId("");
+          setScanResult(null);
+        }, 2000); // Clear after 2 seconds to show success
       }
     },
     onError: () => {
@@ -1116,16 +1118,10 @@ export default function CanteenOwnerDashboardSidebar() {
                             // If order is ready, automatically mark as delivered
                             if (foundOrder.status === "ready") {
                               markOrderReadyMutation.mutate({ orderId: foundOrder.id, status: "delivered" });
-                              toast.success(`Order ${foundOrder.orderNumber} marked as delivered!`);
-                            } else if (foundOrder.status === "delivered" || foundOrder.status === "completed") {
-                              toast.info("Order already delivered");
-                            } else {
-                              toast.warning("Order not ready yet");
                             }
                           } else {
                             setScanError("Invalid order ID - Order not found");
                             setScanResult(null);
-                            toast.error("Invalid order ID");
                           }
                         }}
                         disabled={!scannedOrderId.trim()}
