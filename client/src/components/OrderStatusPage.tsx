@@ -60,11 +60,12 @@ export default function OrderStatusPage() {
   const [, setLocation] = useLocation();
   const { orderId } = useParams();
 
-  // Fetch real order data from API with short cache time for real-time updates
+  // Fetch real order data from API - using SSE for real-time updates instead of polling
   const { data: orders = [], isLoading, refetch } = useQuery<Order[]>({
     queryKey: ['/api/orders'],
     staleTime: 0, // Always fetch fresh data
-    refetchInterval: 5000, // Auto-refresh every 5 seconds
+    refetchInterval: false, // Disable polling - using SSE for real-time updates
+    refetchOnWindowFocus: false, // Disable refetch on window focus
   });
 
   // Find the specific order by ID, order number, or barcode (supporting both old and new formats)
