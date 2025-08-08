@@ -299,15 +299,19 @@ export default function CanteenOwnerDashboardSidebar() {
   });
 
   const markOrderReadyMutation = useMutation({
-    mutationFn: async (orderId: string) => {
+    mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
       return apiRequest(`/api/orders/${orderId}`, {
         method: "PATCH",
-        body: JSON.stringify({ status: "ready" }),
+        body: JSON.stringify({ status }),
       });
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      toast.success("Order marked as ready!");
+      if (variables.status === "delivered") {
+        toast.success("Order marked as delivered!");
+      } else {
+        toast.success("Order status updated!");
+      }
     },
     onError: () => {
       toast.error("Failed to update order status. Please try again.");
@@ -723,7 +727,7 @@ export default function CanteenOwnerDashboardSidebar() {
                                             <Button
                                               size="sm"
                                               variant="default"
-                                              onClick={() => markOrderReadyMutation.mutate(order.id)}
+                                              onClick={() => markOrderReadyMutation.mutate({ orderId: order.id, status: "ready" })}
                                               disabled={markOrderReadyMutation.isPending}
                                               className="bg-green-600 hover:bg-green-700 text-white"
                                               data-testid={`button-mark-ready-${order.id}`}
@@ -1108,18 +1112,28 @@ export default function CanteenOwnerDashboardSidebar() {
                           if (foundOrder) {
                             setScanResult(foundOrder);
                             setScanError("");
-                            toast.success(`Order found: ${foundOrder.orderNumber}`);
+                            
+                            // If order is ready, automatically mark as delivered
+                            if (foundOrder.status === "ready") {
+                              markOrderReadyMutation.mutate({ orderId: foundOrder.id, status: "delivered" });
+                              toast.success(`Order ${foundOrder.orderNumber} marked as delivered!`);
+                            } else if (foundOrder.status === "delivered" || foundOrder.status === "completed") {
+                              toast.info("Order already delivered");
+                            } else {
+                              toast.warning("Order not ready yet");
+                            }
                           } else {
-                            setScanError("Order not found");
+                            setScanError("Invalid order ID - Order not found");
                             setScanResult(null);
+                            toast.error("Invalid order ID");
                           }
                         }}
                         disabled={!scannedOrderId.trim()}
                         className="flex-1"
                         data-testid="button-scan-order"
                       >
-                        <Search className="w-4 h-4 mr-2" />
-                        Find Order
+                        <ScanLine className="w-4 h-4 mr-2" />
+                        Scan Order
                       </Button>
                       
                       <Button 
