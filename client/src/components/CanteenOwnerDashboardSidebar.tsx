@@ -1058,38 +1058,6 @@ export default function CanteenOwnerDashboardSidebar() {
                       />
                     </div>
 
-                    {scannedOrderId && (
-                      <div className={`p-3 rounded border ${
-                        /^[0-9]{12}$/.test(scannedOrderId) 
-                          ? 'border-green-500/50 bg-green-50 dark:bg-green-950/20' 
-                          : 'border-amber-500/50 bg-amber-50 dark:bg-amber-950/20'
-                      }`}>
-                        {/^[0-9]{12}$/.test(scannedOrderId) ? (
-                          <div className="flex items-center text-green-700 dark:text-green-300">
-                            <CheckCircle className="w-4 h-4 mr-2" />
-                            <span>Valid Order ID: </span>
-                            <span className="font-mono">
-                              {(() => {
-                                const formatted = formatOrderIdDisplay(scannedOrderId);
-                                return (
-                                  <>
-                                    {formatted.prefix}
-                                    <span className="bg-green-500/20 text-green-700 font-bold px-1 rounded ml-0">
-                                      {formatted.highlighted}
-                                    </span>
-                                  </>
-                                );
-                              })()} 
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center text-amber-700 dark:text-amber-300">
-                            <AlertTriangle className="w-4 h-4 mr-2" />
-                            Invalid format. Expected 12 digits: {scannedOrderId.length}/12
-                          </div>
-                        )}
-                      </div>
-                    )}
 
                     <div className="flex space-x-2">
                       <Button 
