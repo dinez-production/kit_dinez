@@ -173,12 +173,13 @@ export const insertCategorySchema = z.object({
 export const insertMenuItemSchema = z.object({
   name: z.string().min(1),
   price: z.number().positive(),
-  categoryId: z.number().optional(),
+  categoryId: z.string().optional(),
   available: z.boolean().optional(),
   stock: z.number().min(0).optional(),
   description: z.string().optional(),
   addOns: z.string().optional(),
   isVegetarian: z.boolean().optional(),
+  isMarkable: z.boolean().optional(),
   isTrending: z.boolean().optional(),
 });
 
