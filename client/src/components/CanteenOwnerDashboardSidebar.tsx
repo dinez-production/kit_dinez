@@ -154,7 +154,28 @@ export default function CanteenOwnerDashboardSidebar() {
     }
   }, [isAuthenticated, isCanteenOwner, setLocation]);
 
-  // Real-time order updates via Server-Sent Events (SSE)
+  // Data fetching queries
+  const { data: categories = [], isLoading: categoriesLoading, refetch: refetchCategories } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+  });
+
+  const { data: menuItems = [], isLoading: menuItemsLoading, refetch: refetchMenuItems } = useQuery<MenuItem[]>({
+    queryKey: ["/api/menu"],
+  });
+
+  const { data: orders = [], isLoading: ordersLoading, refetch: refetchOrders } = useQuery<Order[]>({
+    queryKey: ["/api/orders"],
+  });
+
+  const { data: notifications = [], isLoading: notificationsLoading } = useQuery<any[]>({
+    queryKey: ["/api/notifications"],
+  });
+
+  const { data: analytics = {} } = useQuery<any>({
+    queryKey: ["/api/admin/analytics"],
+  });
+
+  // Real-time order updates via Server-Sent Events (SSE) - Must be after queries
   useEffect(() => {
     if (!isAuthenticated || !isCanteenOwner) return;
 
@@ -200,29 +221,6 @@ export default function CanteenOwnerDashboardSidebar() {
       eventSource.close();
     };
   }, [isAuthenticated, isCanteenOwner, refetchOrders]);
-
-  // Data fetching queries
-  const { data: categories = [], isLoading: categoriesLoading, refetch: refetchCategories } = useQuery<Category[]>({
-    queryKey: ["/api/categories"],
-  });
-
-  const { data: menuItems = [], isLoading: menuItemsLoading, refetch: refetchMenuItems } = useQuery<MenuItem[]>({
-    queryKey: ["/api/menu"],
-  });
-
-  const { data: orders = [], isLoading: ordersLoading, refetch: refetchOrders } = useQuery<Order[]>({
-    queryKey: ["/api/orders"],
-  });
-
-  const { data: notifications = [], isLoading: notificationsLoading } = useQuery<any[]>({
-    queryKey: ["/api/notifications"],
-  });
-
-  const { data: analytics = {} } = useQuery<any>({
-    queryKey: ["/api/admin/analytics"],
-  });
-
-
 
   // Filter orders
   // Filter and sort active orders - Priority queue: preparing > ready > pending
