@@ -142,6 +142,64 @@ const LoginIssueSchema = new Schema<ILoginIssue>({
 
 export const LoginIssue = mongoose.model<ILoginIssue>('LoginIssue', LoginIssueSchema);
 
+// Complaint Model
+export interface IComplaint extends Document {
+  subject: string;
+  description: string;
+  userId?: number; // PostgreSQL user ID
+  userName: string;
+  userEmail?: string;
+  category: string; // 'Payment', 'Service', 'Quality', 'Technical', 'General'
+  priority: string; // 'Low', 'Medium', 'High', 'Critical'
+  status: string; // 'Open', 'In Progress', 'Resolved', 'Closed'
+  orderId?: mongoose.Types.ObjectId; // Related order if applicable
+  adminNotes?: string;
+  resolvedBy?: string;
+  resolvedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const ComplaintSchema = new Schema<IComplaint>({
+  subject: { type: String, required: true },
+  description: { type: String, required: true },
+  userId: { type: Number }, // References PostgreSQL user
+  userName: { type: String, required: true },
+  userEmail: { type: String },
+  category: { 
+    type: String, 
+    required: true,
+    enum: ['Payment', 'Service', 'Quality', 'Technical', 'General'],
+    default: 'General'
+  },
+  priority: { 
+    type: String, 
+    required: true,
+    enum: ['Low', 'Medium', 'High', 'Critical'],
+    default: 'Medium'
+  },
+  status: { 
+    type: String, 
+    required: true,
+    enum: ['Open', 'In Progress', 'Resolved', 'Closed'],
+    default: 'Open'
+  },
+  orderId: { type: Schema.Types.ObjectId, ref: 'Order' },
+  adminNotes: { type: String },
+  resolvedBy: { type: String },
+  resolvedAt: { type: Date },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+// Update the updatedAt field on save
+ComplaintSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+export const Complaint = mongoose.model<IComplaint>('Complaint', ComplaintSchema);
+
 // QuickOrder Model
 export interface IQuickOrder extends Document {
   menuItemId: mongoose.Types.ObjectId;

@@ -76,6 +76,24 @@ export type LoginIssue = {
   createdAt: Date;
 };
 
+export type Complaint = {
+  id: string;
+  subject: string;
+  description: string;
+  userId?: number; // PostgreSQL user ID
+  userName: string;
+  userEmail?: string;
+  category: string; // 'Payment', 'Service', 'Quality', 'Technical', 'General'
+  priority: string; // 'Low', 'Medium', 'High', 'Critical'
+  status: string; // 'Open', 'In Progress', 'Resolved', 'Closed'
+  orderId?: string; // Related order if applicable
+  adminNotes?: string;
+  resolvedBy?: string;
+  resolvedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export type QuickOrder = {
   id: string;
   menuItemId: string;
@@ -109,6 +127,7 @@ export type InsertNotification = Omit<Notification, 'id' | 'createdAt'>;
 export type InsertLoginIssue = Omit<LoginIssue, 'id' | 'createdAt'>;
 export type InsertQuickOrder = Omit<QuickOrder, 'id' | 'createdAt'>;
 export type InsertPayment = Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>;
+export type InsertComplaint = Omit<Complaint, 'id' | 'createdAt' | 'updatedAt'>;
 
 // Keep validation schemas using Zod for form validation
 import { z } from "zod";
@@ -143,6 +162,21 @@ export const registerNumberSchema = z.string().regex(
   /^7115\d{2}[A-Za-z]{3}\d{3}$/,
   "Register number must be in format: 7115XXABC123 (7115 + year + department + roll number)"
 );
+
+// Complaint validation schemas
+export const insertComplaintSchema = z.object({
+  subject: z.string().min(5, "Subject must be at least 5 characters"),
+  description: z.string().min(10, "Description must be at least 10 characters"),
+  userId: z.number().optional(),
+  userName: z.string().min(1, "User name is required"),
+  userEmail: z.string().email().optional(),
+  category: z.enum(["Payment", "Service", "Quality", "Technical", "General"]).default("General"),
+  priority: z.enum(["Low", "Medium", "High", "Critical"]).default("Medium"),
+  status: z.enum(["Open", "In Progress", "Resolved", "Closed"]).default("Open"),
+  orderId: z.string().optional(),
+  adminNotes: z.string().optional(),
+  resolvedBy: z.string().optional(),
+});
 
 // Validation for staff ID format
 export const staffIdSchema = z.string().regex(

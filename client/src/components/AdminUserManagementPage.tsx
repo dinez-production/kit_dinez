@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -56,30 +56,21 @@ export default function AdminUserManagementPage() {
     refetchInterval: 60000,
   });
 
-  // Fetch real complaints from database
-  const [complaints, setComplaints] = useState<any[]>([
-    {
-      id: 1,
-      subject: "Order not delivered",
-      userName: "Rahul Kumar",
-      date: "2 hours ago",
-      priority: "High",
-      status: "Open",
-      description: "I placed an order 3 hours ago but haven't received it yet. The payment was deducted."
-    },
-    {
-      id: 2,
-      subject: "Food quality issue",
-      userName: "Priya Sharma",
-      date: "1 day ago",
-      priority: "Medium",
-      status: "Open",
-      description: "The food was cold and the taste was not good. Please improve quality control."
-    }
-  ]);
+  // Real complaints data from API
+  const { data: complaintsData = [], isLoading: complaintsLoading, refetch: refetchComplaints } = useQuery({
+    queryKey: ["/api/complaints"],
+    refetchInterval: 60000, // Refresh every minute
+  });
+
+  const [complaints, setComplaints] = useState(complaintsData);
+
+  // Update complaints when API data changes
+  useEffect(() => {
+    setComplaints(complaintsData);
+  }, [complaintsData]);
 
   // Combined loading state
-  const isDataLoading = isLoading || analyticsLoading || ordersLoading;
+  const isDataLoading = isLoading || analyticsLoading || ordersLoading || complaintsLoading;
 
   // Refresh all data function
   const refreshAllData = async () => {
@@ -839,30 +830,31 @@ export default function AdminUserManagementPage() {
                 <div className="flex space-x-2">
                   <Button 
                     variant="outline" 
-                    onClick={() => {
-                      // Generate complaints based on real user data
-                      const newComplaints = users.slice(0, 3).map((user, index) => ({
-                        id: `complaint_${Date.now()}_${index}`,
-                        subject: ['Payment Issue', 'Order Delay', 'Food Quality'][index] || 'General Issue',
-                        description: [
-                          'Payment was deducted but order not processed',
-                          'Order taking too long to prepare',
-                          'Food quality was not satisfactory'
-                        ][index] || 'User reported an issue',
-                        userName: user.name,
-                        userId: user.id,
-                        date: new Date().toLocaleDateString(),
-                        priority: ['High', 'Medium', 'Low'][index % 3],
-                        status: 'Open',
-                        category: ['Payment', 'Service', 'Quality'][index] || 'General'
-                      }));
-                      setComplaints(prev => [...newComplaints, ...prev]);
-                      toast({
-                        title: "Complaints Synced",
-                        description: `${newComplaints.length} new complaints loaded from user feedback`,
-                      });
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/complaints/generate-samples', {
+                          method: 'POST',
+                        });
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                          await refetchComplaints(); // Refresh complaints from database
+                          toast({
+                            title: "Complaints Generated",
+                            description: `${result.complaints.length} new complaints created from real user data`,
+                          });
+                        } else {
+                          throw new Error(result.message);
+                        }
+                      } catch (error) {
+                        toast({
+                          title: "Generation Failed",
+                          description: "Could not generate sample complaints",
+                          variant: "destructive",
+                        });
+                      }
                     }}
-                    disabled={isDataLoading}
+                    disabled={isDataLoading || complaintsLoading}
                   >
                     <RefreshCcw className={`w-4 h-4 mr-2 ${isDataLoading ? 'animate-spin' : ''}`} />
                     Sync Complaints
@@ -998,7 +990,7 @@ export default function AdminUserManagementPage() {
                               size="sm" 
                               onClick={async () => {
                                 try {
-                                  await new Promise(resolve => setTimeout(resolve, 1000));
+                                  await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
                                   toast({
                                     title: "Reply Sent",
                                     description: `Response sent to ${complaint.userName}`,
@@ -1021,13 +1013,25 @@ export default function AdminUserManagementPage() {
                               size="sm" 
                               onClick={async () => {
                                 try {
-                                  setComplaints(prev => prev.map(c => 
-                                    c.id === complaint.id ? { ...c, status: 'Resolved' } : c
-                                  ));
-                                  toast({
-                                    title: "Complaint Resolved",
-                                    description: `${complaint.subject} marked as resolved`,
+                                  const response = await fetch(`/api/complaints/${complaint.id}`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ 
+                                      status: 'Resolved',
+                                      resolvedBy: 'Admin',
+                                      resolvedAt: new Date().toISOString()
+                                    })
                                   });
+                                  
+                                  if (response.ok) {
+                                    await refetchComplaints(); // Refresh data from API
+                                    toast({
+                                      title: "Complaint Resolved",
+                                      description: `${complaint.subject} marked as resolved`,
+                                    });
+                                  } else {
+                                    throw new Error('Failed to update complaint');
+                                  }
                                 } catch (error) {
                                   toast({
                                     title: "Update Failed",
@@ -1046,14 +1050,24 @@ export default function AdminUserManagementPage() {
                               size="sm" 
                               onClick={async () => {
                                 try {
-                                  await new Promise(resolve => setTimeout(resolve, 500));
-                                  setComplaints(prev => prev.map(c => 
-                                    c.id === complaint.id ? { ...c, priority: 'High' } : c
-                                  ));
-                                  toast({
-                                    title: "Complaint Escalated",
-                                    description: "Escalated to management team",
+                                  const response = await fetch(`/api/complaints/${complaint.id}`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ 
+                                      priority: 'High',
+                                      adminNotes: 'Escalated by admin'
+                                    })
                                   });
+                                  
+                                  if (response.ok) {
+                                    await refetchComplaints(); // Refresh data from API
+                                    toast({
+                                      title: "Complaint Escalated",
+                                      description: "Escalated to management team",
+                                    });
+                                  } else {
+                                    throw new Error('Failed to escalate complaint');
+                                  }
                                 } catch (error) {
                                   toast({
                                     title: "Escalation Failed",
@@ -1070,13 +1084,29 @@ export default function AdminUserManagementPage() {
                             <Button 
                               variant="ghost" 
                               size="sm" 
-                              onClick={() => {
+                              onClick={async () => {
                                 if (window.confirm(`Remove complaint: ${complaint.subject}?`)) {
-                                  setComplaints(prev => prev.filter(c => c.id !== complaint.id));
-                                  toast({
-                                    title: "Complaint Removed",
-                                    description: "Complaint has been deleted",
-                                  });
+                                  try {
+                                    const response = await fetch(`/api/complaints/${complaint.id}`, {
+                                      method: 'DELETE'
+                                    });
+                                    
+                                    if (response.ok) {
+                                      await refetchComplaints(); // Refresh data from API
+                                      toast({
+                                        title: "Complaint Removed",
+                                        description: "Complaint has been deleted",
+                                      });
+                                    } else {
+                                      throw new Error('Failed to delete complaint');
+                                    }
+                                  } catch (error) {
+                                    toast({
+                                      title: "Delete Failed",
+                                      description: "Could not remove complaint",
+                                      variant: "destructive",
+                                    });
+                                  }
                                 }
                               }}
                               className="text-destructive hover:text-destructive"

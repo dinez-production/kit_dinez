@@ -9,7 +9,8 @@ import {
   insertNotificationSchema,
   insertLoginIssueSchema,
   insertQuickOrderSchema,
-  insertPaymentSchema
+  insertPaymentSchema,
+  insertComplaintSchema
 } from "@shared/schema";
 import { generateOrderNumber } from "@shared/utils";
 import { 
@@ -1162,6 +1163,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Test payment completion error:', error);
       res.status(500).json({ success: false, message: 'Test payment completion failed' });
+    }
+  });
+
+  // Complaint management endpoints
+  app.get("/api/complaints", async (req, res) => {
+    try {
+      const complaints = await storage.getComplaints();
+      res.json(complaints);
+    } catch (error) {
+      console.error("Error fetching complaints:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/complaints", async (req, res) => {
+    try {
+      const validatedData = insertComplaintSchema.parse(req.body);
+      const complaint = await storage.createComplaint(validatedData);
+      res.status(201).json(complaint);
+    } catch (error) {
+      console.error("Error creating complaint:", error);
+      res.status(400).json({ message: "Invalid complaint data" });
+    }
+  });
+
+  app.get("/api/complaints/:id", async (req, res) => {
+    try {
+      const complaint = await storage.getComplaint(req.params.id);
+      if (!complaint) {
+        return res.status(404).json({ message: "Complaint not found" });
+      }
+      res.json(complaint);
+    } catch (error) {
+      console.error("Error fetching complaint:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/complaints/:id", async (req, res) => {
+    try {
+      const updateData = req.body;
+      const complaint = await storage.updateComplaint(req.params.id, updateData);
+      if (!complaint) {
+        return res.status(404).json({ message: "Complaint not found" });
+      }
+      res.json(complaint);
+    } catch (error) {
+      console.error("Error updating complaint:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/complaints/:id", async (req, res) => {
+    try {
+      const complaint = await storage.deleteComplaint(req.params.id);
+      if (!complaint) {
+        return res.status(404).json({ message: "Complaint not found" });
+      }
+      res.json({ message: "Complaint deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting complaint:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Create sample complaints based on real users and orders
+  app.post("/api/complaints/generate-samples", async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const orders = await storage.getOrders();
+      
+      const sampleComplaints = [];
+      const complaintTypes = [
+        { subject: "Payment Issue", description: "Payment was deducted but order not processed", category: "Payment" },
+        { subject: "Order Delay", description: "Order taking too long to prepare", category: "Service" },
+        { subject: "Food Quality", description: "Food quality was not satisfactory", category: "Quality" },
+        { subject: "Missing Items", description: "Some items were missing from my order", category: "Service" },
+        { subject: "Wrong Order", description: "Received different items than ordered", category: "Service" },
+        { subject: "Cold Food", description: "Food was cold when received", category: "Quality" },
+        { subject: "App Issue", description: "Unable to place order through app", category: "Technical" },
+        { subject: "Refund Request", description: "Need refund for cancelled order", category: "Payment" }
+      ];
+      
+      // Generate complaints from real users
+      for (let i = 0; i < Math.min(5, users.length); i++) {
+        const user = users[i];
+        const complaintType = complaintTypes[i % complaintTypes.length];
+        const userOrder = orders.find(o => o.customerId === user.id);
+        
+        const complaint = await storage.createComplaint({
+          subject: complaintType.subject,
+          description: complaintType.description,
+          userId: user.id,
+          userName: user.name,
+          userEmail: user.email,
+          category: complaintType.category,
+          priority: ['High', 'Medium', 'Low'][i % 3],
+          status: 'Open',
+          orderId: userOrder?.id
+        });
+        
+        sampleComplaints.push(complaint);
+      }
+      
+      res.json({
+        success: true,
+        message: `Generated ${sampleComplaints.length} sample complaints`,
+        complaints: sampleComplaints
+      });
+    } catch (error) {
+      console.error("Error generating sample complaints:", error);
+      res.status(500).json({ message: "Failed to generate sample complaints" });
     }
   });
 

@@ -2,9 +2,9 @@ import { PrismaClient } from '@prisma/client';
 import type { User, Prisma } from '@prisma/client';
 import { connectToMongoDB } from './mongodb';
 import { 
-  Category, MenuItem, Order, OrderItem, Notification, LoginIssue, QuickOrder, Payment,
+  Category, MenuItem, Order, OrderItem, Notification, LoginIssue, QuickOrder, Payment, Complaint,
   type ICategory, type IMenuItem, type IOrder, type IOrderItem, 
-  type INotification, type ILoginIssue, type IQuickOrder, type IPayment
+  type INotification, type ILoginIssue, type IQuickOrder, type IPayment, type IComplaint
 } from './models/mongodb-models';
 import { db as getPostgresDb } from "./db";
 import mongoose from 'mongoose';
@@ -57,6 +57,19 @@ export type InsertPayment = {
   responseMessage?: string; 
   checksum?: string; 
   metadata?: string 
+};
+export type InsertComplaint = { 
+  subject: string; 
+  description: string; 
+  userId?: number; 
+  userName: string; 
+  userEmail?: string; 
+  category?: string; 
+  priority?: string; 
+  status?: string; 
+  orderId?: string; 
+  adminNotes?: string; 
+  resolvedBy?: string 
 };
 
 // Convert MongoDB document to plain object
@@ -443,6 +456,47 @@ export class HybridStorage implements IStorage {
     } catch (error) {
       return undefined;
     }
+  }
+
+  // Complaint methods
+  async createComplaint(complaintData: InsertComplaint): Promise<any> {
+    const complaint = new Complaint(complaintData);
+    const saved = await complaint.save();
+    return mongoToPlain(saved);
+  }
+
+  async getComplaints(): Promise<any[]> {
+    const complaints = await Complaint.find().sort({ createdAt: -1 });
+    return mongoToPlain(complaints);
+  }
+
+  async getComplaint(id: string): Promise<any | undefined> {
+    const complaint = await Complaint.findById(id);
+    return complaint ? mongoToPlain(complaint) : undefined;
+  }
+
+  async updateComplaint(id: string, updateData: Partial<InsertComplaint>): Promise<any | undefined> {
+    const complaint = await Complaint.findByIdAndUpdate(
+      id,
+      { ...updateData, updatedAt: new Date() },
+      { new: true }
+    );
+    return complaint ? mongoToPlain(complaint) : undefined;
+  }
+
+  async deleteComplaint(id: string): Promise<any | undefined> {
+    const result = await Complaint.findByIdAndDelete(id);
+    return result ? mongoToPlain(result) : undefined;
+  }
+
+  async getComplaintsByStatus(status: string): Promise<any[]> {
+    const complaints = await Complaint.find({ status }).sort({ createdAt: -1 });
+    return mongoToPlain(complaints);
+  }
+
+  async getComplaintsByUser(userId: number): Promise<any[]> {
+    const complaints = await Complaint.find({ userId }).sort({ createdAt: -1 });
+    return mongoToPlain(complaints);
   }
 }
 
