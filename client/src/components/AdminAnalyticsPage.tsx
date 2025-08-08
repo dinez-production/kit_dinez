@@ -22,28 +22,48 @@ import {
 export default function AdminAnalyticsPage() {
   const queryClient = useQueryClient();
 
-  // Fetch analytics data from API
-  const { data: analyticsData, isLoading: analyticsLoading, refetch: refetchAnalytics } = useQuery({
+  // Fetch analytics data from API with real-time updates
+  const { data: analyticsData, isLoading: analyticsLoading, refetch: refetchAnalytics, error: analyticsError } = useQuery({
     queryKey: ['/api/admin/analytics'],
-    queryFn: () => fetch('/api/admin/analytics').then(res => res.json())
+    queryFn: () => fetch('/api/admin/analytics').then(res => {
+      if (!res.ok) throw new Error('Failed to fetch analytics');
+      return res.json();
+    }),
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
+    staleTime: 10000, // Data is fresh for 10 seconds
   });
 
   // Fetch users data
-  const { data: usersData, isLoading: usersLoading, refetch: refetchUsers } = useQuery({
+  const { data: usersData, isLoading: usersLoading, refetch: refetchUsers, error: usersError } = useQuery({
     queryKey: ['/api/users'],
-    queryFn: () => fetch('/api/users').then(res => res.json())
+    queryFn: () => fetch('/api/users').then(res => {
+      if (!res.ok) throw new Error('Failed to fetch users');
+      return res.json();
+    }),
+    refetchInterval: 60000,
+    staleTime: 30000,
   });
 
   // Fetch orders data
-  const { data: ordersData, isLoading: ordersLoading, refetch: refetchOrders } = useQuery({
+  const { data: ordersData, isLoading: ordersLoading, refetch: refetchOrders, error: ordersError } = useQuery({
     queryKey: ['/api/orders'],
-    queryFn: () => fetch('/api/orders').then(res => res.json())
+    queryFn: () => fetch('/api/orders').then(res => {
+      if (!res.ok) throw new Error('Failed to fetch orders');
+      return res.json();
+    }),
+    refetchInterval: 30000,
+    staleTime: 10000,
   });
 
   // Fetch menu data
-  const { data: menuData, isLoading: menuLoading, refetch: refetchMenu } = useQuery({
+  const { data: menuData, isLoading: menuLoading, refetch: refetchMenu, error: menuError } = useQuery({
     queryKey: ['/api/menu'],
-    queryFn: () => fetch('/api/menu').then(res => res.json())
+    queryFn: () => fetch('/api/menu').then(res => {
+      if (!res.ok) throw new Error('Failed to fetch menu');
+      return res.json();
+    }),
+    refetchInterval: 60000,
+    staleTime: 30000,
   });
 
   const isLoading = analyticsLoading || usersLoading || ordersLoading || menuLoading;
@@ -95,14 +115,39 @@ export default function AdminAnalyticsPage() {
   // Real time-based analytics from database
   const timeBasedAnalytics: any[] = [];
 
-  // Refresh analytics data function
-  const refreshAnalyticsData = () => {
-    refetchAnalytics();
-    refetchUsers();
-    refetchOrders();
-    refetchMenu();
-    toast.success("Analytics data refreshed successfully!");
+  // Refresh analytics data function with improved error handling
+  const refreshAnalyticsData = async () => {
+    try {
+      const promises = [
+        refetchAnalytics(),
+        refetchUsers(),
+        refetchOrders(),
+        refetchMenu()
+      ];
+      
+      await Promise.all(promises);
+      
+      // Invalidate query cache to force fresh data
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/menu'] });
+      
+      toast.success("Analytics data refreshed successfully!", {
+        description: `Updated: ${new Date().toLocaleTimeString()}`
+      });
+    } catch (error) {
+      toast.error("Failed to refresh some data", {
+        description: "Please check your connection and try again"
+      });
+    }
   };
+
+  // Check for any errors and show appropriate feedback
+  const hasErrors = analyticsError || usersError || ordersError || menuError;
+  if (hasErrors && !isLoading) {
+    console.warn('Data loading errors:', { analyticsError, usersError, ordersError, menuError });
+  }
 
   if (isLoading) {
     return (
