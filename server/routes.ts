@@ -59,6 +59,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User management endpoints
+  app.get("/api/users", async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get("/api/users/:id", async (req, res) => {
     try {
       const user = await storage.getUser(parseInt(req.params.id));

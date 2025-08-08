@@ -43,7 +43,7 @@ export default function AdminOverviewPage() {
   // Calculate real stats from database data
   const stats = {
     totalRevenue: orders.reduce((sum, order) => sum + order.amount, 0),
-    totalUsers: users.length,
+    totalUsers: users.length || 0,
     totalOrders: orders.length,
     activeCanteens: 1,
     pendingOrders: orders.filter(order => order.status === 'preparing').length,
@@ -51,6 +51,8 @@ export default function AdminOverviewPage() {
     averageRating: 0, // To be calculated when ratings are available
     systemUptime: 100
   };
+
+
 
   // Get recent activity from orders (last 5 orders)
   const recentActivity = orders
@@ -104,7 +106,9 @@ export default function AdminOverviewPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalUsers.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">No data available</p>
+            <p className="text-xs text-muted-foreground">
+              {usersLoading ? 'Loading...' : `${users.length} registered users`}
+            </p>
           </CardContent>
         </Card>
 

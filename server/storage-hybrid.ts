@@ -77,6 +77,7 @@ function mongoToPlain<T>(doc: any): T {
 
 export interface IStorage {
   // Users (PostgreSQL)
+  getAllUsers(): Promise<User[]>;
   getUser(id: number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByRegisterNumber(registerNumber: string): Promise<User | undefined>;
@@ -141,6 +142,14 @@ export class HybridStorage implements IStorage {
   }
 
   // USER OPERATIONS (PostgreSQL)
+  async getAllUsers(): Promise<User[]> {
+    const db = getPostgresDb();
+    const users = await db.user.findMany({
+      orderBy: { id: 'asc' }
+    });
+    return users;
+  }
+
   async getUser(id: number): Promise<User | undefined> {
     const db = getPostgresDb();
     const user = await db.user.findUnique({
