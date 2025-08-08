@@ -129,6 +129,7 @@ export default function CanteenOwnerDashboardSidebar() {
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [scannedOrderId, setScannedOrderId] = useState("");
 
   // Priority queue ordering for active orders: preparing > ready > pending
   const getOrderPriority = (status: string) => {
@@ -1025,18 +1026,340 @@ export default function CanteenOwnerDashboardSidebar() {
             {/* Scanner Content */}
             {activeTab === "scanner" && (
               <div className="space-y-6">
+                {/* Order ID Scanner */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center space-x-2">
                       <ScanLine className="w-5 h-5" />
-                      Barcode Scanner
+                      Order Scanner
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="scanned-order-id">Order ID or Barcode</Label>
+                      <Input
+                        id="scanned-order-id"
+                        data-testid="input-scanner-order-id"
+                        placeholder="Enter or scan order ID (12 digits)"
+                        value={scannedOrderId}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9]/g, '');
+                          setScannedOrderId(value);
+                          setScanError("");
+                        }}
+                        maxLength={12}
+                        className="text-lg font-mono"
+                      />
+                    </div>
+
+                    {scannedOrderId && (
+                      <div className={`p-3 rounded border ${
+                        /^[0-9]{12}$/.test(scannedOrderId) 
+                          ? 'border-green-500/50 bg-green-50 dark:bg-green-950/20' 
+                          : 'border-amber-500/50 bg-amber-50 dark:bg-amber-950/20'
+                      }`}>
+                        {/^[0-9]{12}$/.test(scannedOrderId) ? (
+                          <div className="flex items-center text-green-700 dark:text-green-300">
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            <span>Valid Order ID: </span>
+                            <span className="font-mono">
+                              {(() => {
+                                const formatted = formatOrderIdDisplay(scannedOrderId);
+                                return (
+                                  <>
+                                    {formatted.prefix}
+                                    <span className="bg-green-500/20 text-green-700 font-bold px-1 rounded ml-0">
+                                      {formatted.highlighted}
+                                    </span>
+                                  </>
+                                );
+                              })()} 
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center text-amber-700 dark:text-amber-300">
+                            <AlertTriangle className="w-4 h-4 mr-2" />
+                            Invalid format. Expected 12 digits: {scannedOrderId.length}/12
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex space-x-2">
+                      <Button 
+                        onClick={() => {
+                          if (!scannedOrderId.trim()) {
+                            setScanError("Please enter an Order ID");
+                            return;
+                          }
+                          
+                          if (!/^[0-9]{12}$/.test(scannedOrderId)) {
+                            setScanError("Order ID must be exactly 12 digits");
+                            return;
+                          }
+                          
+                          // Find the order
+                          const foundOrder = orders.find(o => 
+                            o.orderNumber === scannedOrderId || 
+                            o.barcode === scannedOrderId ||
+                            o.id.toString() === scannedOrderId
+                          );
+                          
+                          if (foundOrder) {
+                            setScanResult(foundOrder);
+                            setScanError("");
+                            toast.success(`Order found: ${foundOrder.orderNumber}`);
+                          } else {
+                            setScanError("Order not found");
+                            setScanResult(null);
+                          }
+                        }}
+                        disabled={!scannedOrderId.trim()}
+                        className="flex-1"
+                        data-testid="button-scan-order"
+                      >
+                        <Search className="w-4 h-4 mr-2" />
+                        Find Order
+                      </Button>
+                      
+                      <Button 
+                        variant="outline"
+                        onClick={() => {
+                          setScannedOrderId("");
+                          setScanResult(null);
+                          setScanError("");
+                        }}
+                        data-testid="button-clear-scanner"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    {scanError && (
+                      <div className="p-3 rounded border border-red-500/50 bg-red-50 dark:bg-red-950/20">
+                        <div className="flex items-center text-red-700 dark:text-red-300">
+                          <XCircle className="w-4 h-4 mr-2" />
+                          {scanError}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Scanned Order Details */}
+                {scanResult && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center justify-between">
+                        <span>Order Details</span>
+                        <Badge className={getOrderStatusColor(scanResult.status)}>
+                          {getOrderStatusText(scanResult.status)}
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Order Number</p>
+                          <p className="font-mono font-medium">{scanResult.orderNumber}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Customer</p>
+                          <p className="font-medium">{scanResult.customerName}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Amount</p>
+                          <p className="font-medium">₹{scanResult.amount}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Time</p>
+                          <p className="font-medium">
+                            {scanResult.createdAt ? new Date(scanResult.createdAt).toLocaleTimeString() : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-2">Items</p>
+                        <div className="text-sm">
+                          {scanResult.items && typeof scanResult.items === 'string' 
+                            ? (() => {
+                                try {
+                                  const parsedItems = JSON.parse(scanResult.items);
+                                  return Array.isArray(parsedItems) 
+                                    ? parsedItems.map((item: any) => `${item.quantity}x ${item.name}`).join(', ')
+                                    : scanResult.items;
+                                } catch {
+                                  return scanResult.items;
+                                }
+                              })()
+                            : 'No items'
+                          }
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex space-x-2 pt-4 border-t">
+                        {(scanResult.status === "preparing" || 
+                          (scanResult.status === "pending" && (() => {
+                            try {
+                              const items = JSON.parse(scanResult.items || '[]');
+                              return items.some((item: any) => {
+                                const menuItem = menuItems.find(mi => mi.id === item.id);
+                                return menuItem?.isMarkable === true;
+                              });
+                            } catch {
+                              return false;
+                            }
+                          })())) && (
+                          <Button
+                            onClick={() => {
+                              markOrderReadyMutation.mutate(scanResult.id);
+                              // Clear scan result after marking ready
+                              setTimeout(() => {
+                                setScannedOrderId("");
+                                setScanResult(null);
+                              }, 1000);
+                            }}
+                            disabled={markOrderReadyMutation.isPending}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                            data-testid="button-mark-ready-scanner"
+                          >
+                            {markOrderReadyMutation.isPending ? "Updating..." : "Mark Ready"}
+                          </Button>
+                        )}
+                        
+                        <Button
+                          variant="outline"
+                          onClick={() => setLocation(`/canteen-order-detail/${scanResult.id}`)}
+                          data-testid="button-view-details-scanner"
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          View Full Details
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Quick Counter Orders */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <ShoppingCart className="w-5 h-5" />
+                      Quick Counter Orders
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-center py-8">
-                      <ScanLine className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p className="text-muted-foreground">Scanner functionality would be implemented here</p>
-                      <p className="text-sm text-muted-foreground mt-2">Scan order barcodes to mark as completed</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Filtered Menu Items */}
+                      <div className="space-y-3">
+                        <h4 className="font-medium">Available Items</h4>
+                        <div className="space-y-2 max-h-64 overflow-y-auto border rounded p-3">
+                          {menuItems.filter((item: any) => item.available && item.stock > 0).slice(0, 6).map((item: any) => (
+                            <div key={item.id} className="flex items-center justify-between p-2 border rounded hover:bg-accent/50">
+                              <div className="flex-1">
+                                <div className="font-medium text-sm">{item.name}</div>
+                                <div className="text-sm font-semibold text-primary">₹{item.price}</div>
+                                <div className="text-xs text-muted-foreground">Stock: {item.stock}</div>
+                              </div>
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  const existingItem = cart.find(cartItem => cartItem.id === item.id);
+                                  if (existingItem) {
+                                    setCart(cart.map(cartItem => 
+                                      cartItem.id === item.id 
+                                        ? { ...cartItem, quantity: cartItem.quantity + 1 }
+                                        : cartItem
+                                    ));
+                                  } else {
+                                    setCart([...cart, { id: item.id, name: item.name, price: item.price, quantity: 1 }]);
+                                  }
+                                  toast.success(`Added ${item.name} to cart`);
+                                }}
+                                disabled={item.stock <= 0}
+                                data-testid={`button-add-${item.id}`}
+                              >
+                                <Plus className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Cart */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium">Cart ({cart.length})</h4>
+                          {cart.length > 0 && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setCart([])}
+                              data-testid="button-clear-cart"
+                            >
+                              Clear
+                            </Button>
+                          )}
+                        </div>
+                        
+                        {cart.length === 0 ? (
+                          <div className="border rounded p-4 text-center text-muted-foreground">
+                            <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">Cart is empty</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="space-y-2 max-h-32 overflow-y-auto border rounded p-2">
+                              {cart.map((item) => (
+                                <div key={item.id} className="flex items-center justify-between text-sm">
+                                  <span>{item.quantity}x {item.name}</span>
+                                  <div className="flex items-center space-x-1">
+                                    <span>₹{item.price * item.quantity}</span>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => setCart(cart.filter(cartItem => cartItem.id !== item.id))}
+                                      data-testid={`button-remove-${item.id}`}
+                                    >
+                                      <Minus className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            
+                            <div className="border-t pt-2">
+                              <div className="flex justify-between font-semibold">
+                                <span>Total:</span>
+                                <span>₹{getTotalAmount()}</span>
+                              </div>
+                              
+                              <div className="flex space-x-2 mt-3">
+                                <Select value={paymentMode} onValueChange={(value: 'cash' | 'online') => setPaymentMode(value)}>
+                                  <SelectTrigger className="flex-1" data-testid="select-payment-mode">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="cash">Cash Payment</SelectItem>
+                                    <SelectItem value="online">Online Payment</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                
+                                <Button
+                                  onClick={handlePlaceOfflineOrder}
+                                  disabled={isPlacingOrder || cart.length === 0}
+                                  className="bg-primary text-primary-foreground"
+                                  data-testid="button-place-order"
+                                >
+                                  {isPlacingOrder ? "Processing..." : "Place Order"}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
