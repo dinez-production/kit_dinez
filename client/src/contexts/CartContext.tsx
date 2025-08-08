@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { useToast } from '@/hooks/use-toast';
 
 export interface CartItem {
-  id: number;
+  id: string;
   name: string;
   price: number;
   quantity: number;
@@ -11,11 +11,11 @@ export interface CartItem {
 
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (item: { id: number; name: string; price: number; isVegetarian: boolean }) => void;
-  removeFromCart: (itemId: number) => void;
-  updateQuantity: (itemId: number, newQuantity: number) => void;
-  decreaseQuantity: (itemId: number) => void;
-  getCartQuantity: (itemId: number) => number;
+  addToCart: (item: { id: string; name: string; price: number; isVegetarian: boolean }) => void;
+  removeFromCart: (itemId: string) => void;
+  updateQuantity: (itemId: string, newQuantity: number) => void;
+  decreaseQuantity: (itemId: string) => void;
+  getCartQuantity: (itemId: string) => number;
   getTotalItems: () => number;
   getTotalPrice: () => number;
   clearCart: () => void;
@@ -35,8 +35,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const savedCart = localStorage.getItem(CART_STORAGE_KEY);
       if (savedCart) {
         const parsedCart = JSON.parse(savedCart);
-
-        setCart(parsedCart);
+        
+        // Validate cart items have string IDs (MongoDB ObjectIds)
+        const isValidCart = Array.isArray(parsedCart) && 
+          parsedCart.every(item => typeof item.id === 'string' && item.id.length > 10);
+        
+        if (isValidCart) {
+          setCart(parsedCart);
+        } else {
+          // Clear invalid cart data (old number IDs)
+          console.warn("Clearing invalid cart data with outdated ID format");
+          localStorage.removeItem(CART_STORAGE_KEY);
+          setCart([]);
+        }
       }
     } catch (error) {
       console.error("Failed to load cart from localStorage:", error);
@@ -49,7 +60,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
   }, [cart]);
 
-  const addToCart = useCallback((item: { id: number; name: string; price: number; isVegetarian: boolean }) => {
+  const addToCart = useCallback((item: { id: string; name: string; price: number; isVegetarian: boolean }) => {
     setCart(currentCart => {
       const existingItemIndex = currentCart.findIndex(cartItem => cartItem.id === item.id);
       
@@ -75,7 +86,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, [toast]);
 
-  const removeFromCart = useCallback((itemId: number) => {
+  const removeFromCart = useCallback((itemId: string) => {
     setCart(currentCart => currentCart.filter(item => item.id !== itemId));
     toast({
       title: "Item Removed",
@@ -83,7 +94,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, [toast]);
 
-  const updateQuantity = useCallback((itemId: number, newQuantity: number) => {
+  const updateQuantity = useCallback((itemId: string, newQuantity: number) => {
     if (newQuantity <= 0) {
       removeFromCart(itemId);
       return;
@@ -98,7 +109,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   }, [removeFromCart]);
 
-  const decreaseQuantity = useCallback((itemId: number) => {
+  const decreaseQuantity = useCallback((itemId: string) => {
     setCart(currentCart => {
       const item = currentCart.find(cartItem => cartItem.id === itemId);
       if (item) {
@@ -116,7 +127,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const getCartQuantity = useCallback((itemId: number) => {
+  const getCartQuantity = useCallback((itemId: string) => {
     const item = cart.find(cartItem => cartItem.id === itemId);
     return item ? item.quantity : 0;
   }, [cart]);

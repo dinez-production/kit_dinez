@@ -56,9 +56,10 @@ export default function ViewAllQuickPicksPage() {
 
   const handleAddToCart = (item: typeof quickPickItems[0]) => {
     addToCart({
-      id: parseInt(item.id),
+      id: item.id, // Keep as string (MongoDB ObjectId)
       name: item.name,
-      price: item.price
+      price: item.price,
+      isVegetarian: false // Default value for quick picks
     });
   };
 
@@ -189,9 +190,9 @@ export default function ViewAllQuickPicksPage() {
                           Available now
                         </span>
                         <div className="flex items-center space-x-2">
-                          {getCartQuantity(parseInt(item.id)) > 0 && (
+                          {getCartQuantity(item.id) > 0 && (
                             <span className="text-sm font-medium">
-                              {getCartQuantity(parseInt(item.id))} in cart
+                              {getCartQuantity(item.id)} in cart
                             </span>
                           )}
                           <Button
@@ -200,8 +201,8 @@ export default function ViewAllQuickPicksPage() {
                             className="bg-primary hover:bg-primary/90"
                           >
                             <Plus className="w-4 h-4 mr-1" />
-                            {getCartQuantity(parseInt(item.id)) > 0 
-                              ? `ADD (${getCartQuantity(parseInt(item.id))})` 
+                            {getCartQuantity(item.id) > 0 
+                              ? `ADD (${getCartQuantity(item.id)})` 
                               : 'ADD'
                             }
                           </Button>

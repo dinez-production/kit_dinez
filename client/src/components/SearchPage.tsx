@@ -25,7 +25,7 @@ export default function SearchPage() {
   });
 
   // Create item-category mapping
-  const getCategoryName = (categoryId: number) => {
+  const getCategoryName = (categoryId?: string) => {
     const category = categories.find(cat => cat.id === categoryId);
     return category?.name || "Other";
   };
