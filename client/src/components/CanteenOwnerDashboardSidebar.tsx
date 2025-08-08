@@ -1190,44 +1190,18 @@ export default function CanteenOwnerDashboardSidebar() {
                         </div>
                       </div>
 
-                      {/* Action Buttons */}
-                      <div className="flex space-x-2 pt-4 border-t">
-                        {(scanResult.status === "preparing" || 
-                          (scanResult.status === "pending" && (() => {
-                            try {
-                              const items = JSON.parse(scanResult.items || '[]');
-                              return items.some((item: any) => {
-                                const menuItem = menuItems.find(mi => mi.id === item.id);
-                                return menuItem?.isMarkable === true;
-                              });
-                            } catch {
-                              return false;
-                            }
-                          })())) && (
-                          <Button
-                            onClick={() => {
-                              markOrderReadyMutation.mutate(scanResult.id);
-                              // Clear scan result after marking ready
-                              setTimeout(() => {
-                                setScannedOrderId("");
-                                setScanResult(null);
-                              }, 1000);
-                            }}
-                            disabled={markOrderReadyMutation.isPending}
-                            className="bg-green-600 hover:bg-green-700 text-white"
-                            data-testid="button-mark-ready-scanner"
-                          >
-                            {markOrderReadyMutation.isPending ? "Updating..." : "Mark Ready"}
-                          </Button>
-                        )}
-                        
+                      {/* Action Button */}
+                      <div className="flex justify-center pt-4 border-t">
                         <Button
                           variant="outline"
-                          onClick={() => setLocation(`/canteen-order-detail/${scanResult.id}`)}
-                          data-testid="button-view-details-scanner"
+                          onClick={() => {
+                            setScannedOrderId("");
+                            setScanResult(null);
+                            setScanError("");
+                          }}
+                          data-testid="button-scan-next"
                         >
-                          <Eye className="w-4 h-4 mr-2" />
-                          View Full Details
+                          Scan Next Order
                         </Button>
                       </div>
                     </CardContent>
