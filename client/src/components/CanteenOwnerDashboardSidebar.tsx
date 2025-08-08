@@ -166,9 +166,19 @@ export default function CanteenOwnerDashboardSidebar() {
   const [showSettings, setShowSettings] = useState(false);
 
   // Filter orders
-  const activeOrders = (orders as any[]).filter((order: any) => 
-    order.status === "pending" || order.status === "preparing" || order.status === "ready"
-  );
+  // Filter and sort active orders - Priority queue: preparing > ready > pending
+  const activeOrders = (orders as any[])
+    .filter((order: any) => 
+      order.status === "pending" || order.status === "preparing" || order.status === "ready"
+    )
+    .sort((a: any, b: any) => {
+      // First sort by priority (preparing > ready > pending)
+      const priorityDiff = getOrderPriority(a.status) - getOrderPriority(b.status);
+      if (priorityDiff !== 0) return priorityDiff;
+      
+      // Then sort by creation time (oldest first for same priority)
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
 
   const allFilteredOrders = searchQuery 
     ? (orders as any[]).filter((order: any) => {
@@ -211,6 +221,16 @@ export default function CanteenOwnerDashboardSidebar() {
   const generateOrderNumber = () => Math.floor(Math.random() * 900000000000) + 100000000000;
   const generateBarcode = () => Math.floor(Math.random() * 900000000000) + 100000000000;
   const getTotalAmount = () => cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  
+  // Priority queue ordering for active orders: preparing > ready > pending
+  const getOrderPriority = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'preparing': return 1; // Highest priority
+      case 'ready': return 2;
+      case 'pending': return 3;
+      default: return 4; // Lowest priority
+    }
+  };
 
   // Mutations
   const placeOfflineOrderMutation = useMutation({
@@ -227,6 +247,22 @@ export default function CanteenOwnerDashboardSidebar() {
     },
     onError: () => {
       toast.error("Failed to place counter order. Please try again.");
+    }
+  });
+
+  const markOrderReadyMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      return apiRequest(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "ready" }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast.success("Order marked as ready!");
+    },
+    onError: () => {
+      toast.error("Failed to update order status. Please try again.");
     }
   });
 
@@ -517,11 +553,11 @@ export default function CanteenOwnerDashboardSidebar() {
                       <TabsContent value="active">
                         <div className="space-y-4">
                           <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-medium">Active Orders (FIFO Queue)</h3>
+                            <h3 className="text-lg font-medium">Active Orders (Priority Queue)</h3>
                             <div className="flex items-center space-x-2">
                               <Badge variant="outline">{activeOrders.length} active</Badge>
                               <span className="text-xs text-muted-foreground">
-                                Priority: Preparing → Ready
+                                Priority: Preparing → Ready → Pending
                               </span>
                             </div>
                           </div>
@@ -535,7 +571,11 @@ export default function CanteenOwnerDashboardSidebar() {
                           ) : (
                             <div className="space-y-3">
                               {activeOrders.map((order: any) => (
-                                <Card key={order.id} className="border-l-4 border-l-primary">
+                                <Card key={order.id} className={`border-l-4 ${
+                                  order.status === 'preparing' ? 'border-l-blue-500' : 
+                                  order.status === 'ready' ? 'border-l-green-500' : 
+                                  'border-l-yellow-500'
+                                }`}>
                                   <CardContent className="p-4">
                                     <div className="flex items-center justify-between">
                                       <div className="flex-1">
@@ -579,12 +619,26 @@ export default function CanteenOwnerDashboardSidebar() {
                                         <p className="text-xs text-muted-foreground">
                                           {order.createdAt ? new Date(order.createdAt).toLocaleTimeString() : 'N/A'}
                                         </p>
-                                        <Button
-                                          size="sm"
-                                          onClick={() => setLocation(`/canteen-order-detail/${order.id}`)}
-                                        >
-                                          View Details
-                                        </Button>
+                                        <div className="flex flex-col space-y-2">
+                                          {order.status === "preparing" && (
+                                            <Button
+                                              size="sm"
+                                              variant="default"
+                                              onClick={() => markOrderReadyMutation.mutate(order.id)}
+                                              disabled={markOrderReadyMutation.isPending}
+                                              className="bg-green-600 hover:bg-green-700 text-white"
+                                            >
+                                              {markOrderReadyMutation.isPending ? "Updating..." : "Mark Ready"}
+                                            </Button>
+                                          )}
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => setLocation(`/canteen-order-detail/${order.id}`)}
+                                          >
+                                            View Details
+                                          </Button>
+                                        </div>
                                       </div>
                                     </div>
                                   </CardContent>
