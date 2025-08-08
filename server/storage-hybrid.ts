@@ -21,6 +21,7 @@ export type InsertMenuItem = {
   description?: string; 
   addOns?: string; 
   isVegetarian?: boolean; 
+  isMarkable?: boolean;
   isTrending?: boolean 
 };
 export type InsertOrder = { 

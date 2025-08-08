@@ -46,6 +46,7 @@ export default function CanteenOwnerMenuManagement({
     stock: "",
     available: true,
     isVegetarian: true,
+    isMarkable: true,
     addOns: "[]"
   });
   const [addOns, setAddOns] = useState<Array<{ name: string; price: string }>>([]);
@@ -139,6 +140,7 @@ export default function CanteenOwnerMenuManagement({
       stock: "",
       available: true,
       isVegetarian: true,
+      isMarkable: true,
       addOns: "[]"
     });
     setAddOns([]);
@@ -154,6 +156,7 @@ export default function CanteenOwnerMenuManagement({
       stock: item.stock?.toString() || "",
       available: item.available ?? true,
       isVegetarian: item.isVegetarian ?? true,
+      isMarkable: item.isMarkable ?? true,
       addOns: item.addOns || "[]"
     });
     
@@ -185,6 +188,7 @@ export default function CanteenOwnerMenuManagement({
       stock: parseInt(editForm.stock),
       available: editForm.available,
       isVegetarian: editForm.isVegetarian,
+      isMarkable: editForm.isMarkable,
       addOns: JSON.stringify(addOns.filter(addon => addon.name && addon.price))
     };
     
@@ -210,6 +214,7 @@ export default function CanteenOwnerMenuManagement({
       stock: parseInt(editForm.stock) || 0,
       available: editForm.available,
       isVegetarian: editForm.isVegetarian,
+      isMarkable: editForm.isMarkable,
       addOns: JSON.stringify(addOns.filter(addon => addon.name && addon.price))
     };
     
@@ -348,6 +353,22 @@ export default function CanteenOwnerMenuManagement({
                   onCheckedChange={(checked) => setEditForm({...editForm, isVegetarian: checked})}
                 />
                 <Label htmlFor="add-vegetarian">Vegetarian</Label>
+              </div>
+
+              {/* Markable */}
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="add-markable"
+                  data-testid="switch-item-markable"
+                  checked={editForm.isMarkable}
+                  onCheckedChange={(checked) => setEditForm({...editForm, isMarkable: checked})}
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="add-markable">Markable Dish</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {editForm.isMarkable ? "Requires preparation - manually mark as ready" : "Auto-ready - order goes directly to ready status"}
+                  </p>
+                </div>
               </div>
 
               {/* Add-ons */}
@@ -493,6 +514,13 @@ export default function CanteenOwnerMenuManagement({
                       <Badge variant="outline" data-testid={`badge-item-stock-${item.id}`}>
                         Stock: {item.stock || 0}
                       </Badge>
+                      <Badge 
+                        variant={item.isMarkable ? "secondary" : "outline"}
+                        className={item.isMarkable ? "bg-orange-100 text-orange-800 border-orange-200" : ""}
+                        data-testid={`badge-item-markable-${item.id}`}
+                      >
+                        {item.isMarkable ? "Markable" : "Auto-Ready"}
+                      </Badge>
                     </div>
                     <div className="flex space-x-1">
                       <Button
@@ -614,6 +642,21 @@ export default function CanteenOwnerMenuManagement({
                   onCheckedChange={(checked) => setEditForm({...editForm, isVegetarian: checked})}
                 />
                 <Label htmlFor="edit-vegetarian">Vegetarian</Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="edit-markable"
+                  data-testid="switch-edit-markable"
+                  checked={editForm.isMarkable}
+                  onCheckedChange={(checked) => setEditForm({...editForm, isMarkable: checked})}
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="edit-markable">Markable Dish</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {editForm.isMarkable ? "Requires preparation - manually mark as ready" : "Auto-ready - order goes directly to ready status"}
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-2">

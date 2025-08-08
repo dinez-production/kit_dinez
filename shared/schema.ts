@@ -24,6 +24,7 @@ export type MenuItem = {
   description?: string;
   addOns: string;
   isVegetarian: boolean;
+  isMarkable: boolean; // true = requires manual ready marking, false = auto-ready
   isTrending: boolean;
   createdAt: Date;
 };

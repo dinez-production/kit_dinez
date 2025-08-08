@@ -23,6 +23,7 @@ export interface IMenuItem extends Document {
   description?: string;
   addOns: string; // JSON array of add-ons
   isVegetarian: boolean;
+  isMarkable: boolean; // true = requires manual ready marking, false = auto-ready
   isTrending: boolean;
   createdAt: Date;
 }
@@ -36,6 +37,7 @@ const MenuItemSchema = new Schema<IMenuItem>({
   description: { type: String },
   addOns: { type: String, default: '[]' },
   isVegetarian: { type: Boolean, default: true },
+  isMarkable: { type: Boolean, default: true },
   isTrending: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 });

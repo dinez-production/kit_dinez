@@ -310,9 +310,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid order items format" });
       }
 
-      // Check stock availability and deduct stock for each item
+      // Check stock availability and markable status for each item
       const stockErrors = [];
       const stockUpdates = [];
+      let hasMarkableItem = false; // Track if any item requires manual marking
       
       for (const item of orderItems) {
         const menuItem = await storage.getMenuItem(item.id);
@@ -324,6 +325,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (menuItem.stock < item.quantity) {
           stockErrors.push(`Insufficient stock for ${item.name}. Available: ${menuItem.stock}, Requested: ${item.quantity}`);
           continue;
+        }
+        
+        // Check if this item is markable (requires manual preparation)
+        if (menuItem.isMarkable) {
+          hasMarkableItem = true;
         }
         
         // Prepare stock update
@@ -343,8 +349,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Determine order status based on markable items
+      // If all items are non-markable (isMarkable: false), auto-ready the order
+      // If any item is markable (isMarkable: true), keep it as pending for manual processing
+      const orderStatus = hasMarkableItem ? "pending" : "ready";
+      
+      // Update validated data with appropriate status
+      const finalOrderData = {
+        ...validatedData,
+        status: orderStatus
+      };
+      
+      // Log the markable decision for debugging
+      console.log(`🔄 Order ${orderNumber}: ${hasMarkableItem ? 'Has markable items - status: pending' : 'All non-markable items - status: ready'}`);
+      
       // Create the order first
-      const order = await storage.createOrder(validatedData);
+      const order = await storage.createOrder(finalOrderData);
       
       // Then update stock levels
       for (const update of stockUpdates) {

@@ -537,6 +537,25 @@ export default function CanteenOwnerDashboardSidebar() {
                               <Badge className={getOrderStatusColor(order.status)}>
                                 {getOrderStatusText(order.status)}
                               </Badge>
+                              {(() => {
+                                try {
+                                  const items = JSON.parse(order.items || '[]');
+                                  const hasMarkableItem = items.some((item: any) => {
+                                    const menuItem = menuItems.find(mi => mi.id === item.id);
+                                    return menuItem?.isMarkable === true;
+                                  });
+                                  return (
+                                    <Badge 
+                                      variant={hasMarkableItem ? "secondary" : "outline"}
+                                      className={hasMarkableItem ? "bg-orange-100 text-orange-800 border-orange-200" : "bg-green-100 text-green-800 border-green-200"}
+                                    >
+                                      {hasMarkableItem ? "Requires Prep" : "Auto-Ready"}
+                                    </Badge>
+                                  );
+                                } catch {
+                                  return null;
+                                }
+                              })()}
                             </div>
                             <p className="text-sm text-muted-foreground">Customer: {order.customerName || 'N/A'}</p>
                             <p className="text-sm">
@@ -643,6 +662,25 @@ export default function CanteenOwnerDashboardSidebar() {
                                             {getOrderStatusText(order.status)}
                                           </Badge>
                                           <Badge variant="secondary">{order.estimatedTime}m</Badge>
+                                          {(() => {
+                                            try {
+                                              const items = JSON.parse(order.items || '[]');
+                                              const hasMarkableItem = items.some((item: any) => {
+                                                const menuItem = menuItems.find(mi => mi.id === item.id);
+                                                return menuItem?.isMarkable === true;
+                                              });
+                                              return (
+                                                <Badge 
+                                                  variant={hasMarkableItem ? "secondary" : "outline"}
+                                                  className={hasMarkableItem ? "bg-orange-100 text-orange-800 border-orange-200" : "bg-green-100 text-green-800 border-green-200"}
+                                                >
+                                                  {hasMarkableItem ? "Prep Required" : "Auto-Ready"}
+                                                </Badge>
+                                              );
+                                            } catch {
+                                              return null;
+                                            }
+                                          })()}
                                         </div>
                                         <p className="text-sm text-muted-foreground">Customer: {order.customerName}</p>
                                         <p className="text-sm">
