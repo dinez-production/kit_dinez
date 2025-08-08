@@ -114,22 +114,36 @@ export default function CanteenOwnerDashboardSidebar() {
   const [activeTab, setActiveTab] = useState("overview");
   const { user, isAuthenticated, isCanteenOwner } = useAuthSync();
   
-  // Scanner state - completely rewritten for better control
+  // State declarations
   const [isScanning, setIsScanning] = useState(false);
   const [manualBarcode, setManualBarcode] = useState("");
   const [scanResult, setScanResult] = useState<any>(null);
   const [scanError, setScanError] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-
-  // Search state for orders
   const [searchQuery, setSearchQuery] = useState("");
-  
-  // Offline order state
   const [offlineSearchQuery, setOfflineSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [cart, setCart] = useState<Array<{id: string, name: string, price: number, quantity: number}>>([]);
   const [paymentMode, setPaymentMode] = useState<'cash' | 'online'>('cash');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Priority queue ordering for active orders: preparing > ready > pending
+  const getOrderPriority = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'preparing': return 1; // Highest priority
+      case 'ready': return 2;
+      case 'pending': return 3;
+      default: return 4; // Lowest priority
+    }
+  };
+
+  // Helper functions
+  const generateOrderNumber = () => Math.floor(Math.random() * 900000000000) + 100000000000;
+  const generateBarcode = () => Math.floor(Math.random() * 900000000000) + 100000000000;
+  const getTotalAmount = () => cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+
 
   // Enhanced security check - redirect if not authenticated OR not canteen owner
   useEffect(() => {
@@ -161,9 +175,7 @@ export default function CanteenOwnerDashboardSidebar() {
     queryKey: ["/api/admin/analytics"],
   });
 
-  // Notification and settings state
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+
 
   // Filter orders
   // Filter and sort active orders - Priority queue: preparing > ready > pending
@@ -217,20 +229,7 @@ export default function CanteenOwnerDashboardSidebar() {
     }
   ];
 
-  // Helper functions
-  const generateOrderNumber = () => Math.floor(Math.random() * 900000000000) + 100000000000;
-  const generateBarcode = () => Math.floor(Math.random() * 900000000000) + 100000000000;
-  const getTotalAmount = () => cart.reduce((total, item) => total + (item.price * item.quantity), 0);
-  
-  // Priority queue ordering for active orders: preparing > ready > pending
-  const getOrderPriority = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'preparing': return 1; // Highest priority
-      case 'ready': return 2;
-      case 'pending': return 3;
-      default: return 4; // Lowest priority
-    }
-  };
+
 
   // Mutations
   const placeOfflineOrderMutation = useMutation({
