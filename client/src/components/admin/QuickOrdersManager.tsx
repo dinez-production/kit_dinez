@@ -91,9 +91,10 @@ export function QuickOrdersManager() {
 
   const deleteQuickOrderMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest(`/api/quick-orders/${id}`, {
+      const result = await apiRequest(`/api/quick-orders/${id}`, {
         method: "DELETE",
       });
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/quick-orders"] });
@@ -102,10 +103,11 @@ export function QuickOrdersManager() {
         description: "The quick order has been successfully removed.",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Delete quick order error:", error);
       toast({
         title: "Error",
-        description: "Failed to remove quick order. Please try again.",
+        description: `Failed to remove quick order: ${error.message || "Please try again."}`,
         variant: "destructive",
       });
     },

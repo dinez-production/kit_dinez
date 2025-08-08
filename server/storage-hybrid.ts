@@ -394,7 +394,10 @@ export class HybridStorage implements IStorage {
   }
 
   async deleteQuickOrder(id: string): Promise<void> {
-    await QuickOrder.findByIdAndDelete(id);
+    const result = await QuickOrder.findByIdAndDelete(id);
+    if (!result) {
+      throw new Error(`QuickOrder with id ${id} not found`);
+    }
   }
 
   // PAYMENT OPERATIONS (MongoDB)

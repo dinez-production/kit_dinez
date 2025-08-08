@@ -41,7 +41,17 @@ const apiRequest = async (url: string, options?: RequestInit): Promise<any> => {
     throw new Error(`HTTP error! status: ${response.status}`);
   }
 
-  return response.json();
+  // Handle empty responses (like DELETE operations that return 204 No Content)
+  if (response.status === 204 || response.headers.get('content-length') === '0') {
+    return null;
+  }
+
+  const contentType = response.headers.get('content-type');
+  if (contentType && contentType.includes('application/json')) {
+    return response.json();
+  }
+
+  return response.text();
 };
 
 // Enhanced mutation helper with automatic cache invalidation
@@ -61,7 +71,8 @@ export const createMutationWithSync = (
         options.body = JSON.stringify(data);
       }
       
-      return apiRequest(url, options);
+      const result = await apiRequest(url, options);
+      return result;
     },
     onSuccess: () => {
       // Invalidate only relevant queries to avoid unnecessary refetches

@@ -654,8 +654,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       await storage.deleteQuickOrder(req.params.id);
       res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
+    } catch (error: any) {
+      console.error("Delete quick order error:", error);
+      res.status(500).json({ 
+        message: "Failed to delete quick order", 
+        error: error.message || "Internal server error" 
+      });
     }
   });
 
