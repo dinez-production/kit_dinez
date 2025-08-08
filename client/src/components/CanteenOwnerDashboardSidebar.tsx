@@ -52,6 +52,7 @@ import {
 } from "lucide-react";
 import { QuickOrdersManager } from "@/components/admin/QuickOrdersManager";
 import { TrendingItemsManager } from "@/components/admin/TrendingItemsManager";
+import CanteenOwnerMenuManagement from "@/components/CanteenOwnerMenuManagement";
 
 // Sidebar Navigation Item Component
 interface SidebarNavItemProps {
@@ -991,23 +992,11 @@ export default function CanteenOwnerDashboardSidebar() {
 
             {/* Menu Content */}
             {activeTab === "menu" && (
-              <div className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <ChefHat className="w-5 h-5" />
-                      Menu Management
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-center py-8">
-                      <ChefHat className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p className="text-muted-foreground">Menu management functionality</p>
-                      <p className="text-sm text-muted-foreground mt-2">Add, edit, and manage your menu items</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+              <CanteenOwnerMenuManagement 
+                menuItems={menuItems} 
+                categories={categories}
+                onMenuUpdate={refetchMenuItems}
+              />
             )}
 
             {/* Content Manager */}
