@@ -705,13 +705,27 @@ export default function CanteenOwnerDashboardSidebar() {
                                           {order.createdAt ? new Date(order.createdAt).toLocaleTimeString() : 'N/A'}
                                         </p>
                                         <div className="flex flex-col space-y-2">
-                                          {order.status === "preparing" && (
+                                          {/* Show Mark Ready button for preparing orders or pending orders with markable items */}
+                                          {(order.status === "preparing" || 
+                                            (order.status === "pending" && (() => {
+                                              try {
+                                                const items = JSON.parse(order.items || '[]');
+                                                return items.some((item: any) => {
+                                                  const menuItem = menuItems.find(mi => mi.id === item.id);
+                                                  return menuItem?.isMarkable === true;
+                                                });
+                                              } catch {
+                                                return false;
+                                              }
+                                            })())
+                                          ) && (
                                             <Button
                                               size="sm"
                                               variant="default"
                                               onClick={() => markOrderReadyMutation.mutate(order.id)}
                                               disabled={markOrderReadyMutation.isPending}
                                               className="bg-green-600 hover:bg-green-700 text-white"
+                                              data-testid={`button-mark-ready-${order.id}`}
                                             >
                                               {markOrderReadyMutation.isPending ? "Updating..." : "Mark Ready"}
                                             </Button>
@@ -720,6 +734,7 @@ export default function CanteenOwnerDashboardSidebar() {
                                             size="sm"
                                             variant="outline"
                                             onClick={() => setLocation(`/canteen-order-detail/${order.id}`)}
+                                            data-testid={`button-view-details-${order.id}`}
                                           >
                                             View Details
                                           </Button>
