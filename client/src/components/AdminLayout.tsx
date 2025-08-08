@@ -4,7 +4,9 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "./AdminSidebar";
 import SyncStatus from "./SyncStatus";
 import { useAuthSync } from "@/hooks/useDataSync";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { LogOut } from "lucide-react";
 import { toast } from "sonner";
 
 interface AdminLayoutProps {
@@ -14,6 +16,13 @@ interface AdminLayoutProps {
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const [, setLocation] = useLocation();
   const { user, isAuthenticated, isAdmin, isSuperAdmin } = useAuthSync();
+  const { logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    toast.success("Logged out successfully");
+    setLocation("/login");
+  };
 
   // Enhanced security check for admin access
   useEffect(() => {
@@ -58,6 +67,16 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   {user?.role === 'super_admin' ? 'Super Admin' : 'Admin'} - {user?.email}
                 </span>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLogout}
+                className="flex items-center space-x-2"
+                data-testid="button-logout"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
+              </Button>
             </div>
           </header>
 
