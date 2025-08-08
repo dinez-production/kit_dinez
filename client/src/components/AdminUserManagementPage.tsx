@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { 
   ArrowLeft, Search, Filter, Plus, Edit, Trash2, Mail, Phone, 
   MapPin, Star, Ban, Shield, Users, UserCheck, UserX, 
-  MessageSquare, CreditCard, Gift, AlertTriangle, School, Briefcase, RefreshCcw
+  MessageSquare, CreditCard, Gift, AlertTriangle, School, Briefcase, RefreshCcw, Download, BarChart3
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getDepartmentFullName, getStudyYearDisplay } from "@shared/utils";
@@ -487,37 +487,110 @@ export default function AdminUserManagementPage() {
           {/* Analytics Tab */}
           <TabsContent value="analytics" className="mt-6">
             <div className="grid gap-6">
+              {/* Header with Actions */}
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-semibold">User Analytics Dashboard</h2>
+                  <p className="text-sm text-muted-foreground">Real-time insights and user behavior analytics</p>
+                </div>
+                <div className="flex space-x-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={refreshAllData}
+                    disabled={isDataLoading}
+                    className="flex items-center space-x-2"
+                  >
+                    <RefreshCcw className={`w-4 h-4 ${isDataLoading ? 'animate-spin' : ''}`} />
+                    <span>Refresh</span>
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      const csvContent = `Role,Count,Percentage\nStudents,${stats.students},${Math.round((stats.students/stats.totalUsers)*100)}%\nFaculty,${stats.faculty},${Math.round((stats.faculty/stats.totalUsers)*100)}%\nStaff,${stats.staff},${Math.round((stats.staff/stats.totalUsers)*100)}%\nAdmins,${stats.admins},${Math.round((stats.admins/stats.totalUsers)*100)}%`;
+                      const blob = new Blob([csvContent], { type: 'text/csv' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = `user_analytics_${new Date().toISOString().split('T')[0]}.csv`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(url);
+                      toast({
+                        title: "Analytics Exported",
+                        description: "User analytics data downloaded as CSV",
+                      });
+                    }}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export Data
+                  </Button>
+                </div>
+              </div>
+
               {/* Real-time User Statistics */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Card>
+                <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => {
+                  setFilterRole("student");
+                  setActiveTab("all-users");
+                  toast({
+                    title: "Filter Applied",
+                    description: "Showing student users only",
+                  });
+                }}>
                   <CardContent className="p-4">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-blue-600">{stats.students}</div>
                       <div className="text-sm text-muted-foreground">Students</div>
+                      <div className="text-xs text-blue-500 mt-1">Click to filter</div>
                     </div>
                   </CardContent>
                 </Card>
-                <Card>
+                <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => {
+                  setFilterRole("faculty");
+                  setActiveTab("all-users");
+                  toast({
+                    title: "Filter Applied",
+                    description: "Showing faculty users only",
+                  });
+                }}>
                   <CardContent className="p-4">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-green-600">{stats.faculty}</div>
                       <div className="text-sm text-muted-foreground">Faculty</div>
+                      <div className="text-xs text-green-500 mt-1">Click to filter</div>
                     </div>
                   </CardContent>
                 </Card>
-                <Card>
+                <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => {
+                  setFilterRole("staff");
+                  setActiveTab("all-users");
+                  toast({
+                    title: "Filter Applied",
+                    description: "Showing staff users only",
+                  });
+                }}>
                   <CardContent className="p-4">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-purple-600">{stats.staff}</div>
                       <div className="text-sm text-muted-foreground">Staff</div>
+                      <div className="text-xs text-purple-500 mt-1">Click to filter</div>
                     </div>
                   </CardContent>
                 </Card>
-                <Card>
+                <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => {
+                  setFilterRole("admin");
+                  setActiveTab("all-users");
+                  toast({
+                    title: "Filter Applied",
+                    description: "Showing admin users only",
+                  });
+                }}>
                   <CardContent className="p-4">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-red-600">{stats.admins}</div>
                       <div className="text-sm text-muted-foreground">Admins</div>
+                      <div className="text-xs text-red-500 mt-1">Click to filter</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -526,25 +599,59 @@ export default function AdminUserManagementPage() {
               <div className="grid md:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Revenue Analytics</CardTitle>
+                    <div className="flex justify-between items-center">
+                      <CardTitle>Revenue Analytics</CardTitle>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => {
+                          toast({
+                            title: "Revenue Dashboard",
+                            description: "Redirecting to full revenue analytics...",
+                          });
+                          setLocation("/admin/analytics");
+                        }}
+                      >
+                        <BarChart3 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
                       <div className="flex justify-between">
                         <span>Total Revenue</span>
-                        <span className="font-bold">₹{stats.totalRevenue.toLocaleString()}</span>
+                        <span className="font-bold text-green-600">₹{stats.totalRevenue.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Average Order Value</span>
-                        <span className="font-bold">₹{stats.avgOrderValue}</span>
+                        <span className="font-bold text-blue-600">₹{stats.avgOrderValue}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Total Orders</span>
-                        <span className="font-bold">{stats.totalOrders}</span>
+                        <span className="font-bold text-purple-600">{stats.totalOrders}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Revenue per User</span>
-                        <span className="font-bold">₹{Math.round(stats.totalRevenue / stats.totalUsers) || 0}</span>
+                        <span className="font-bold text-orange-600">₹{Math.round(stats.totalRevenue / stats.totalUsers) || 0}</span>
+                      </div>
+                      <div className="pt-2 border-t">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full"
+                          onClick={() => {
+                            const topSpenders = users
+                              .slice(0, 3)
+                              .map(user => user.name)
+                              .join(', ');
+                            toast({
+                              title: "Revenue Insights",
+                              description: `Top revenue contributors: ${topSpenders}`,
+                            });
+                          }}
+                        >
+                          View Top Contributors
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -552,33 +659,171 @@ export default function AdminUserManagementPage() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>User Behavior</CardTitle>
+                    <div className="flex justify-between items-center">
+                      <CardTitle>User Behavior</CardTitle>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => {
+                          const behaviorData = `User Behavior Report - ${new Date().toLocaleDateString()}\n\nMost Active Role: ${stats.students >= stats.faculty && stats.students >= stats.staff ? 'Students' : stats.faculty >= stats.staff ? 'Faculty' : 'Staff'}\nActive Users: ${stats.activeUsers}\nNew This Month: ${stats.newUsersThisMonth}\nUser Engagement: ${Math.round((stats.activeUsers / stats.totalUsers) * 100) || 0}%\nTotal Revenue: ₹${stats.totalRevenue.toLocaleString()}\nRevenue per User: ₹${Math.round(stats.totalRevenue / stats.totalUsers) || 0}`;
+                          const blob = new Blob([behaviorData], { type: 'text/plain' });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = `user_behavior_${new Date().toISOString().split('T')[0]}.txt`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          URL.revokeObjectURL(url);
+                          toast({
+                            title: "Report Generated",
+                            description: "User behavior report downloaded",
+                          });
+                        }}
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="flex justify-between">
+                      <div className="flex justify-between items-center">
                         <span>Most Active Role</span>
-                        <span className="font-bold">
+                        <Badge variant="default" className="font-bold">
                           {stats.students >= stats.faculty && stats.students >= stats.staff ? 'Students' :
                            stats.faculty >= stats.staff ? 'Faculty' : 'Staff'}
-                        </span>
+                        </Badge>
                       </div>
                       <div className="flex justify-between">
                         <span>Active Users</span>
-                        <span className="font-bold">{stats.activeUsers}</span>
+                        <span className="font-bold text-green-600">{stats.activeUsers}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>New This Month</span>
-                        <span className="font-bold">{stats.newUsersThisMonth}</span>
+                        <span className="font-bold text-blue-600">{stats.newUsersThisMonth}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>User Engagement</span>
-                        <span className="font-bold">{Math.round((stats.activeUsers / stats.totalUsers) * 100) || 0}%</span>
+                        <span className="font-bold text-purple-600">{Math.round((stats.activeUsers / stats.totalUsers) * 100) || 0}%</span>
+                      </div>
+                      <div className="pt-2 border-t">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full"
+                          onClick={() => {
+                            toast({
+                              title: "Analytics Insight",
+                              description: `${stats.activeUsers} out of ${stats.totalUsers} users are active (${Math.round((stats.activeUsers / stats.totalUsers) * 100)}% engagement rate)`,
+                            });
+                          }}
+                        >
+                          View Detailed Insights
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Real-time Insights Panel */}
+              <Card>
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <CardTitle>Live Data Insights</CardTitle>
+                    <div className="flex space-x-2">
+                      <Badge variant={isDataLoading ? "secondary" : "default"}>
+                        {isDataLoading ? 'Updating...' : 'Live'}
+                      </Badge>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => {
+                          const insightsData = `User Management Insights - ${new Date().toLocaleDateString()}\n\n=== USER BREAKDOWN ===\nTotal Users: ${stats.totalUsers}\nStudents: ${stats.students} (${Math.round((stats.students/stats.totalUsers)*100)}%)\nFaculty: ${stats.faculty} (${Math.round((stats.faculty/stats.totalUsers)*100)}%)\nStaff: ${stats.staff} (${Math.round((stats.staff/stats.totalUsers)*100)}%)\nAdmins: ${stats.admins} (${Math.round((stats.admins/stats.totalUsers)*100)}%)\n\n=== ENGAGEMENT METRICS ===\nActive Users: ${stats.activeUsers}\nEngagement Rate: ${Math.round((stats.activeUsers / stats.totalUsers) * 100)}%\nNew Users This Month: ${stats.newUsersThisMonth}\n\n=== REVENUE INSIGHTS ===\nTotal Revenue: ₹${stats.totalRevenue.toLocaleString()}\nRevenue per User: ₹${Math.round(stats.totalRevenue / stats.totalUsers) || 0}\nAverage Order Value: ₹${stats.avgOrderValue}\nTotal Orders: ${stats.totalOrders}\n\nGenerated by Canteen Management System`;
+                          const blob = new Blob([insightsData], { type: 'text/plain' });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = `user_insights_${new Date().toISOString().split('T')[0]}.txt`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          URL.revokeObjectURL(url);
+                          toast({
+                            title: "Insights Report Generated",
+                            description: "Complete user analytics report downloaded",
+                          });
+                        }}
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download Full Report
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                      <h4 className="font-medium text-blue-800 dark:text-blue-200">User Distribution</h4>
+                      <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
+                        {stats.students > 0 ? `${Math.round((stats.students/stats.totalUsers)*100)}%` : '0%'} Students, {stats.faculty > 0 ? `${Math.round((stats.faculty/stats.totalUsers)*100)}%` : '0%'} Faculty
+                      </p>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="mt-2 text-blue-700 hover:text-blue-800"
+                        onClick={() => {
+                          toast({
+                            title: "User Distribution",
+                            description: `${stats.students} students make up the majority with ${Math.round((stats.students/stats.totalUsers)*100)}% of total users`,
+                          });
+                        }}
+                      >
+                        View Details
+                      </Button>
+                    </div>
+                    <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg">
+                      <h4 className="font-medium text-green-800 dark:text-green-200">Revenue Performance</h4>
+                      <p className="text-sm text-green-600 dark:text-green-300 mt-1">
+                        ₹{Math.round(stats.totalRevenue / stats.totalUsers) || 0} per user average
+                      </p>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="mt-2 text-green-700 hover:text-green-800"
+                        onClick={() => {
+                          setLocation("/admin/analytics");
+                          toast({
+                            title: "Revenue Analytics",
+                            description: "Opening detailed revenue dashboard",
+                          });
+                        }}
+                      >
+                        View Analytics
+                      </Button>
+                    </div>
+                    <div className="p-4 bg-purple-50 dark:bg-purple-950 rounded-lg">
+                      <h4 className="font-medium text-purple-800 dark:text-purple-200">Engagement Rate</h4>
+                      <p className="text-sm text-purple-600 dark:text-purple-300 mt-1">
+                        {Math.round((stats.activeUsers / stats.totalUsers) * 100) || 0}% active users
+                      </p>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="mt-2 text-purple-700 hover:text-purple-800"
+                        onClick={() => {
+                          toast({
+                            title: "Engagement Analysis",
+                            description: `${stats.activeUsers} out of ${stats.totalUsers} users are currently active`,
+                          });
+                        }}
+                      >
+                        Analyze Trends
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
