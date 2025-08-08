@@ -154,6 +154,53 @@ export default function CanteenOwnerDashboardSidebar() {
     }
   }, [isAuthenticated, isCanteenOwner, setLocation]);
 
+  // Real-time order updates via Server-Sent Events (SSE)
+  useEffect(() => {
+    if (!isAuthenticated || !isCanteenOwner) return;
+
+    console.log("🔄 Setting up real-time order updates...");
+    const eventSource = new EventSource('/api/events/orders');
+
+    eventSource.onopen = () => {
+      console.log("📡 Connected to real-time order updates");
+    };
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log("📨 Received real-time update:", data);
+        
+        if (data.type === 'new_order') {
+          // Refresh orders when a new order is placed
+          refetchOrders();
+          toast.success("New order received!");
+        } else if (data.type === 'order_updated' || data.type === 'order_status_changed') {
+          // Refresh orders when there's an update
+          refetchOrders();
+          toast.success("Order updated!");
+        }
+      } catch (error) {
+        console.error("Error parsing SSE message:", error);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error("📡 SSE connection error:", error);
+      // Automatically try to reconnect after 5 seconds
+      setTimeout(() => {
+        if (eventSource.readyState === EventSource.CLOSED) {
+          console.log("🔄 Attempting to reconnect to SSE...");
+        }
+      }, 5000);
+    };
+
+    // Cleanup on unmount
+    return () => {
+      console.log("📡 Closing real-time connection");
+      eventSource.close();
+    };
+  }, [isAuthenticated, isCanteenOwner, refetchOrders]);
+
   // Data fetching queries
   const { data: categories = [], isLoading: categoriesLoading, refetch: refetchCategories } = useQuery<Category[]>({
     queryKey: ["/api/categories"],

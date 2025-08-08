@@ -398,6 +398,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Updating order ${req.params.id} with data:`, req.body);
       const order = await storage.updateOrder(req.params.id, req.body);
       console.log("Updated order:", order);
+      
+      // Broadcast order status update to all connected SSE clients (canteen owners)
+      if (sseConnections.size > 0 && req.body.status) {
+        const message = `data: ${JSON.stringify({
+          type: 'order_status_changed',
+          data: order,
+          oldStatus: req.body.oldStatus || 'unknown',
+          newStatus: req.body.status
+        })}\n\n`;
+        
+        // Send to all connected SSE clients
+        sseConnections.forEach((connection) => {
+          try {
+            connection.write(message);
+          } catch (error) {
+            // Remove dead connections
+            sseConnections.delete(connection);
+          }
+        });
+        
+        console.log(`📢 Broadcasted order status change for ${order.orderNumber} to ${sseConnections.size} connected clients`);
+      }
+      
       res.json(order);
     } catch (error) {
       console.error("Error updating order:", error);
