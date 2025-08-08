@@ -68,6 +68,40 @@ export default function OrderStatusPage() {
     refetchOnWindowFocus: false, // Disable refetch on window focus
   });
 
+  // Real-time order updates via Server-Sent Events (SSE) for user-facing status updates
+  useEffect(() => {
+    console.log("🔄 Setting up real-time order updates for user...");
+    const eventSource = new EventSource('/api/events/orders');
+
+    eventSource.onopen = () => {
+      console.log("📡 User connected to real-time order updates");
+    };
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log("📨 User received real-time update:", data);
+        
+        if (data.type === 'order_updated' || data.type === 'order_status_changed') {
+          // Refresh orders when there's a status update
+          refetch();
+        }
+      } catch (error) {
+        console.error("Error parsing SSE message:", error);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error("📡 User SSE connection error:", error);
+    };
+
+    // Cleanup on unmount
+    return () => {
+      console.log("📡 Closing user real-time connection");
+      eventSource.close();
+    };
+  }, [refetch]);
+
   // Find the specific order by ID, order number, or barcode (supporting both old and new formats)
   const order = orders.find(o => 
     o.id.toString() === orderId || 

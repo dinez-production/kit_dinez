@@ -38,12 +38,49 @@ export default function OrdersPage() {
   }, []);
 
   // Fetch real orders from database
-  const { data: allOrders = [], isLoading, error } = useQuery<Order[]>({
+  const { data: allOrders = [], isLoading, error, refetch } = useQuery<Order[]>({
     queryKey: ['/api/orders'],
     enabled: true, // Explicitly enable the query
     refetchOnWindowFocus: false,
+    refetchInterval: false, // Disable polling - using SSE for real-time updates
     retry: 3,
   });
+
+  // Real-time order updates via Server-Sent Events (SSE) for user orders list
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    console.log("🔄 Setting up real-time order updates for user orders list...");
+    const eventSource = new EventSource('/api/events/orders');
+
+    eventSource.onopen = () => {
+      console.log("📡 User orders list connected to real-time updates");
+    };
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log("📨 User orders list received real-time update:", data);
+        
+        if (data.type === 'order_updated' || data.type === 'order_status_changed' || data.type === 'new_order') {
+          // Refresh orders when there's any order update
+          refetch();
+        }
+      } catch (error) {
+        console.error("Error parsing SSE message:", error);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error("📡 User orders list SSE connection error:", error);
+    };
+
+    // Cleanup on unmount
+    return () => {
+      console.log("📡 Closing user orders list real-time connection");
+      eventSource.close();
+    };
+  }, [isAuthenticated, refetch]);
 
 
 
