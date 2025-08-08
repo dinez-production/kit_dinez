@@ -1,0 +1,146 @@
+# Production Docker Compose configuration for KIT Canteen Application
+# Optimized for production deployment with security and performance
+
+version: '3.8'
+
+services:
+  # ===================================
+  # Application Service (Production)
+  # ===================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: kit-canteen-app-prod
+    restart: always
+    ports:
+      - "80:5000"
+      - "443:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+    env_file:
+      - .env.production
+    depends_on:
+      - postgres
+    networks:
+      - kit-canteen-prod-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ===================================
+  # PostgreSQL Database (Production)
+  # ===================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: kit-canteen-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_DB: kit_canteen_prod
+    env_file:
+      - .env.production
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+      - ./docker/postgres/prod-init:/docker-entrypoint-initdb.d
+    networks:
+      - kit-canteen-prod-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ===================================
+  # Nginx Reverse Proxy
+  # ===================================
+  nginx:
+    image: nginx:alpine
+    container_name: kit-canteen-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app
+    networks:
+      - kit-canteen-prod-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===================================
+  # Redis Cache (Production)
+  # ===================================
+  redis:
+    image: redis:7-alpine
+    container_name: kit-canteen-redis-prod
+    restart: always
+    volumes:
+      - redis_prod_data:/data
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    networks:
+      - kit-canteen-prod-network
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+
+# ===================================
+# Networks
+# ===================================
+networks:
+  kit-canteen-prod-network:
+    driver: bridge
+    name: kit-canteen-prod-network
+
+# ===================================
+# Volumes
+# ===================================
+volumes:
+  postgres_prod_data:
+    name: kit-canteen-postgres-prod-data
+  redis_prod_data:
+    name: kit-canteen-redis-prod-data

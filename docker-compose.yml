@@ -1,0 +1,169 @@
+# Docker Compose configuration for KIT Canteen Application
+# Supports development with MongoDB 3.6+ and PostgreSQL
+
+version: '3.8'
+
+services:
+  # ===================================
+  # Application Service
+  # ===================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: kit-canteen-app
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=development
+      - PORT=5000
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/kit_canteen
+      - MONGODB_URI=mongodb://mongodb:27017/kit-canteen
+      - SESSION_SECRET=your_very_long_random_session_secret_here_minimum_32_characters
+    depends_on:
+      - postgres
+      - mongodb
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      - kit-canteen-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ===================================
+  # PostgreSQL Database
+  # ===================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: kit-canteen-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kit_canteen
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    networks:
+      - kit-canteen-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kit_canteen"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===================================
+  # MongoDB Database (3.6+ Compatible)
+  # ===================================
+  mongodb:
+    image: mongo:7.0-jammy  # MongoDB 7.0 with full 3.6+ compatibility
+    container_name: kit-canteen-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: kit-canteen
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./docker/mongodb/init:/docker-entrypoint-initdb.d
+    networks:
+      - kit-canteen-network
+    command: ["mongod", "--auth", "--bind_ip_all"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # ===================================
+  # MongoDB Admin Interface (Optional)
+  # ===================================
+  mongo-express:
+    image: mongo-express:1.0.2-20-alpine3.19
+    container_name: kit-canteen-mongo-admin
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
+      ME_CONFIG_MONGODB_ADMINPASSWORD: password
+      ME_CONFIG_MONGODB_URL: mongodb://admin:password@mongodb:27017/
+      ME_CONFIG_BASICAUTH: false
+    depends_on:
+      - mongodb
+    networks:
+      - kit-canteen-network
+    profiles:
+      - admin
+
+  # ===================================
+  # PostgreSQL Admin Interface (Optional)
+  # ===================================
+  pgadmin:
+    image: dpage/pgadmin4:8.2
+    container_name: kit-canteen-pgadmin
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@kitcanteen.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - kit-canteen-network
+    profiles:
+      - admin
+
+  # ===================================
+  # Redis Cache (Optional)
+  # ===================================
+  redis:
+    image: redis:7-alpine
+    container_name: kit-canteen-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - kit-canteen-network
+    command: redis-server --appendonly yes
+    profiles:
+      - cache
+
+# ===================================
+# Networks
+# ===================================
+networks:
+  kit-canteen-network:
+    driver: bridge
+    name: kit-canteen-network
+
+# ===================================
+# Volumes
+# ===================================
+volumes:
+  postgres_data:
+    name: kit-canteen-postgres-data
+  mongodb_data:
+    name: kit-canteen-mongodb-data
+  pgadmin_data:
+    name: kit-canteen-pgadmin-data
+  redis_data:
+    name: kit-canteen-redis-data

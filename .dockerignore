@@ -1,0 +1,158 @@
+# Dockerignore file for KIT Canteen Application
+# Excludes unnecessary files from Docker build context
+
+# ===================================
+# Dependencies
+# ===================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===================================
+# Build outputs
+# ===================================
+dist/
+build/
+.next/
+client/dist/
+
+# ===================================
+# Environment and configuration
+# ===================================
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# ===================================
+# Development files
+# ===================================
+.git/
+.gitignore
+*.md
+!README.md
+!MONGODB_36_SETUP_GUIDE.md
+!MONGODB_CONFIGURATION_SUMMARY.md
+
+# ===================================
+# IDE and editor files
+# ===================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===================================
+# OS generated files
+# ===================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ===================================
+# Logs
+# ===================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# ===================================
+# Runtime data
+# ===================================
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# ===================================
+# Coverage directory used by tools
+# ===================================
+coverage/
+*.lcov
+.nyc_output/
+
+# ===================================
+# Dependency directories
+# ===================================
+jspm_packages/
+
+# ===================================
+# Optional npm cache directory
+# ===================================
+.npm
+
+# ===================================
+# Optional eslint cache
+# ===================================
+.eslintcache
+
+# ===================================
+# Optional REPL history
+# ===================================
+.node_repl_history
+
+# ===================================
+# Output of 'npm pack'
+# ===================================
+*.tgz
+
+# ===================================
+# Yarn Integrity file
+# ===================================
+.yarn-integrity
+
+# ===================================
+# Docker files (don't include in build context)
+# ===================================
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# ===================================
+# Database files
+# ===================================
+*.db
+*.sqlite
+*.sqlite3
+
+# ===================================
+# Temporary folders
+# ===================================
+tmp/
+temp/
+
+# ===================================
+# Test files
+# ===================================
+test/
+tests/
+**/*.test.js
+**/*.spec.js
+
+# ===================================
+# Documentation assets
+# ===================================
+attached_assets/
+docs/
+documentation/
+
+# ===================================
+# Docker volumes and data
+# ===================================
+docker/data/
+volumes/
+
+# ===================================
+# Prisma files (keep schema, exclude generated)
+# ===================================
+prisma/migrations/dev.db*
