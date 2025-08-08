@@ -9,6 +9,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import { 
   ArrowLeft, Download, FileText, TrendingUp, DollarSign, 
   Users, Package, Calendar as CalendarIcon, Filter, BarChart3
@@ -18,6 +19,8 @@ export default function AdminReportsPage() {
   const [, setLocation] = useLocation();
   const [dateRange, setDateRange] = useState<any>();
   const [reportType, setReportType] = useState("revenue");
+  const [reportFormat, setReportFormat] = useState("pdf");
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const reports = [
     {
@@ -59,6 +62,73 @@ export default function AdminReportsPage() {
     pendingReports: 3,
     storageUsed: "24.5 GB",
     lastGenerated: "2 hours ago"
+  };
+
+  // Generate report function
+  const handleGenerateReport = async () => {
+    if (!reportType) {
+      toast.error("Please select a report type");
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      // Simulate report generation
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      toast.success(`${reportType.charAt(0).toUpperCase() + reportType.slice(1)} report generated successfully!`);
+      
+      // Here you would typically call an API to generate the actual report
+      // const response = await apiRequest('/api/admin/generate-report', {
+      //   method: 'POST',
+      //   body: { type: reportType, dateRange, format: reportFormat }
+      // });
+      
+    } catch (error) {
+      toast.error("Failed to generate report. Please try again.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Quick report handlers
+  const handleQuickReport = (type: string) => {
+    toast.success(`Generating ${type} report...`);
+    
+    // Here you would typically call specific APIs for each quick report
+    switch (type) {
+      case "revenue":
+        // Generate today's revenue report
+        console.log("Generating today's revenue report");
+        break;
+      case "activity":
+        // Generate user activity report
+        console.log("Generating user activity report");
+        break;
+      case "orders":
+        // Generate order summary report
+        console.log("Generating order summary report");
+        break;
+      case "performance":
+        // Generate performance report
+        console.log("Generating performance report");
+        break;
+    }
+  };
+
+  // Download report function
+  const handleDownloadReport = (reportId: number, reportName: string) => {
+    toast.success(`Downloading ${reportName}...`);
+    
+    // Here you would typically trigger a file download
+    // const downloadUrl = `/api/admin/reports/${reportId}/download`;
+    // window.open(downloadUrl, '_blank');
+  };
+
+  // Filter reports function
+  const handleFilterReports = () => {
+    toast.info("Filter functionality coming soon!");
+    // Here you would implement report filtering logic
   };
 
   return (
@@ -182,7 +252,7 @@ export default function AdminReportsPage() {
                 </PopoverContent>
               </Popover>
 
-              <Select defaultValue="pdf">
+              <Select value={reportFormat} onValueChange={setReportFormat}>
                 <SelectTrigger>
                   <SelectValue placeholder="Format" />
                 </SelectTrigger>
@@ -193,9 +263,14 @@ export default function AdminReportsPage() {
                 </SelectContent>
               </Select>
 
-              <Button variant="food" className="w-full">
+              <Button 
+                variant="food" 
+                className="w-full"
+                onClick={handleGenerateReport}
+                disabled={isGenerating}
+              >
                 <FileText className="w-4 h-4 mr-2" />
-                Generate Report
+                {isGenerating ? "Generating..." : "Generate Report"}
               </Button>
             </div>
           </CardContent>
@@ -208,19 +283,35 @@ export default function AdminReportsPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Button variant="outline" className="h-auto p-4 flex flex-col items-center space-y-2">
+              <Button 
+                variant="outline" 
+                className="h-auto p-4 flex flex-col items-center space-y-2 hover:bg-muted/50"
+                onClick={() => handleQuickReport("revenue")}
+              >
                 <DollarSign className="w-6 h-6" />
                 <span className="text-sm">Today's Revenue</span>
               </Button>
-              <Button variant="outline" className="h-auto p-4 flex flex-col items-center space-y-2">
+              <Button 
+                variant="outline" 
+                className="h-auto p-4 flex flex-col items-center space-y-2 hover:bg-muted/50"
+                onClick={() => handleQuickReport("activity")}
+              >
                 <Users className="w-6 h-6" />
                 <span className="text-sm">User Activity</span>
               </Button>
-              <Button variant="outline" className="h-auto p-4 flex flex-col items-center space-y-2">
+              <Button 
+                variant="outline" 
+                className="h-auto p-4 flex flex-col items-center space-y-2 hover:bg-muted/50"
+                onClick={() => handleQuickReport("orders")}
+              >
                 <Package className="w-6 h-6" />
                 <span className="text-sm">Order Summary</span>
               </Button>
-              <Button variant="outline" className="h-auto p-4 flex flex-col items-center space-y-2">
+              <Button 
+                variant="outline" 
+                className="h-auto p-4 flex flex-col items-center space-y-2 hover:bg-muted/50"
+                onClick={() => handleQuickReport("performance")}
+              >
                 <BarChart3 className="w-6 h-6" />
                 <span className="text-sm">Performance</span>
               </Button>
@@ -234,7 +325,11 @@ export default function AdminReportsPage() {
             <div className="flex items-center justify-between">
               <CardTitle>Recent Reports</CardTitle>
               <div className="flex items-center space-x-2">
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleFilterReports}
+                >
                   <Filter className="w-4 h-4 mr-2" />
                   Filter
                 </Button>
@@ -259,7 +354,12 @@ export default function AdminReportsPage() {
                       {report.status}
                     </Badge>
                     {report.status === "Generated" && (
-                      <Button variant="ghost" size="icon">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => handleDownloadReport(report.id, report.name)}
+                        title={`Download ${report.name}`}
+                      >
                         <Download className="w-4 h-4" />
                       </Button>
                     )}
