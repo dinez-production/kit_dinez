@@ -85,6 +85,30 @@ function SidebarNavItem({ icon: Icon, label, active, onClick, badge }: SidebarNa
   );
 }
 
+// Helper functions for order status
+const getOrderStatusColor = (status: string) => {
+  switch (status?.toLowerCase()) {
+    case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    case 'preparing': return 'bg-blue-100 text-blue-800 border-blue-200';
+    case 'ready': return 'bg-green-100 text-green-800 border-green-200';
+    case 'completed': case 'delivered': return 'bg-green-100 text-green-800 border-green-200';
+    case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
+    default: return 'bg-gray-100 text-gray-800 border-gray-200';
+  }
+};
+
+const getOrderStatusText = (status: string) => {
+  switch (status?.toLowerCase()) {
+    case 'pending': return 'Pending';
+    case 'preparing': return 'Preparing';
+    case 'ready': return 'Ready';
+    case 'completed': return 'Completed';
+    case 'delivered': return 'Delivered';
+    case 'cancelled': return 'Cancelled';
+    default: return status || 'Unknown';
+  }
+};
+
 export default function CanteenOwnerDashboardSidebar() {
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("overview");
@@ -182,6 +206,54 @@ export default function CanteenOwnerDashboardSidebar() {
       icon: ChefHat
     }
   ];
+
+  // Helper functions
+  const generateOrderNumber = () => Math.floor(Math.random() * 900000000000) + 100000000000;
+  const generateBarcode = () => Math.floor(Math.random() * 900000000000) + 100000000000;
+  const getTotalAmount = () => cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+
+  // Mutations
+  const placeOfflineOrderMutation = useMutation({
+    mutationFn: async (orderData: any) => {
+      return apiRequest("/api/orders", {
+        method: "POST",
+        body: JSON.stringify(orderData),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      setCart([]);
+      toast.success("Counter order placed successfully!");
+    },
+    onError: () => {
+      toast.error("Failed to place counter order. Please try again.");
+    }
+  });
+
+  const handlePlaceOfflineOrder = () => {
+    if (cart.length === 0) {
+      toast.error("Please add items to cart first");
+      return;
+    }
+
+    setIsPlacingOrder(true);
+
+    const orderData = {
+      orderNumber: generateOrderNumber().toString(),
+      customerId: user?.id || 2,
+      customerName: `${user?.name || 'Canteen Owner'} - ${paymentMode === 'cash' ? 'Cash' : 'Online Payment'} Counter Sale`,
+      items: JSON.stringify(cart),
+      amount: getTotalAmount(),
+      status: "delivered",
+      estimatedTime: 0,
+      barcode: generateBarcode().toString(),
+      barcodeUsed: true,
+      deliveredAt: new Date().toISOString()
+    };
+
+    placeOfflineOrderMutation.mutate(orderData);
+    setIsPlacingOrder(false);
+  };
 
   // Refresh all data function
   const refreshAllData = async () => {
@@ -379,8 +451,8 @@ export default function CanteenOwnerDashboardSidebar() {
                                   })()}
                                 </span>
                               </div>
-                              <Badge variant="outline">
-                                {order.status || 'N/A'}
+                              <Badge className={getOrderStatusColor(order.status)}>
+                                {getOrderStatusText(order.status)}
                               </Badge>
                             </div>
                             <p className="text-sm text-muted-foreground">Customer: {order.customerName || 'N/A'}</p>
@@ -426,7 +498,7 @@ export default function CanteenOwnerDashboardSidebar() {
                       </div>
                       <div className="flex items-center space-x-2">
                         <Input
-                          placeholder="Search orders..."
+                          placeholder="Search orders by ID, customer, or items..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           className="w-80"
@@ -435,44 +507,362 @@ export default function CanteenOwnerDashboardSidebar() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      {activeOrders.length === 0 ? (
-                        <div className="text-center py-8">
-                          <Clock className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                          <p className="text-muted-foreground">No active orders</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {activeOrders.map((order: any) => (
-                            <Card key={order.id} className="border-l-4 border-l-primary">
-                              <CardContent className="p-4">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex-1">
-                                    <div className="flex items-center space-x-2 mb-2">
-                                      <span className="font-medium">#{order.orderNumber}</span>
-                                      <Badge variant="outline">{order.status}</Badge>
+                    <Tabs defaultValue="active" className="w-full">
+                      <TabsList className="grid w-full grid-cols-3 mb-6">
+                        <TabsTrigger value="active">Active Orders ({activeOrders.length})</TabsTrigger>
+                        <TabsTrigger value="all">All Orders ({allFilteredOrders.length})</TabsTrigger>
+                        <TabsTrigger value="offline">Offline Counter Orders</TabsTrigger>
+                      </TabsList>
+                      
+                      <TabsContent value="active">
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-medium">Active Orders (FIFO Queue)</h3>
+                            <div className="flex items-center space-x-2">
+                              <Badge variant="outline">{activeOrders.length} active</Badge>
+                              <span className="text-xs text-muted-foreground">
+                                Priority: Preparing → Ready
+                              </span>
+                            </div>
+                          </div>
+                          
+                          {activeOrders.length === 0 ? (
+                            <div className="text-center py-8">
+                              <Clock className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                              <p className="text-muted-foreground">No active orders</p>
+                              <p className="text-sm text-muted-foreground mt-2">Active orders will appear here when customers place orders</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {activeOrders.map((order: any) => (
+                                <Card key={order.id} className="border-l-4 border-l-primary">
+                                  <CardContent className="p-4">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex-1">
+                                        <div className="flex items-center space-x-2 mb-2">
+                                          <div className="flex items-center font-medium">
+                                            <span>#{(() => {
+                                              const formatted = formatOrderIdDisplay(order.orderNumber || order.id.toString());
+                                              return formatted.prefix;
+                                            })()}</span>
+                                            <span className="bg-primary/20 text-primary font-bold px-1 rounded ml-0">
+                                              {(() => {
+                                                const formatted = formatOrderIdDisplay(order.orderNumber || order.id.toString());
+                                                return formatted.highlighted;
+                                              })()}
+                                            </span>
+                                          </div>
+                                          <Badge className={getOrderStatusColor(order.status)}>
+                                            {getOrderStatusText(order.status)}
+                                          </Badge>
+                                          <Badge variant="secondary">{order.estimatedTime}m</Badge>
+                                        </div>
+                                        <p className="text-sm text-muted-foreground">Customer: {order.customerName}</p>
+                                        <p className="text-sm">
+                                          {order.items && typeof order.items === 'string' 
+                                            ? (() => {
+                                                try {
+                                                  const parsedItems = JSON.parse(order.items);
+                                                  return Array.isArray(parsedItems) 
+                                                    ? parsedItems.map((item: any) => `${item.quantity}x ${item.name}`).join(', ')
+                                                    : order.items;
+                                                } catch {
+                                                  return order.items;
+                                                }
+                                              })()
+                                            : 'No items'
+                                          }
+                                        </p>
+                                      </div>
+                                      <div className="text-right space-y-2">
+                                        <p className="font-semibold">₹{order.amount}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                          {order.createdAt ? new Date(order.createdAt).toLocaleTimeString() : 'N/A'}
+                                        </p>
+                                        <Button
+                                          size="sm"
+                                          onClick={() => setLocation(`/canteen-order-detail/${order.id}`)}
+                                        >
+                                          View Details
+                                        </Button>
+                                      </div>
                                     </div>
-                                    <p className="text-sm text-muted-foreground">Customer: {order.customerName}</p>
-                                    <p className="text-sm">Amount: ₹{order.amount}</p>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="all">
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-medium">All Orders</h3>
+                            <Badge variant="outline">{allFilteredOrders.length} total</Badge>
+                          </div>
+                          
+                          {allFilteredOrders.length === 0 ? (
+                            <div className="text-center py-8">
+                              <ShoppingBag className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                              <p className="text-muted-foreground">No orders found</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {allFilteredOrders.map((order: any) => (
+                                <Card key={order.id} className="hover:shadow-md transition-shadow">
+                                  <CardContent className="p-4">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex-1">
+                                        <div className="flex items-center space-x-2 mb-2">
+                                          <div className="flex items-center font-medium">
+                                            <span>#{(() => {
+                                              const formatted = formatOrderIdDisplay(order.orderNumber || order.id.toString());
+                                              return formatted.prefix;
+                                            })()}</span>
+                                            <span className="bg-primary/20 text-primary font-bold px-1 rounded ml-0">
+                                              {(() => {
+                                                const formatted = formatOrderIdDisplay(order.orderNumber || order.id.toString());
+                                                return formatted.highlighted;
+                                              })()}
+                                            </span>
+                                          </div>
+                                          <Badge className={getOrderStatusColor(order.status)}>
+                                            {getOrderStatusText(order.status)}
+                                          </Badge>
+                                        </div>
+                                        <p className="text-sm text-muted-foreground">Customer: {order.customerName}</p>
+                                        <p className="text-sm">
+                                          {order.items && typeof order.items === 'string' 
+                                            ? (() => {
+                                                try {
+                                                  const parsedItems = JSON.parse(order.items);
+                                                  return Array.isArray(parsedItems) 
+                                                    ? parsedItems.map((item: any) => `${item.quantity}x ${item.name}`).join(', ')
+                                                    : order.items;
+                                                } catch {
+                                                  return order.items;
+                                                }
+                                              })()
+                                            : 'No items'
+                                          }
+                                        </p>
+                                      </div>
+                                      <div className="text-right space-y-2">
+                                        <p className="font-semibold">₹{order.amount}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                          {order.createdAt ? new Date(order.createdAt).toLocaleString() : 'N/A'}
+                                        </p>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => setLocation(`/canteen-order-detail/${order.id}`)}
+                                        >
+                                          View Details
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="offline">
+                        <div className="space-y-6">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-medium">Offline Counter Orders</h3>
+                            <div className="flex items-center space-x-2">
+                              <Badge variant="secondary">Total: ₹{getTotalAmount()}</Badge>
+                              <Select value={paymentMode} onValueChange={(value: 'cash' | 'online') => setPaymentMode(value)}>
+                                <SelectTrigger className="w-32">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="cash">Cash</SelectItem>
+                                  <SelectItem value="online">Online</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Menu Items */}
+                            <Card>
+                              <CardHeader>
+                                <CardTitle className="text-base flex items-center justify-between">
+                                  <span>Menu Items</span>
+                                  <div className="flex items-center space-x-2">
+                                    <Input
+                                      placeholder="Search menu..."
+                                      value={offlineSearchQuery}
+                                      onChange={(e) => setOfflineSearchQuery(e.target.value)}
+                                      className="w-48"
+                                    />
+                                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                                      <SelectTrigger className="w-32">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="all">All</SelectItem>
+                                        {categories.map((category) => (
+                                          <SelectItem key={category.id} value={category.name}>
+                                            {category.name}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
                                   </div>
-                                  <div className="text-right">
-                                    <p className="text-xs text-muted-foreground">
-                                      {new Date(order.createdAt).toLocaleTimeString()}
-                                    </p>
-                                    <Button
-                                      size="sm"
-                                      onClick={() => setLocation(`/canteen-order-detail/${order.id}`)}
-                                    >
-                                      View Details
-                                    </Button>
-                                  </div>
+                                </CardTitle>
+                              </CardHeader>
+                              <CardContent className="max-h-96 overflow-auto">
+                                <div className="space-y-2">
+                                  {menuItems.filter(item => {
+                                    const matchesSearch = offlineSearchQuery === "" || 
+                                      item.name.toLowerCase().includes(offlineSearchQuery.toLowerCase());
+                                    const matchesCategory = selectedCategory === "all" || 
+                                      categories.find(cat => cat.id === item.categoryId)?.name === selectedCategory;
+                                    return matchesSearch && matchesCategory && item.available && item.stock > 0;
+                                  }).map((item) => (
+                                    <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                      <div className="flex-1">
+                                        <div className="flex items-center space-x-2">
+                                          <span className="font-medium">{item.name}</span>
+                                          <VegIndicator isVegetarian={item.isVegetarian} size="sm" />
+                                        </div>
+                                        <p className="text-sm text-muted-foreground">₹{item.price}</p>
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => {
+                                          const existingItem = cart.find(cartItem => cartItem.id === item.id);
+                                          if (existingItem) {
+                                            setCart(cart.map(cartItem => 
+                                              cartItem.id === item.id 
+                                                ? { ...cartItem, quantity: cartItem.quantity + 1 }
+                                                : cartItem
+                                            ));
+                                          } else {
+                                            setCart([...cart, { 
+                                              id: item.id, 
+                                              name: item.name, 
+                                              price: item.price, 
+                                              quantity: 1 
+                                            }]);
+                                          }
+                                        }}
+                                      >
+                                        <Plus className="w-4 h-4" />
+                                      </Button>
+                                    </div>
+                                  ))}
                                 </div>
                               </CardContent>
                             </Card>
-                          ))}
+
+                            {/* Cart */}
+                            <Card>
+                              <CardHeader>
+                                <CardTitle className="text-base flex items-center justify-between">
+                                  <span>Current Order</span>
+                                  {cart.length > 0 && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setCart([])}
+                                    >
+                                      Clear Cart
+                                    </Button>
+                                  )}
+                                </CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                {cart.length === 0 ? (
+                                  <div className="text-center py-8">
+                                    <ShoppingCart className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                                    <p className="text-muted-foreground">No items in cart</p>
+                                    <p className="text-sm text-muted-foreground mt-2">Add items from the menu</p>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-4">
+                                    <div className="space-y-3 max-h-48 overflow-auto">
+                                      {cart.map((item, index) => (
+                                        <div key={index} className="flex items-center justify-between p-2 border rounded">
+                                          <div className="flex-1">
+                                            <span className="font-medium">{item.name}</span>
+                                            <p className="text-sm text-muted-foreground">₹{item.price} × {item.quantity}</p>
+                                          </div>
+                                          <div className="flex items-center space-x-2">
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => {
+                                                if (item.quantity > 1) {
+                                                  setCart(cart.map((cartItem, i) => 
+                                                    i === index 
+                                                      ? { ...cartItem, quantity: cartItem.quantity - 1 }
+                                                      : cartItem
+                                                  ));
+                                                } else {
+                                                  setCart(cart.filter((_, i) => i !== index));
+                                                }
+                                              }}
+                                            >
+                                              <Minus className="w-4 h-4" />
+                                            </Button>
+                                            <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => {
+                                                setCart(cart.map((cartItem, i) => 
+                                                  i === index 
+                                                    ? { ...cartItem, quantity: cartItem.quantity + 1 }
+                                                    : cartItem
+                                                ));
+                                              }}
+                                            >
+                                              <Plus className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                              variant="destructive"
+                                              size="sm"
+                                              onClick={() => setCart(cart.filter((_, i) => i !== index))}
+                                            >
+                                              <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    
+                                    <div className="border-t pt-4">
+                                      <div className="flex items-center justify-between mb-4">
+                                        <span className="text-lg font-semibold">Total: ₹{getTotalAmount()}</span>
+                                        <Badge variant="secondary">{paymentMode === 'cash' ? 'Cash Payment' : 'Online Payment'}</Badge>
+                                      </div>
+                                      <Button 
+                                        className="w-full" 
+                                        onClick={handlePlaceOfflineOrder}
+                                        disabled={isPlacingOrder || placeOfflineOrderMutation.isPending}
+                                      >
+                                        {isPlacingOrder || placeOfflineOrderMutation.isPending ? (
+                                          "Processing..."
+                                        ) : (
+                                          `Place ${paymentMode === 'cash' ? 'Cash' : 'Online'} Order`
+                                        )}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </div>
                         </div>
-                      )}
-                    </div>
+                      </TabsContent>
+                    </Tabs>
                   </CardContent>
                 </Card>
               </div>
