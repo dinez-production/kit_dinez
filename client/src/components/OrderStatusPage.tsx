@@ -109,7 +109,57 @@ export default function OrderStatusPage() {
     o.barcode === orderId
   );
 
-  const orderStatus = order?.status as "preparing" | "ready" | "completed" | "delivered" || "preparing";
+  const orderStatus = order?.status as "pending" | "preparing" | "ready" | "completed" | "delivered" || "preparing";
+  
+  // Dynamic theme configuration based on order status
+  const getThemeConfig = (status: string) => {
+    switch (status) {
+      case "pending":
+      case "preparing":
+        return {
+          bg: "bg-red-50 dark:bg-red-950/20",
+          headerBg: "bg-red-600",
+          iconBg: "bg-red-100 dark:bg-red-900/30",
+          iconColor: "text-red-600",
+          progressColor: "[&>div]:bg-red-500",
+          borderColor: "border-red-200 dark:border-red-800",
+          theme: "red"
+        };
+      case "ready":
+        return {
+          bg: "bg-yellow-50 dark:bg-yellow-950/20",
+          headerBg: "bg-yellow-600",
+          iconBg: "bg-yellow-100 dark:bg-yellow-900/30",
+          iconColor: "text-yellow-600",
+          progressColor: "[&>div]:bg-yellow-500",
+          borderColor: "border-yellow-200 dark:border-yellow-800",
+          theme: "yellow"
+        };
+      case "delivered":
+      case "completed":
+        return {
+          bg: "bg-green-50 dark:bg-green-950/20",
+          headerBg: "bg-green-600",
+          iconBg: "bg-green-100 dark:bg-green-900/30",
+          iconColor: "text-green-600",
+          progressColor: "[&>div]:bg-green-500",
+          borderColor: "border-green-200 dark:border-green-800",
+          theme: "green"
+        };
+      default:
+        return {
+          bg: "bg-red-50 dark:bg-red-950/20",
+          headerBg: "bg-red-600",
+          iconBg: "bg-red-100 dark:bg-red-900/30",
+          iconColor: "text-red-600",
+          progressColor: "[&>div]:bg-red-500",
+          borderColor: "border-red-200 dark:border-red-800",
+          theme: "red"
+        };
+    }
+  };
+  
+  const themeConfig = getThemeConfig(orderStatus);
   
   // Calculate progress based on order status - memoized to prevent infinite loops
   const progress = useMemo(() => {
@@ -204,9 +254,9 @@ export default function OrderStatusPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className={`min-h-screen ${themeConfig.bg}`}>
       {/* Header */}
-      <div className="bg-primary px-4 pt-12 pb-6">
+      <div className={`${themeConfig.headerBg} px-4 pt-12 pb-6`}>
         <div className="flex items-center justify-between mb-4">
           <Button 
             variant="ghost" 
@@ -243,10 +293,10 @@ export default function OrderStatusPage() {
 
       <div className="px-4 py-6 space-y-6">
         {/* Order Barcode */}
-        <Card className="shadow-card">
+        <Card className={`shadow-card ${themeConfig.borderColor} border-2`}>
           <CardContent className="p-4">
             <h3 className="font-semibold mb-3 flex items-center">
-              <Package className="w-5 h-5 mr-2 text-primary" />
+              <Package className={`w-5 h-5 mr-2 ${themeConfig.iconColor}`} />
               Order Barcode
             </h3>
             <div className="bg-accent/50 rounded-lg p-4 text-center">
@@ -263,35 +313,33 @@ export default function OrderStatusPage() {
         </Card>
 
         {/* Current Status */}
-        <Card className="shadow-card">
+        <Card className={`shadow-card ${themeConfig.borderColor} border-2`}>
           <CardContent className="p-6 text-center">
-            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-              {orderStatus === "preparing" && <ChefHat className="w-10 h-10 text-warning" />}
-              {orderStatus === "ready" && <Package className="w-10 h-10 text-success" />}
-              {orderStatus === "completed" && <CheckCircle className="w-10 h-10 text-success" />}
+            <div className={`w-20 h-20 ${themeConfig.iconBg} rounded-full flex items-center justify-center mx-auto mb-4`}>
+              {(orderStatus === "preparing" || orderStatus === "pending") && <ChefHat className={`w-10 h-10 ${themeConfig.iconColor}`} />}
+              {orderStatus === "ready" && <Package className={`w-10 h-10 ${themeConfig.iconColor}`} />}
+              {(orderStatus === "completed" || orderStatus === "delivered") && <CheckCircle className={`w-10 h-10 ${themeConfig.iconColor}`} />}
             </div>
             
-            <h2 className="text-xl font-bold mb-2">
-              {orderStatus === "preparing" && "Preparing Your Order"}
+            <h2 className={`text-xl font-bold mb-2 ${themeConfig.iconColor}`}>
+              {(orderStatus === "preparing" || orderStatus === "pending") && "Preparing Your Order"}
               {orderStatus === "ready" && "Ready for Pickup!"}
-              {orderStatus === "completed" && "Order Completed!"}
+              {(orderStatus === "completed" || orderStatus === "delivered") && "Order Completed!"}
             </h2>
             
             <p className="text-muted-foreground mb-4">
-              {orderStatus === "preparing" && "Our chef is preparing your delicious meal"}
+              {(orderStatus === "preparing" || orderStatus === "pending") && "Our chef is preparing your delicious meal"}
               {orderStatus === "ready" && "Your order is ready! Please collect from the canteen counter"}
-              {orderStatus === "completed" && "Your order has been completed. Thank you for your visit!"}
+              {(orderStatus === "completed" || orderStatus === "delivered") && "Your order has been completed. Thank you for your visit!"}
             </p>
 
-
-
-            <Progress value={progress} className="w-full" />
+            <Progress value={progress} className={`w-full ${themeConfig.progressColor}`} />
           </CardContent>
         </Card>
 
 
         {/* Status Timeline */}
-        <Card className="shadow-card">
+        <Card className={`shadow-card ${themeConfig.borderColor} border-2`}>
           <CardContent className="p-4">
             <h3 className="font-semibold mb-4">Order Timeline</h3>
             <div className="space-y-4">
