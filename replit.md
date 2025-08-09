@@ -2,6 +2,12 @@
 KIT-Canteen is a modern food ordering application for college campuses, enabling students, faculty, and staff to browse menus, place orders, and manage preferences via a web application. It offers both customer-facing features and administrative panels for canteen management, aiming to provide a complete solution for campus food service operations. The project's vision is to streamline campus food services, enhance user experience, and provide efficient management tools for canteen operators.
 
 ## Recent Changes (August 2025)
+- **Payment URL Fix (August 9, 2025)**: Fixed hardcoded localhost:5000 URLs in payment callback system to use dynamic host detection for proper deployment compatibility.
+  - Updated payment initiation endpoint to dynamically detect base URL from request headers and environment
+  - Added priority system: REPLIT_DOMAINS → request host → localhost fallback
+  - Enhanced URL generation with proper protocol detection (HTTP/HTTPS)
+  - Added comprehensive logging for payment URL debugging
+  - Fixed payment callback URLs to work correctly in all deployment environments
 - **Complete Docker Implementation (August 8, 2025)**: Comprehensive Docker containerization with production-ready deployment configurations.
   - Created multi-stage Dockerfile supporting development and production builds with Node.js 20 Alpine
   - Implemented Docker Compose configurations for development and production environments

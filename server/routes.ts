@@ -728,13 +728,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate unique merchant transaction ID
       const merchantTransactionId = `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // Create callback URLs
-      const baseUrl = process.env.REPLIT_DOMAINS 
-        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-        : 'http://localhost:5000';
+      // Create callback URLs - Dynamic base URL detection
+      let baseUrl: string;
+      
+      if (process.env.REPLIT_DOMAINS) {
+        // Replit deployment - use the domain from environment
+        baseUrl = `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`;
+      } else if (req.get('host')) {
+        // Use the actual host from the request header
+        const protocol = req.get('x-forwarded-proto') || (req.connection as any)?.encrypted ? 'https' : 'http';
+        baseUrl = `${protocol}://${req.get('host')}`;
+      } else {
+        // Final fallback to localhost with current port
+        const port = process.env.PORT || '5000';
+        baseUrl = `http://localhost:${port}`;
+      }
       
       const redirectUrl = `${baseUrl}/payment-callback`;
       const callbackUrl = `${baseUrl}/api/payments/webhook`;
+      
+      // Log the generated URLs for debugging
+      console.log(`💰 Payment URLs generated:`);
+      console.log(`   Base URL: ${baseUrl}`);
+      console.log(`   Redirect URL: ${redirectUrl}`);
+      console.log(`   Callback URL: ${callbackUrl}`);
 
       // Create payment payload
       const paymentPayload = createPaymentPayload(
