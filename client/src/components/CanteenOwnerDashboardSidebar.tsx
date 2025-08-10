@@ -130,16 +130,8 @@ export default function CanteenOwnerDashboardSidebar() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [scannedOrderId, setScannedOrderId] = useState("");
-
-  // Priority queue ordering for active orders: preparing > ready > pending
-  const getOrderPriority = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'preparing': return 1; // Highest priority
-      case 'ready': return 2;
-      case 'pending': return 3;
-      default: return 4; // Lowest priority
-    }
-  };
+  const [showBarcodeDialog, setShowBarcodeDialog] = useState(false);
+  const [selectedOrderForScan, setSelectedOrderForScan] = useState<any>(null);
 
   // Helper functions
   const generateOrderNumber = () => Math.floor(Math.random() * 900000000000) + 100000000000;
@@ -227,7 +219,7 @@ export default function CanteenOwnerDashboardSidebar() {
   }, [isAuthenticated, isCanteenOwner, refetchOrders]);
 
   // Filter orders
-  // Filter and sort active orders - Priority queue: preparing > ready > pending
+  // Filter and sort active orders - FIFO (First In, First Out)
   const activeOrders = (orders as any[])
     .filter((order: any) => {
       // Filter by status first
@@ -247,11 +239,7 @@ export default function CanteenOwnerDashboardSidebar() {
       return false;
     })
     .sort((a: any, b: any) => {
-      // First sort by priority (preparing > ready > pending)
-      const priorityDiff = getOrderPriority(a.status) - getOrderPriority(b.status);
-      if (priorityDiff !== 0) return priorityDiff;
-      
-      // Then sort by creation time (oldest first for same priority)
+      // FIFO ordering - sort by creation time only (oldest first)
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     });
 
@@ -323,16 +311,50 @@ export default function CanteenOwnerDashboardSidebar() {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       // Refresh scan result to show updated status
       if (variables.status === "delivered") {
+        toast.success("Order marked as delivered!");
         setTimeout(() => {
           setScannedOrderId("");
           setScanResult(null);
-        }, 2000); // Clear after 2 seconds to show success
+          setShowBarcodeDialog(false);
+          setSelectedOrderForScan(null);
+        }, 1500); // Clear after 1.5 seconds to show success
       }
     },
     onError: () => {
       toast.error("Failed to update order status. Please try again.");
     }
   });
+
+  // Handle barcode scan functionality
+  const handleScanBarcode = (order: any) => {
+    setSelectedOrderForScan(order);
+    setShowBarcodeDialog(true);
+  };
+
+  // Handle keyboard events for barcode scanning dialog
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (showBarcodeDialog && selectedOrderForScan && event.key === 'Enter') {
+        event.preventDefault();
+        // Mark the order as delivered
+        markOrderReadyMutation.mutate({ 
+          orderId: selectedOrderForScan.id, 
+          status: "delivered" 
+        });
+      }
+      if (showBarcodeDialog && event.key === 'Escape') {
+        setShowBarcodeDialog(false);
+        setSelectedOrderForScan(null);
+      }
+    };
+
+    if (showBarcodeDialog) {
+      document.addEventListener('keydown', handleKeyPress);
+      return () => {
+        document.removeEventListener('keydown', handleKeyPress);
+      };
+    }
+  }, [showBarcodeDialog, selectedOrderForScan, markOrderReadyMutation]);
 
   const handlePlaceOfflineOrder = () => {
     if (cart.length === 0) {
@@ -640,11 +662,11 @@ export default function CanteenOwnerDashboardSidebar() {
                       <TabsContent value="active">
                         <div className="space-y-4">
                           <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-medium">Active Orders (Priority Queue)</h3>
+                            <h3 className="text-lg font-medium">Active Orders (FIFO - First In, First Out)</h3>
                             <div className="flex items-center space-x-2">
                               <Badge variant="outline">{activeOrders.length} active</Badge>
                               <span className="text-xs text-muted-foreground">
-                                Priority: Preparing → Ready → Pending
+                                Ordered by: Creation Time (Oldest First)
                               </span>
                             </div>
                           </div>
@@ -726,31 +748,68 @@ export default function CanteenOwnerDashboardSidebar() {
                                           {order.createdAt ? new Date(order.createdAt).toLocaleTimeString() : 'N/A'}
                                         </p>
                                         <div className="flex flex-col space-y-2">
-                                          {/* Show Mark Ready button for preparing orders or pending orders with markable items */}
-                                          {(order.status === "preparing" || 
-                                            (order.status === "pending" && (() => {
-                                              try {
-                                                const items = JSON.parse(order.items || '[]');
-                                                return items.some((item: any) => {
-                                                  const menuItem = menuItems.find(mi => mi.id === item.id);
-                                                  return menuItem?.isMarkable === true;
-                                                });
-                                              } catch {
-                                                return false;
+                                          {(() => {
+                                            try {
+                                              const items = JSON.parse(order.items || '[]');
+                                              const hasMarkableItem = items.some((item: any) => {
+                                                const menuItem = menuItems.find(mi => mi.id === item.id);
+                                                return menuItem?.isMarkable === true;
+                                              });
+                                              
+                                              // Auto-Ready orders show Scan Barcode button when ready
+                                              if (!hasMarkableItem && order.status === "ready") {
+                                                return (
+                                                  <Button
+                                                    size="sm"
+                                                    variant="default"
+                                                    onClick={() => handleScanBarcode(order)}
+                                                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                                                    data-testid={`button-scan-barcode-${order.id}`}
+                                                  >
+                                                    <ScanLine className="w-4 h-4 mr-2" />
+                                                    Scan Barcode
+                                                  </Button>
+                                                );
                                               }
-                                            })())
-                                          ) && (
-                                            <Button
-                                              size="sm"
-                                              variant="default"
-                                              onClick={() => markOrderReadyMutation.mutate({ orderId: order.id, status: "ready" })}
-                                              disabled={markOrderReadyMutation.isPending}
-                                              className="bg-green-600 hover:bg-green-700 text-white"
-                                              data-testid={`button-mark-ready-${order.id}`}
-                                            >
-                                              {markOrderReadyMutation.isPending ? "Updating..." : "Mark Ready"}
-                                            </Button>
-                                          )}
+                                              
+                                              // Prep Required orders show Mark Ready button when pending/preparing
+                                              if (hasMarkableItem && (order.status === "pending" || order.status === "preparing")) {
+                                                return (
+                                                  <Button
+                                                    size="sm"
+                                                    variant="default"
+                                                    onClick={() => markOrderReadyMutation.mutate({ orderId: order.id, status: "ready" })}
+                                                    disabled={markOrderReadyMutation.isPending}
+                                                    className="bg-green-600 hover:bg-green-700 text-white"
+                                                    data-testid={`button-mark-ready-${order.id}`}
+                                                  >
+                                                    {markOrderReadyMutation.isPending ? "Updating..." : "Mark Ready"}
+                                                  </Button>
+                                                );
+                                              }
+                                              
+                                              // Prep Required orders show Scan Barcode button when ready
+                                              if (hasMarkableItem && order.status === "ready") {
+                                                return (
+                                                  <Button
+                                                    size="sm"
+                                                    variant="default"
+                                                    onClick={() => handleScanBarcode(order)}
+                                                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                                                    data-testid={`button-scan-barcode-${order.id}`}
+                                                  >
+                                                    <ScanLine className="w-4 h-4 mr-2" />
+                                                    Scan Barcode
+                                                  </Button>
+                                                );
+                                              }
+                                              
+                                              return null;
+                                            } catch {
+                                              return null;
+                                            }
+                                          })()}
+                                          
                                           <Button
                                             size="sm"
                                             variant="outline"
@@ -1441,6 +1500,132 @@ export default function CanteenOwnerDashboardSidebar() {
               </CardContent>
             </Card>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Barcode Scanning Dialog */}
+      <Dialog open={showBarcodeDialog} onOpenChange={setShowBarcodeDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <ScanLine className="w-5 h-5" />
+              Scan Barcode - Order #{selectedOrderForScan?.orderNumber || selectedOrderForScan?.id}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedOrderForScan && (
+            <div className="space-y-6">
+              {/* Order Details */}
+              <Card className="border-2 border-blue-200 bg-blue-50/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Order Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Order ID</p>
+                      <div className="flex items-center">
+                        <span className="font-mono text-sm">#{(() => {
+                          const formatted = formatOrderIdDisplay(selectedOrderForScan.orderNumber || selectedOrderForScan.id.toString());
+                          return formatted.prefix;
+                        })()}</span>
+                        <span className="bg-primary/20 text-primary font-bold px-1 rounded ml-0 font-mono text-sm">
+                          {(() => {
+                            const formatted = formatOrderIdDisplay(selectedOrderForScan.orderNumber || selectedOrderForScan.id.toString());
+                            return formatted.highlighted;
+                          })()}
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Amount</p>
+                      <p className="font-semibold text-lg">₹{selectedOrderForScan.amount}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Status</p>
+                      <Badge className={getOrderStatusColor(selectedOrderForScan.status)}>
+                        {getOrderStatusText(selectedOrderForScan.status)}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Time</p>
+                      <p className="text-sm">{selectedOrderForScan.createdAt ? new Date(selectedOrderForScan.createdAt).toLocaleTimeString() : 'N/A'}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Customer Details */}
+              <Card className="border-2 border-green-200 bg-green-50/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Customer Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Customer Name</p>
+                    <p className="font-medium">{selectedOrderForScan.customerName || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Items Ordered</p>
+                    <div className="text-sm">
+                      {selectedOrderForScan.items && typeof selectedOrderForScan.items === 'string' 
+                        ? (() => {
+                            try {
+                              const parsedItems = JSON.parse(selectedOrderForScan.items);
+                              return Array.isArray(parsedItems) 
+                                ? parsedItems.map((item: any, index: number) => (
+                                    <div key={index} className="flex justify-between items-center py-1">
+                                      <span>{item.quantity}x {item.name}</span>
+                                      <span className="font-medium">₹{item.price * item.quantity}</span>
+                                    </div>
+                                  ))
+                                : selectedOrderForScan.items;
+                            } catch {
+                              return selectedOrderForScan.items;
+                            }
+                          })()
+                        : 'No items'
+                      }
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Instructions */}
+              <div className="bg-blue-100 border border-blue-300 rounded-lg p-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <AlertTriangle className="w-5 h-5 text-blue-600" />
+                  <p className="font-medium text-blue-800">Instructions</p>
+                </div>
+                <p className="text-sm text-blue-700">
+                  Press <kbd className="px-2 py-1 text-xs font-semibold text-blue-900 bg-blue-200 border border-blue-300 rounded">Enter</kbd> to mark this order as delivered, or <kbd className="px-2 py-1 text-xs font-semibold text-blue-900 bg-blue-200 border border-blue-300 rounded">Esc</kbd> to cancel.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowBarcodeDialog(false);
+                    setSelectedOrderForScan(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => markOrderReadyMutation.mutate({ 
+                    orderId: selectedOrderForScan.id, 
+                    status: "delivered" 
+                  })}
+                  disabled={markOrderReadyMutation.isPending}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {markOrderReadyMutation.isPending ? "Processing..." : "Mark as Delivered"}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
