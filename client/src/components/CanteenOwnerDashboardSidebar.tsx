@@ -58,6 +58,7 @@ import {
 import { QuickOrdersManager } from "@/components/admin/QuickOrdersManager";
 import { TrendingItemsManager } from "@/components/admin/TrendingItemsManager";
 import CanteenOwnerMenuManagement from "@/components/CanteenOwnerMenuManagement";
+import InventoryManagement from "@/components/InventoryManagement";
 
 // Sidebar Navigation Item Component
 interface SidebarNavItemProps {
@@ -1925,23 +1926,7 @@ export default function CanteenOwnerDashboardSidebar() {
 
             {/* Inventory Content */}
             {activeTab === "inventory" && (
-              <div className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <Package className="w-5 h-5" />
-                      Inventory Management
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-center py-8">
-                      <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p className="text-muted-foreground">Inventory tracking</p>
-                      <p className="text-sm text-muted-foreground mt-2">Monitor stock levels and supplies</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+              <InventoryManagement />
             )}
           </div>
         </div>

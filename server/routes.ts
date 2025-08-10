@@ -1299,6 +1299,293 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Inventory Management Endpoints
+  
+  // Get all inventory items
+  app.get("/api/inventory", async (req, res) => {
+    try {
+      // For demo purposes, return sample inventory data
+      // In production, this would fetch from database
+      const sampleInventory = [
+        {
+          id: "inv_001",
+          name: "Rice",
+          category: "Grains",
+          unit: "kg",
+          currentStock: 45,
+          minThreshold: 10,
+          maxThreshold: 100,
+          unitCost: 60,
+          supplier: "Local Farm Co",
+          lastRestocked: new Date().toISOString(),
+          description: "Premium quality rice",
+          status: "in_stock"
+        },
+        {
+          id: "inv_002", 
+          name: "Onions",
+          category: "Vegetables",
+          unit: "kg",
+          currentStock: 8,
+          minThreshold: 15,
+          maxThreshold: 50,
+          unitCost: 25,
+          supplier: "Fresh Veggie Ltd",
+          lastRestocked: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+          description: "Fresh onions",
+          status: "low_stock"
+        },
+        {
+          id: "inv_003",
+          name: "Cooking Oil",
+          category: "Condiments",
+          unit: "l",
+          currentStock: 0,
+          minThreshold: 5,
+          maxThreshold: 25,
+          unitCost: 150,
+          supplier: "Oil Mills Inc",
+          lastRestocked: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+          description: "Refined cooking oil",
+          status: "out_of_stock"
+        },
+        {
+          id: "inv_004",
+          name: "Tomatoes",
+          category: "Vegetables", 
+          unit: "kg",
+          currentStock: 25,
+          minThreshold: 10,
+          maxThreshold: 40,
+          unitCost: 35,
+          supplier: "Fresh Veggie Ltd",
+          lastRestocked: new Date().toISOString(),
+          description: "Fresh tomatoes",
+          status: "in_stock"
+        },
+        {
+          id: "inv_005",
+          name: "Wheat Flour",
+          category: "Grains",
+          unit: "kg", 
+          currentStock: 12,
+          minThreshold: 20,
+          maxThreshold: 80,
+          unitCost: 40,
+          supplier: "Grain Suppliers",
+          lastRestocked: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+          description: "Whole wheat flour",
+          status: "low_stock"
+        }
+      ];
+      
+      res.json(sampleInventory);
+    } catch (error) {
+      console.error("Error fetching inventory:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Add new inventory item
+  app.post("/api/inventory", async (req, res) => {
+    try {
+      const itemData = req.body;
+      
+      // Validate required fields
+      if (!itemData.name || !itemData.category) {
+        return res.status(400).json({ message: "Name and category are required" });
+      }
+      
+      // Determine status based on current stock and thresholds
+      let status = "in_stock";
+      if (itemData.currentStock === 0) {
+        status = "out_of_stock";
+      } else if (itemData.currentStock <= itemData.minThreshold) {
+        status = "low_stock";
+      }
+      
+      const newItem = {
+        ...itemData,
+        id: `inv_${Date.now()}`,
+        lastRestocked: new Date().toISOString(),
+        status
+      };
+      
+      // In production, save to database
+      console.log("New inventory item created:", newItem);
+      
+      res.json(newItem);
+    } catch (error) {
+      console.error("Error creating inventory item:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Update inventory item
+  app.patch("/api/inventory/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+      
+      // In production, update in database
+      console.log(`Updated inventory item ${id}:`, updateData);
+      
+      res.json({ id, ...updateData });
+    } catch (error) {
+      console.error("Error updating inventory item:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Delete inventory item
+  app.delete("/api/inventory/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // In production, delete from database
+      console.log(`Deleted inventory item ${id}`);
+      
+      res.json({ message: "Item deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting inventory item:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get stock movements
+  app.get("/api/inventory/movements", async (req, res) => {
+    try {
+      const sampleMovements = [
+        {
+          id: "mov_001",
+          itemId: "inv_001",
+          type: "in",
+          quantity: 50,
+          reason: "Weekly stock replenishment",
+          date: new Date().toISOString(),
+          user: "Store Manager",
+          cost: 3000
+        },
+        {
+          id: "mov_002",
+          itemId: "inv_002",
+          type: "out",
+          quantity: 12,
+          reason: "Used for lunch preparation",
+          date: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+          user: "Chef",
+          cost: 300
+        },
+        {
+          id: "mov_003",
+          itemId: "inv_004",
+          type: "in",
+          quantity: 30,
+          reason: "Fresh stock delivery",
+          date: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+          user: "Store Manager",
+          cost: 1050
+        },
+        {
+          id: "mov_004",
+          itemId: "inv_005",
+          type: "out",
+          quantity: 8,
+          reason: "Bread and roti preparation",
+          date: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+          user: "Baker",
+          cost: 320
+        },
+        {
+          id: "mov_005",
+          itemId: "inv_003",
+          type: "adjustment",
+          quantity: -2,
+          reason: "Stock count correction",
+          date: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+          user: "Inventory Manager",
+          cost: -300
+        }
+      ];
+      
+      res.json(sampleMovements);
+    } catch (error) {
+      console.error("Error fetching stock movements:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Record stock movement
+  app.post("/api/inventory/movements", async (req, res) => {
+    try {
+      const movementData = req.body;
+      
+      // Validate required fields
+      if (!movementData.itemId || !movementData.type || !movementData.quantity || !movementData.reason) {
+        return res.status(400).json({ message: "ItemId, type, quantity, and reason are required" });
+      }
+      
+      const newMovement = {
+        ...movementData,
+        id: `mov_${Date.now()}`,
+        date: new Date().toISOString()
+      };
+      
+      // In production, save to database and update item stock
+      console.log("New stock movement recorded:", newMovement);
+      
+      res.json(newMovement);
+    } catch (error) {
+      console.error("Error recording stock movement:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get suppliers
+  app.get("/api/inventory/suppliers", async (req, res) => {
+    try {
+      const sampleSuppliers = [
+        {
+          id: "sup_001",
+          name: "Local Farm Co",
+          contact: "+91 98765 43210",
+          email: "contact@localfarm.com",
+          itemCount: 15,
+          totalValue: 45000
+        },
+        {
+          id: "sup_002",
+          name: "Fresh Veggie Ltd",
+          contact: "+91 98765 43211",
+          email: "orders@freshveggie.com",
+          itemCount: 25,
+          totalValue: 32000
+        },
+        {
+          id: "sup_003",
+          name: "Oil Mills Inc",
+          contact: "+91 98765 43212",
+          email: "sales@oilmills.com",
+          itemCount: 8,
+          totalValue: 18000
+        },
+        {
+          id: "sup_004",
+          name: "Grain Suppliers",
+          contact: "+91 98765 43213",
+          email: "info@grainsuppliers.com",
+          itemCount: 12,
+          totalValue: 28000
+        }
+      ];
+      
+      res.json(sampleSuppliers);
+    } catch (error) {
+      console.error("Error fetching suppliers:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
