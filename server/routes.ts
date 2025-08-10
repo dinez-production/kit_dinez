@@ -1301,74 +1301,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Inventory Management Endpoints
   
-  // Get all inventory items based on menu items
+  // Get all inventory items (menu item stock tracking)
   app.get("/api/inventory", async (req, res) => {
     try {
       // Fetch menu items and categories from database
-      const menuItems = await storage.getAllMenuItems();
-      const categories = await storage.getAllCategories();
+      const menuItems = await storage.getMenuItems();
+      const categories = await storage.getCategories();
       
-      // Convert menu items to inventory items with realistic stock data
-      const inventoryItems = menuItems.map((item: any, index: number) => {
+      // Convert menu items to inventory tracking items
+      const inventoryItems = menuItems.map((item: any) => {
         const category = categories.find((cat: any) => cat.id === item.categoryId);
         
-        // Generate realistic stock levels based on item price
-        const baseStock = item.price < 50 ? 25 : item.price < 100 ? 15 : 8;
-        const variation = Math.floor(Math.random() * 10) - 5;
-        const currentStock = Math.max(0, baseStock + variation);
+        // Generate realistic stock levels for prepared dishes/items
+        const baseStock = Math.floor(Math.random() * 50) + 10; // 10-60 items available
+        const minThreshold = 5; // Minimum 5 items before restock
+        const maxThreshold = 100; // Maximum capacity
         
-        // Determine unit based on category
-        let unit = "kg";
-        if (category?.name.toLowerCase().includes('drink') || category?.name.toLowerCase().includes('beverage')) {
-          unit = "l";
-        } else if (category?.name.toLowerCase().includes('snack') || category?.name.toLowerCase().includes('sweet')) {
-          unit = "pcs";
-        }
-        
-        // Set thresholds
-        const minThreshold = Math.floor(baseStock * 0.3);
-        const maxThreshold = baseStock * 2;
-        
-        // Calculate unit cost (typically 40-60% of selling price for ingredients)
-        const unitCost = Math.round(item.price * (0.4 + Math.random() * 0.2));
-        
-        // Determine status
+        // Determine status based on stock levels
         let status = "in_stock";
-        if (currentStock === 0) {
+        if (baseStock === 0) {
           status = "out_of_stock";
-        } else if (currentStock <= minThreshold) {
+        } else if (baseStock <= minThreshold) {
           status = "low_stock";
         }
-        
-        // Generate suppliers based on category
-        const suppliers = {
-          'vegetables': 'Fresh Veggie Suppliers',
-          'grains': 'Grain & Cereal Co',
-          'dairy': 'Dairy Fresh Ltd',
-          'beverages': 'Beverage Distributors',
-          'snacks': 'Snack Supply Co',
-          'sweets': 'Sweet Treats Inc'
-        };
-        
-        const supplierKey = Object.keys(suppliers).find(key => 
-          category?.name.toLowerCase().includes(key)
-        ) || 'vegetables';
         
         return {
           id: `inv_${item.id}`,
           name: item.name,
           category: category?.name || 'Uncategorized',
-          unit,
-          currentStock,
+          unit: "pcs", // Menu items are counted in pieces
+          currentStock: baseStock,
           minThreshold,
           maxThreshold,
-          unitCost,
-          supplier: suppliers[supplierKey as keyof typeof suppliers],
-          lastRestocked: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-          description: item.description || `Ingredients for ${item.name}`,
+          sellingPrice: item.price,
+          lastPrepared: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000).toISOString(),
+          description: item.description || `Ready-to-serve ${item.name}`,
           status,
           menuItemId: item.id,
-          available: item.available
+          available: item.available && baseStock > 0
         };
       });
       
@@ -1445,21 +1415,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get stock movements based on menu items
+  // Get stock movements based on menu items  
   app.get("/api/inventory/movements", async (req, res) => {
     try {
       // Fetch menu items to generate realistic movements
-      const menuItems = await storage.getAllMenuItems();
+      const menuItems = await storage.getMenuItems();
       
-      // Generate realistic stock movements for the past week
-      const movements = [];
+      // Generate realistic stock movements for menu items
+      const movements: any[] = [];
       const movementTypes = ['in', 'out', 'adjustment'];
       const reasons = {
-        'in': ['Weekly stock replenishment', 'Emergency restock', 'Bulk purchase', 'Supplier delivery'],
-        'out': ['Kitchen preparation', 'Daily consumption', 'Order fulfillment', 'Recipe usage'],
-        'adjustment': ['Stock count correction', 'Spoilage write-off', 'Quality check adjustment']
+        'in': ['Items prepared', 'Kitchen production', 'Daily prep', 'Fresh batch ready'],
+        'out': ['Order served', 'Customer purchase', 'Daily sales', 'Item sold'],
+        'adjustment': ['Stock count correction', 'Expired items removed', 'Quality check adjustment']
       };
-      const users = ['Store Manager', 'Chef', 'Kitchen Staff', 'Inventory Manager'];
+      const users = ['Kitchen Staff', 'Chef', 'Canteen Manager', 'Server'];
       
       // Generate movements for first 10 menu items to keep it manageable
       menuItems.slice(0, 10).forEach((item: any, index: number) => {
@@ -1472,29 +1442,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const reason = reasonList[Math.floor(Math.random() * reasonList.length)];
           const user = users[Math.floor(Math.random() * users.length)];
           
-          let quantity = Math.floor(Math.random() * 20) + 1;
+          let quantity = Math.floor(Math.random() * 15) + 1; // 1-15 items
+          const originalQuantity = quantity;
+          
           if (type === 'out') quantity = -quantity;
           if (type === 'adjustment') quantity = Math.random() > 0.5 ? quantity : -quantity;
-          
-          const unitCost = Math.round(item.price * (0.4 + Math.random() * 0.2));
-          const cost = Math.abs(quantity) * unitCost;
           
           movements.push({
             id: `mov_${item.id}_${i}`,
             itemId: `inv_${item.id}`,
             itemName: item.name,
             type,
-            quantity: Math.abs(quantity),
+            quantity: Math.abs(originalQuantity),
             reason,
             date: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
             user,
-            cost: type === 'out' ? -cost : cost
+            value: Math.abs(originalQuantity) * item.price
           });
         }
       });
       
       // Sort by date (newest first)
-      movements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      movements.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
       
       res.json(movements);
     } catch (error) {
@@ -1532,51 +1501,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get suppliers based on menu categories
   app.get("/api/inventory/suppliers", async (req, res) => {
     try {
-      // Fetch categories and menu items to generate realistic suppliers
-      const categories = await storage.getAllCategories();
-      const menuItems = await storage.getAllMenuItems();
+      // For menu item inventory, suppliers would be kitchen/preparation teams
+      const categories = await storage.getCategories();
+      const menuItems = await storage.getMenuItems();
       
-      // Generate suppliers based on actual categories
-      const suppliers = categories.map((category: any, index: number) => {
+      // Generate kitchen teams/suppliers based on actual categories
+      const suppliers = categories.map((category: any) => {
         const categoryItems = menuItems.filter((item: any) => item.categoryId === category.id);
         const itemCount = categoryItems.length;
         
-        // Calculate total value based on actual menu items
+        // Calculate total value based on actual menu items in stock
         const totalValue = categoryItems.reduce((sum: number, item: any) => {
-          const unitCost = Math.round(item.price * (0.4 + Math.random() * 0.2));
-          const avgStock = item.price < 50 ? 25 : item.price < 100 ? 15 : 8;
-          return sum + (unitCost * avgStock);
+          const avgStock = Math.floor(Math.random() * 30) + 10; // Average stock
+          return sum + (item.price * avgStock);
         }, 0);
         
-        // Generate supplier name based on category
-        const supplierNames: { [key: string]: string } = {
-          'default': `${category.name} Supply Co`,
-          'vegetable': 'Fresh Veggie Suppliers',
-          'grain': 'Grain & Cereal Co',
-          'dairy': 'Dairy Fresh Ltd',
-          'beverage': 'Beverage Distributors',
-          'snack': 'Snack Supply Co',
-          'sweet': 'Sweet Treats Inc',
-          'meat': 'Premium Meat Co',
-          'spice': 'Spice Trading Corp'
+        // Generate kitchen team/supplier name based on category
+        const teamNames: { [key: string]: string } = {
+          'default': `${category.name} Kitchen Team`,
+          'snack': 'Snacks Preparation Team',
+          'sweet': 'Desserts & Sweets Team',
+          'beverage': 'Beverages Counter',
+          'main': 'Main Course Kitchen',
+          'rice': 'Rice & Grains Station',
+          'curry': 'Curry & Gravy Station'
         };
         
-        const supplierKey = Object.keys(supplierNames).find(key => 
+        const teamKey = Object.keys(teamNames).find(key => 
           category.name.toLowerCase().includes(key)
         ) || 'default';
         
-        const supplierName = supplierNames[supplierKey] || `${category.name} Suppliers`;
+        const teamName = teamNames[teamKey] || `${category.name} Team`;
         
         return {
           id: `sup_${category.id}`,
-          name: supplierName,
-          contact: `+91 ${90000 + Math.floor(Math.random() * 9999)} ${Math.floor(Math.random() * 90000) + 10000}`,
-          email: `contact@${supplierName.toLowerCase().replace(/\s+/g, '').replace(/[^a-z]/g, '')}.com`,
+          name: teamName,
+          contact: `Ext. ${Math.floor(Math.random() * 100) + 100}`,
+          email: `${teamName.toLowerCase().replace(/\s+/g, '').replace(/[^a-z]/g, '')}@canteen.local`,
           itemCount,
           totalValue: Math.round(totalValue),
           category: category.name
         };
-      }).filter(supplier => supplier.itemCount > 0); // Only include suppliers with items
+      }).filter((supplier: any) => supplier.itemCount > 0); // Only include teams with items
       
       res.json(suppliers);
     } catch (error) {
