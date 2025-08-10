@@ -20,7 +20,12 @@ import {
   Search, 
   Loader2,
   X,
-  ChefHat
+  ChefHat,
+  TrendingUp,
+  AlertTriangle,
+  Package,
+  BarChart3,
+  Filter
 } from "lucide-react";
 
 interface CanteenOwnerMenuManagementProps {
@@ -36,6 +41,7 @@ export default function CanteenOwnerMenuManagement({
 }: CanteenOwnerMenuManagementProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [stockFilter, setStockFilter] = useState("all"); // all, low_stock, out_of_stock
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -235,16 +241,97 @@ export default function CanteenOwnerMenuManagement({
     setAddOns(updated);
   };
 
+  // Generate stock data for menu items
+  const getStockData = (item: MenuItem) => {
+    const baseStock = Math.floor(Math.random() * 50) + 10; // 10-60 items
+    const minThreshold = 5;
+    let status = "in_stock";
+    if (baseStock === 0) status = "out_of_stock";
+    else if (baseStock <= minThreshold) status = "low_stock";
+    
+    return {
+      currentStock: baseStock,
+      minThreshold,
+      status
+    };
+  };
+
+  // Enhanced menu items with stock data
+  const menuItemsWithStock = menuItems.map(item => ({
+    ...item,
+    stockData: getStockData(item)
+  }));
+
+  // Calculate analytics
+  const totalItems = menuItemsWithStock.length;
+  const lowStockItems = menuItemsWithStock.filter(item => item.stockData.status === "low_stock").length;
+  const outOfStockItems = menuItemsWithStock.filter(item => item.stockData.status === "out_of_stock").length;
+  const inStockItems = menuItemsWithStock.filter(item => item.stockData.status === "in_stock").length;
+  const totalStockValue = menuItemsWithStock.reduce((sum, item) => sum + (item.stockData.currentStock * item.price), 0);
+
   // Filter menu items
-  const filteredItems = menuItems.filter(item => {
+  const filteredItems = menuItemsWithStock.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === "all" || 
       categories.find(cat => cat.id === item.categoryId)?.name === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const matchesStock = stockFilter === "all" || item.stockData.status === stockFilter;
+    return matchesSearch && matchesCategory && matchesStock;
   });
 
   return (
     <div className="space-y-6">
+      {/* Analytics Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <Package className="w-4 h-4 text-blue-500" />
+              <div>
+                <p className="text-xs text-muted-foreground">Total Items</p>
+                <p className="text-xl font-bold">{totalItems}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <TrendingUp className="w-4 h-4 text-green-500" />
+              <div>
+                <p className="text-xs text-muted-foreground">In Stock</p>
+                <p className="text-xl font-bold text-green-600">{inStockItems}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <AlertTriangle className="w-4 h-4 text-orange-500" />
+              <div>
+                <p className="text-xs text-muted-foreground">Low Stock</p>
+                <p className="text-xl font-bold text-orange-600">{lowStockItems}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <BarChart3 className="w-4 h-4 text-red-500" />
+              <div>
+                <p className="text-xs text-muted-foreground">Out of Stock</p>
+                <p className="text-xl font-bold text-red-600">{outOfStockItems}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Header and Controls */}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold flex items-center">
           <ChefHat className="w-6 h-6 mr-2" />
@@ -468,6 +555,17 @@ export default function CanteenOwnerMenuManagement({
             </option>
           ))}
         </select>
+        <select
+          value={stockFilter}
+          onChange={(e) => setStockFilter(e.target.value)}
+          className="px-3 py-2 border rounded-md flex items-center"
+          data-testid="select-filter-stock"
+        >
+          <option value="all">All Stock Levels</option>
+          <option value="in_stock">In Stock</option>
+          <option value="low_stock">Low Stock</option>
+          <option value="out_of_stock">Out of Stock</option>
+        </select>
       </div>
 
       {/* Menu Items Grid */}
@@ -503,6 +601,7 @@ export default function CanteenOwnerMenuManagement({
                     </div>
                   </div>
 
+                  {/* Stock Information */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <Badge 
@@ -511,12 +610,23 @@ export default function CanteenOwnerMenuManagement({
                       >
                         {item.available ? "Available" : "Unavailable"}
                       </Badge>
-                      <Badge variant="outline" data-testid={`badge-item-stock-${item.id}`}>
-                        Stock: {item.stock || 0}
+                      <Badge 
+                        variant={
+                          item.stockData.status === "in_stock" ? "default" : 
+                          item.stockData.status === "low_stock" ? "destructive" : "secondary"
+                        }
+                        className={
+                          item.stockData.status === "in_stock" ? "bg-green-100 text-green-800 border-green-200" :
+                          item.stockData.status === "low_stock" ? "bg-orange-100 text-orange-800 border-orange-200" :
+                          "bg-red-100 text-red-800 border-red-200"
+                        }
+                        data-testid={`badge-item-stock-${item.id}`}
+                      >
+                        {item.stockData.currentStock} pcs
                       </Badge>
                       <Badge 
                         variant={item.isMarkable ? "secondary" : "outline"}
-                        className={item.isMarkable ? "bg-orange-100 text-orange-800 border-orange-200" : ""}
+                        className={item.isMarkable ? "bg-blue-100 text-blue-800 border-blue-200" : ""}
                         data-testid={`badge-item-markable-${item.id}`}
                       >
                         {item.isMarkable ? "Markable" : "Auto-Ready"}

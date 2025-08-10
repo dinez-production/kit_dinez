@@ -58,7 +58,6 @@ import {
 import { QuickOrdersManager } from "@/components/admin/QuickOrdersManager";
 import { TrendingItemsManager } from "@/components/admin/TrendingItemsManager";
 import CanteenOwnerMenuManagement from "@/components/CanteenOwnerMenuManagement";
-import InventoryManagement from "@/components/InventoryManagement";
 
 // Sidebar Navigation Item Component
 interface SidebarNavItemProps {
@@ -586,12 +585,7 @@ export default function CanteenOwnerDashboardSidebar() {
             active={activeTab === "analytics"}
             onClick={() => setActiveTab("analytics")}
           />
-          <SidebarNavItem 
-            icon={Package} 
-            label="Inventory" 
-            active={activeTab === "inventory"}
-            onClick={() => setActiveTab("inventory")}
-          />
+
         </nav>
 
         {/* Sidebar Footer */}
@@ -1924,10 +1918,7 @@ export default function CanteenOwnerDashboardSidebar() {
               </div>
             )}
 
-            {/* Inventory Content */}
-            {activeTab === "inventory" && (
-              <InventoryManagement />
-            )}
+
           </div>
         </div>
       </div>
