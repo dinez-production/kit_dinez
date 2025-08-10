@@ -132,6 +132,9 @@ export default function CanteenOwnerDashboardSidebar() {
   const [scannedOrderId, setScannedOrderId] = useState("");
   const [showBarcodeDialog, setShowBarcodeDialog] = useState(false);
   const [selectedOrderForScan, setSelectedOrderForScan] = useState<any>(null);
+  const [barcodeInput, setBarcodeInput] = useState("");
+  const [scannedOrder, setScannedOrder] = useState<any>(null);
+  const [showOrderDetails, setShowOrderDetails] = useState(false);
 
   // Helper functions
   const generateOrderNumber = () => Math.floor(Math.random() * 900000000000) + 100000000000;
@@ -317,6 +320,9 @@ export default function CanteenOwnerDashboardSidebar() {
           setScanResult(null);
           setShowBarcodeDialog(false);
           setSelectedOrderForScan(null);
+          setBarcodeInput("");
+          setScannedOrder(null);
+          setShowOrderDetails(false);
         }, 1500); // Clear after 1.5 seconds to show success
       }
     },
@@ -328,23 +334,59 @@ export default function CanteenOwnerDashboardSidebar() {
   // Handle barcode scan functionality
   const handleScanBarcode = (order: any) => {
     setSelectedOrderForScan(order);
+    setBarcodeInput("");
+    setScannedOrder(null);
+    setShowOrderDetails(false);
     setShowBarcodeDialog(true);
+  };
+
+  // Handle barcode input submission
+  const handleBarcodeSubmit = () => {
+    if (!barcodeInput.trim()) {
+      toast.error("Please enter a barcode");
+      return;
+    }
+
+    // Find the order with matching barcode
+    const matchingOrder = orders.find((order: any) => 
+      order.barcode === barcodeInput || 
+      order.orderNumber === barcodeInput ||
+      order.id === barcodeInput
+    );
+
+    if (matchingOrder) {
+      setScannedOrder(matchingOrder);
+      setShowOrderDetails(true);
+    } else {
+      toast.error("No order found with this barcode");
+      setBarcodeInput("");
+    }
   };
 
   // Handle keyboard events for barcode scanning dialog
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
-      if (showBarcodeDialog && selectedOrderForScan && event.key === 'Enter') {
-        event.preventDefault();
-        // Mark the order as delivered
-        markOrderReadyMutation.mutate({ 
-          orderId: selectedOrderForScan.id, 
-          status: "delivered" 
-        });
-      }
-      if (showBarcodeDialog && event.key === 'Escape') {
-        setShowBarcodeDialog(false);
-        setSelectedOrderForScan(null);
+      if (showBarcodeDialog) {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          if (!showOrderDetails) {
+            // If order details not shown yet, submit barcode
+            handleBarcodeSubmit();
+          } else if (scannedOrder) {
+            // If order details are shown, mark as delivered
+            markOrderReadyMutation.mutate({ 
+              orderId: scannedOrder.id, 
+              status: "delivered" 
+            });
+          }
+        }
+        if (event.key === 'Escape') {
+          setShowBarcodeDialog(false);
+          setSelectedOrderForScan(null);
+          setBarcodeInput("");
+          setScannedOrder(null);
+          setShowOrderDetails(false);
+        }
       }
     };
 
@@ -354,7 +396,7 @@ export default function CanteenOwnerDashboardSidebar() {
         document.removeEventListener('keydown', handleKeyPress);
       };
     }
-  }, [showBarcodeDialog, selectedOrderForScan, markOrderReadyMutation]);
+  }, [showBarcodeDialog, showOrderDetails, scannedOrder, barcodeInput, markOrderReadyMutation]);
 
   const handlePlaceOfflineOrder = () => {
     if (cart.length === 0) {
@@ -1509,113 +1551,153 @@ export default function CanteenOwnerDashboardSidebar() {
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               <ScanLine className="w-5 h-5" />
-              Scan Barcode - Order #{selectedOrderForScan?.orderNumber || selectedOrderForScan?.id}
+              Barcode Scanner
             </DialogTitle>
           </DialogHeader>
           
-          {selectedOrderForScan && (
-            <div className="space-y-6">
-              {/* Order Details */}
-              <Card className="border-2 border-blue-200 bg-blue-50/50">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Order Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Order ID</p>
-                      <div className="flex items-center">
-                        <span className="font-mono text-sm">#{(() => {
-                          const formatted = formatOrderIdDisplay(selectedOrderForScan.orderNumber || selectedOrderForScan.id.toString());
-                          return formatted.prefix;
-                        })()}</span>
-                        <span className="bg-primary/20 text-primary font-bold px-1 rounded ml-0 font-mono text-sm">
-                          {(() => {
-                            const formatted = formatOrderIdDisplay(selectedOrderForScan.orderNumber || selectedOrderForScan.id.toString());
-                            return formatted.highlighted;
-                          })()}
-                        </span>
+          <div className="space-y-6">
+            {/* Barcode Input Section */}
+            <Card className="border-2 border-blue-200 bg-blue-50/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Enter or Scan Barcode</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="barcodeInput">Barcode</Label>
+                  <Input
+                    id="barcodeInput"
+                    placeholder="Scan barcode or type manually..."
+                    value={barcodeInput}
+                    onChange={(e) => setBarcodeInput(e.target.value)}
+                    className="text-center font-mono text-lg"
+                    autoFocus
+                  />
+                </div>
+                
+                <div className="bg-yellow-100 border border-yellow-300 rounded-lg p-3">
+                  <div className="flex items-center space-x-2 mb-1">
+                    <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                    <p className="font-medium text-yellow-800 text-sm">Instructions</p>
+                  </div>
+                  <p className="text-xs text-yellow-700">
+                    Enter the barcode and press <kbd className="px-1 py-0.5 text-xs font-semibold text-yellow-900 bg-yellow-200 border border-yellow-300 rounded">Enter</kbd> to find the order
+                  </p>
+                </div>
+
+                <Button 
+                  onClick={handleBarcodeSubmit}
+                  className="w-full"
+                  disabled={!barcodeInput.trim()}
+                >
+                  <Search className="w-4 h-4 mr-2" />
+                  Find Order
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Order Details - Only show after barcode is scanned */}
+            {showOrderDetails && scannedOrder && (
+              <>
+                <Card className="border-2 border-green-200 bg-green-50/50">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg text-green-800">Order Found!</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Order ID</p>
+                        <div className="flex items-center">
+                          <span className="font-mono text-sm">#{(() => {
+                            const formatted = formatOrderIdDisplay(scannedOrder.orderNumber || scannedOrder.id.toString());
+                            return formatted.prefix;
+                          })()}</span>
+                          <span className="bg-primary/20 text-primary font-bold px-1 rounded ml-0 font-mono text-sm">
+                            {(() => {
+                              const formatted = formatOrderIdDisplay(scannedOrder.orderNumber || scannedOrder.id.toString());
+                              return formatted.highlighted;
+                            })()}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Amount</p>
+                        <p className="font-semibold text-lg">₹{scannedOrder.amount}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Status</p>
+                        <Badge className={getOrderStatusColor(scannedOrder.status)}>
+                          {getOrderStatusText(scannedOrder.status)}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Time</p>
+                        <p className="text-sm">{scannedOrder.createdAt ? new Date(scannedOrder.createdAt).toLocaleTimeString() : 'N/A'}</p>
                       </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Amount</p>
-                      <p className="font-semibold text-lg">₹{selectedOrderForScan.amount}</p>
+                    
+                    <div className="border-t pt-3">
+                      <p className="text-sm font-medium text-muted-foreground mb-2">Customer</p>
+                      <p className="font-medium">{scannedOrder.customerName || 'N/A'}</p>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Status</p>
-                      <Badge className={getOrderStatusColor(selectedOrderForScan.status)}>
-                        {getOrderStatusText(selectedOrderForScan.status)}
-                      </Badge>
+                    
+                    <div className="border-t pt-3">
+                      <p className="text-sm font-medium text-muted-foreground mb-2">Items Ordered</p>
+                      <div className="text-sm space-y-1">
+                        {scannedOrder.items && typeof scannedOrder.items === 'string' 
+                          ? (() => {
+                              try {
+                                const parsedItems = JSON.parse(scannedOrder.items);
+                                return Array.isArray(parsedItems) 
+                                  ? parsedItems.map((item: any, index: number) => (
+                                      <div key={index} className="flex justify-between items-center py-1 px-2 bg-white rounded">
+                                        <span>{item.quantity}x {item.name}</span>
+                                        <span className="font-medium">₹{item.price * item.quantity}</span>
+                                      </div>
+                                    ))
+                                  : scannedOrder.items;
+                              } catch {
+                                return scannedOrder.items;
+                              }
+                            })()
+                          : 'No items'
+                        }
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Time</p>
-                      <p className="text-sm">{selectedOrderForScan.createdAt ? new Date(selectedOrderForScan.createdAt).toLocaleTimeString() : 'N/A'}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              {/* Customer Details */}
-              <Card className="border-2 border-green-200 bg-green-50/50">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Customer Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Customer Name</p>
-                    <p className="font-medium">{selectedOrderForScan.customerName || 'N/A'}</p>
+                {/* Delivery Instructions */}
+                <div className="bg-green-100 border border-green-300 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <p className="font-medium text-green-800">Ready for Delivery</p>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Items Ordered</p>
-                    <div className="text-sm">
-                      {selectedOrderForScan.items && typeof selectedOrderForScan.items === 'string' 
-                        ? (() => {
-                            try {
-                              const parsedItems = JSON.parse(selectedOrderForScan.items);
-                              return Array.isArray(parsedItems) 
-                                ? parsedItems.map((item: any, index: number) => (
-                                    <div key={index} className="flex justify-between items-center py-1">
-                                      <span>{item.quantity}x {item.name}</span>
-                                      <span className="font-medium">₹{item.price * item.quantity}</span>
-                                    </div>
-                                  ))
-                                : selectedOrderForScan.items;
-                            } catch {
-                              return selectedOrderForScan.items;
-                            }
-                          })()
-                        : 'No items'
-                      }
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Instructions */}
-              <div className="bg-blue-100 border border-blue-300 rounded-lg p-4">
-                <div className="flex items-center space-x-2 mb-2">
-                  <AlertTriangle className="w-5 h-5 text-blue-600" />
-                  <p className="font-medium text-blue-800">Instructions</p>
+                  <p className="text-sm text-green-700">
+                    Press <kbd className="px-2 py-1 text-xs font-semibold text-green-900 bg-green-200 border border-green-300 rounded">Enter</kbd> to mark this order as delivered, or <kbd className="px-2 py-1 text-xs font-semibold text-green-900 bg-green-200 border border-green-300 rounded">Esc</kbd> to cancel.
+                  </p>
                 </div>
-                <p className="text-sm text-blue-700">
-                  Press <kbd className="px-2 py-1 text-xs font-semibold text-blue-900 bg-blue-200 border border-blue-300 rounded">Enter</kbd> to mark this order as delivered, or <kbd className="px-2 py-1 text-xs font-semibold text-blue-900 bg-blue-200 border border-blue-300 rounded">Esc</kbd> to cancel.
-                </p>
-              </div>
+              </>
+            )}
 
-              {/* Action Buttons */}
-              <div className="flex justify-end space-x-3 pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowBarcodeDialog(false);
-                    setSelectedOrderForScan(null);
-                  }}
-                >
-                  Cancel
-                </Button>
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowBarcodeDialog(false);
+                  setSelectedOrderForScan(null);
+                  setBarcodeInput("");
+                  setScannedOrder(null);
+                  setShowOrderDetails(false);
+                }}
+              >
+                Cancel
+              </Button>
+              
+              {showOrderDetails && scannedOrder && (
                 <Button
                   onClick={() => markOrderReadyMutation.mutate({ 
-                    orderId: selectedOrderForScan.id, 
+                    orderId: scannedOrder.id, 
                     status: "delivered" 
                   })}
                   disabled={markOrderReadyMutation.isPending}
@@ -1623,9 +1705,9 @@ export default function CanteenOwnerDashboardSidebar() {
                 >
                   {markOrderReadyMutation.isPending ? "Processing..." : "Mark as Delivered"}
                 </Button>
-              </div>
+              )}
             </div>
-          )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
