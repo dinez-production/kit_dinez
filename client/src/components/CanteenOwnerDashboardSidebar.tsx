@@ -1453,18 +1453,369 @@ export default function CanteenOwnerDashboardSidebar() {
             {/* Analytics Content */}
             {activeTab === "analytics" && (
               <div className="space-y-6">
+                {/* Analytics Header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold">Analytics Dashboard</h2>
+                    <p className="text-muted-foreground">Comprehensive insights into your canteen performance</p>
+                  </div>
+                  <Button variant="outline" onClick={refreshAllData} className="flex items-center space-x-2">
+                    <RefreshCcw className="w-4 h-4" />
+                    <span>Refresh Data</span>
+                  </Button>
+                </div>
+
+                {/* Key Performance Indicators */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <Card className="border-l-4 border-l-blue-500">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Total Orders</p>
+                          <p className="text-3xl font-bold text-blue-600">{analytics.totalOrders || 0}</p>
+                          <p className="text-xs text-muted-foreground mt-1">All time</p>
+                        </div>
+                        <ShoppingBag className="w-8 h-8 text-blue-500" />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-l-4 border-l-green-500">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
+                          <p className="text-3xl font-bold text-green-600">₹{analytics.totalRevenue || 0}</p>
+                          <p className="text-xs text-muted-foreground mt-1">All time</p>
+                        </div>
+                        <DollarSign className="w-8 h-8 text-green-500" />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-l-4 border-l-orange-500">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Avg Order Value</p>
+                          <p className="text-3xl font-bold text-orange-600">₹{analytics.averageOrderValue || 0}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Per order</p>
+                        </div>
+                        <TrendingUp className="w-8 h-8 text-orange-500" />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-l-4 border-l-purple-500">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Active Items</p>
+                          <p className="text-3xl font-bold text-purple-600">{analytics.activeMenuItems || 0}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Menu items</p>
+                        </div>
+                        <ChefHat className="w-8 h-8 text-purple-500" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Order Status Analysis */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center space-x-2">
                       <BarChart3 className="w-5 h-5" />
-                      Analytics Dashboard
+                      Order Status Distribution
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-center py-8">
-                      <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p className="text-muted-foreground">Analytics and reports</p>
-                      <p className="text-sm text-muted-foreground mt-2">View sales reports and trends</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {(() => {
+                        const statusCounts = orders.reduce((acc: any, order: any) => {
+                          acc[order.status] = (acc[order.status] || 0) + 1;
+                          return acc;
+                        }, {});
+
+                        const statusConfig = [
+                          { status: 'pending', label: 'Pending', color: 'bg-yellow-500', textColor: 'text-yellow-600' },
+                          { status: 'preparing', label: 'Preparing', color: 'bg-blue-500', textColor: 'text-blue-600' },
+                          { status: 'ready', label: 'Ready', color: 'bg-green-500', textColor: 'text-green-600' },
+                          { status: 'delivered', label: 'Delivered', color: 'bg-gray-500', textColor: 'text-gray-600' }
+                        ];
+
+                        return statusConfig.map(config => (
+                          <div key={config.status} className="text-center p-4 border rounded-lg">
+                            <div className={`w-12 h-12 ${config.color} rounded-full mx-auto mb-2 flex items-center justify-center`}>
+                              <span className="text-white font-bold">{statusCounts[config.status] || 0}</span>
+                            </div>
+                            <p className={`font-semibold ${config.textColor}`}>{config.label}</p>
+                            <p className="text-xs text-muted-foreground">Orders</p>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Top Performing Items */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Star className="w-5 h-5" />
+                      Top Performing Menu Items
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {(() => {
+                        // Calculate item popularity from orders
+                        const itemStats: any = {};
+                        
+                        orders.forEach((order: any) => {
+                          if (order.items && typeof order.items === 'string') {
+                            try {
+                              const parsedItems = JSON.parse(order.items);
+                              if (Array.isArray(parsedItems)) {
+                                parsedItems.forEach((item: any) => {
+                                  const key = item.name || item.id;
+                                  if (!itemStats[key]) {
+                                    itemStats[key] = {
+                                      name: item.name,
+                                      quantity: 0,
+                                      revenue: 0,
+                                      orders: 0
+                                    };
+                                  }
+                                  itemStats[key].quantity += item.quantity || 1;
+                                  itemStats[key].revenue += (item.price || 0) * (item.quantity || 1);
+                                  itemStats[key].orders += 1;
+                                });
+                              }
+                            } catch (error) {
+                              // Skip invalid JSON
+                            }
+                          }
+                        });
+
+                        const topItems = Object.values(itemStats)
+                          .sort((a: any, b: any) => b.quantity - a.quantity)
+                          .slice(0, 5);
+
+                        if (topItems.length === 0) {
+                          return (
+                            <div className="text-center py-8">
+                              <ChefHat className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                              <p className="text-muted-foreground">No order data available</p>
+                            </div>
+                          );
+                        }
+
+                        const maxQuantity = Math.max(...topItems.map((item: any) => item.quantity));
+
+                        return topItems.map((item: any, index: number) => (
+                          <div key={index} className="flex items-center space-x-4">
+                            <div className="flex-shrink-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                              <span className="text-white text-sm font-bold">{index + 1}</span>
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="font-medium">{item.name}</p>
+                                <p className="text-sm text-muted-foreground">{item.quantity} sold</p>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div 
+                                  className="bg-primary h-2 rounded-full transition-all duration-300"
+                                  style={{ width: `${(item.quantity / maxQuantity) * 100}%` }}
+                                ></div>
+                              </div>
+                              <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                                <span>₹{item.revenue} revenue</span>
+                                <span>{item.orders} orders</span>
+                              </div>
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Recent Activity Timeline */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Clock className="w-5 h-5" />
+                      Recent Activity Timeline
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {(() => {
+                        const recentOrders = [...orders]
+                          .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                          .slice(0, 10);
+
+                        if (recentOrders.length === 0) {
+                          return (
+                            <div className="text-center py-8">
+                              <Clock className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                              <p className="text-muted-foreground">No recent activity</p>
+                            </div>
+                          );
+                        }
+
+                        return recentOrders.map((order: any, index: number) => (
+                          <div key={order.id} className="flex items-start space-x-3 pb-4 border-b last:border-b-0">
+                            <div className={`w-3 h-3 rounded-full mt-2 ${
+                              order.status === 'delivered' ? 'bg-green-500' :
+                              order.status === 'ready' ? 'bg-blue-500' :
+                              order.status === 'preparing' ? 'bg-orange-500' :
+                              'bg-yellow-500'
+                            }`}></div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <p className="font-medium">
+                                  Order #{(() => {
+                                    const formatted = formatOrderIdDisplay(order.orderNumber || order.id.toString());
+                                    return formatted.prefix + formatted.highlighted;
+                                  })()}
+                                </p>
+                                <span className="text-xs text-muted-foreground">
+                                  {order.createdAt ? new Date(order.createdAt).toLocaleTimeString() : 'N/A'}
+                                </span>
+                              </div>
+                              <p className="text-sm text-muted-foreground">{order.customerName}</p>
+                              <div className="flex items-center justify-between mt-1">
+                                <Badge className={getOrderStatusColor(order.status)} variant="outline">
+                                  {getOrderStatusText(order.status)}
+                                </Badge>
+                                <span className="text-sm font-medium">₹{order.amount}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Daily Performance Summary */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <TrendingUp className="w-5 h-5" />
+                      Today's Performance Summary
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {(() => {
+                        const today = new Date();
+                        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                        
+                        const todayOrders = orders.filter((order: any) => {
+                          const orderDate = new Date(order.createdAt);
+                          return orderDate >= todayStart;
+                        });
+
+                        const todayRevenue = todayOrders.reduce((sum: number, order: any) => sum + (order.amount || 0), 0);
+                        const avgOrderToday = todayOrders.length > 0 ? Math.round(todayRevenue / todayOrders.length) : 0;
+
+                        return [
+                          {
+                            title: "Today's Orders",
+                            value: todayOrders.length,
+                            subtitle: "orders placed",
+                            color: "text-blue-600"
+                          },
+                          {
+                            title: "Today's Revenue", 
+                            value: `₹${todayRevenue}`,
+                            subtitle: "total sales",
+                            color: "text-green-600"
+                          },
+                          {
+                            title: "Avg Order Value",
+                            value: `₹${avgOrderToday}`,
+                            subtitle: "per order today",
+                            color: "text-orange-600"
+                          }
+                        ].map((metric, index) => (
+                          <div key={index} className="text-center p-4 border rounded-lg">
+                            <p className="text-sm font-medium text-muted-foreground">{metric.title}</p>
+                            <p className={`text-2xl font-bold ${metric.color}`}>{metric.value}</p>
+                            <p className="text-xs text-muted-foreground">{metric.subtitle}</p>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Menu Performance Matrix */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <ChefHat className="w-5 h-5" />
+                      Menu Performance Matrix
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left p-2">Item Name</th>
+                            <th className="text-left p-2">Category</th>
+                            <th className="text-left p-2">Price</th>
+                            <th className="text-left p-2">Status</th>
+                            <th className="text-left p-2">Orders</th>
+                            <th className="text-left p-2">Revenue</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {menuItems.map((item: any) => {
+                            // Calculate stats for this item
+                            let itemOrders = 0;
+                            let itemRevenue = 0;
+                            
+                            orders.forEach((order: any) => {
+                              if (order.items && typeof order.items === 'string') {
+                                try {
+                                  const parsedItems = JSON.parse(order.items);
+                                  if (Array.isArray(parsedItems)) {
+                                    parsedItems.forEach((orderItem: any) => {
+                                      if (orderItem.id === item.id || orderItem.name === item.name) {
+                                        itemOrders += orderItem.quantity || 1;
+                                        itemRevenue += (orderItem.price || 0) * (orderItem.quantity || 1);
+                                      }
+                                    });
+                                  }
+                                } catch (error) {
+                                  // Skip invalid JSON
+                                }
+                              }
+                            });
+
+                            const category = categories.find((cat: any) => cat.id === item.categoryId);
+
+                            return (
+                              <tr key={item.id} className="border-b hover:bg-gray-50">
+                                <td className="p-2 font-medium">{item.name}</td>
+                                <td className="p-2 text-muted-foreground">{category?.name || 'Uncategorized'}</td>
+                                <td className="p-2">₹{item.price}</td>
+                                <td className="p-2">
+                                  <Badge variant={item.available ? "default" : "secondary"}>
+                                    {item.available ? "Available" : "Unavailable"}
+                                  </Badge>
+                                </td>
+                                <td className="p-2">{itemOrders}</td>
+                                <td className="p-2 font-medium">₹{itemRevenue}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   </CardContent>
                 </Card>
