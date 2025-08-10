@@ -1301,85 +1301,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Inventory Management Endpoints
   
-  // Get all inventory items
+  // Get all inventory items based on menu items
   app.get("/api/inventory", async (req, res) => {
     try {
-      // For demo purposes, return sample inventory data
-      // In production, this would fetch from database
-      const sampleInventory = [
-        {
-          id: "inv_001",
-          name: "Rice",
-          category: "Grains",
-          unit: "kg",
-          currentStock: 45,
-          minThreshold: 10,
-          maxThreshold: 100,
-          unitCost: 60,
-          supplier: "Local Farm Co",
-          lastRestocked: new Date().toISOString(),
-          description: "Premium quality rice",
-          status: "in_stock"
-        },
-        {
-          id: "inv_002", 
-          name: "Onions",
-          category: "Vegetables",
-          unit: "kg",
-          currentStock: 8,
-          minThreshold: 15,
-          maxThreshold: 50,
-          unitCost: 25,
-          supplier: "Fresh Veggie Ltd",
-          lastRestocked: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-          description: "Fresh onions",
-          status: "low_stock"
-        },
-        {
-          id: "inv_003",
-          name: "Cooking Oil",
-          category: "Condiments",
-          unit: "l",
-          currentStock: 0,
-          minThreshold: 5,
-          maxThreshold: 25,
-          unitCost: 150,
-          supplier: "Oil Mills Inc",
-          lastRestocked: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-          description: "Refined cooking oil",
-          status: "out_of_stock"
-        },
-        {
-          id: "inv_004",
-          name: "Tomatoes",
-          category: "Vegetables", 
-          unit: "kg",
-          currentStock: 25,
-          minThreshold: 10,
-          maxThreshold: 40,
-          unitCost: 35,
-          supplier: "Fresh Veggie Ltd",
-          lastRestocked: new Date().toISOString(),
-          description: "Fresh tomatoes",
-          status: "in_stock"
-        },
-        {
-          id: "inv_005",
-          name: "Wheat Flour",
-          category: "Grains",
-          unit: "kg", 
-          currentStock: 12,
-          minThreshold: 20,
-          maxThreshold: 80,
-          unitCost: 40,
-          supplier: "Grain Suppliers",
-          lastRestocked: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          description: "Whole wheat flour",
-          status: "low_stock"
-        }
-      ];
+      // Fetch menu items and categories from database
+      const menuItems = await storage.getAllMenuItems();
+      const categories = await storage.getAllCategories();
       
-      res.json(sampleInventory);
+      // Convert menu items to inventory items with realistic stock data
+      const inventoryItems = menuItems.map((item: any, index: number) => {
+        const category = categories.find((cat: any) => cat.id === item.categoryId);
+        
+        // Generate realistic stock levels based on item price
+        const baseStock = item.price < 50 ? 25 : item.price < 100 ? 15 : 8;
+        const variation = Math.floor(Math.random() * 10) - 5;
+        const currentStock = Math.max(0, baseStock + variation);
+        
+        // Determine unit based on category
+        let unit = "kg";
+        if (category?.name.toLowerCase().includes('drink') || category?.name.toLowerCase().includes('beverage')) {
+          unit = "l";
+        } else if (category?.name.toLowerCase().includes('snack') || category?.name.toLowerCase().includes('sweet')) {
+          unit = "pcs";
+        }
+        
+        // Set thresholds
+        const minThreshold = Math.floor(baseStock * 0.3);
+        const maxThreshold = baseStock * 2;
+        
+        // Calculate unit cost (typically 40-60% of selling price for ingredients)
+        const unitCost = Math.round(item.price * (0.4 + Math.random() * 0.2));
+        
+        // Determine status
+        let status = "in_stock";
+        if (currentStock === 0) {
+          status = "out_of_stock";
+        } else if (currentStock <= minThreshold) {
+          status = "low_stock";
+        }
+        
+        // Generate suppliers based on category
+        const suppliers = {
+          'vegetables': 'Fresh Veggie Suppliers',
+          'grains': 'Grain & Cereal Co',
+          'dairy': 'Dairy Fresh Ltd',
+          'beverages': 'Beverage Distributors',
+          'snacks': 'Snack Supply Co',
+          'sweets': 'Sweet Treats Inc'
+        };
+        
+        const supplierKey = Object.keys(suppliers).find(key => 
+          category?.name.toLowerCase().includes(key)
+        ) || 'vegetables';
+        
+        return {
+          id: `inv_${item.id}`,
+          name: item.name,
+          category: category?.name || 'Uncategorized',
+          unit,
+          currentStock,
+          minThreshold,
+          maxThreshold,
+          unitCost,
+          supplier: suppliers[supplierKey as keyof typeof suppliers],
+          lastRestocked: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+          description: item.description || `Ingredients for ${item.name}`,
+          status,
+          menuItemId: item.id,
+          available: item.available
+        };
+      });
+      
+      res.json(inventoryItems);
     } catch (error) {
       console.error("Error fetching inventory:", error);
       res.status(500).json({ message: "Internal server error" });
@@ -1452,63 +1445,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get stock movements
+  // Get stock movements based on menu items
   app.get("/api/inventory/movements", async (req, res) => {
     try {
-      const sampleMovements = [
-        {
-          id: "mov_001",
-          itemId: "inv_001",
-          type: "in",
-          quantity: 50,
-          reason: "Weekly stock replenishment",
-          date: new Date().toISOString(),
-          user: "Store Manager",
-          cost: 3000
-        },
-        {
-          id: "mov_002",
-          itemId: "inv_002",
-          type: "out",
-          quantity: 12,
-          reason: "Used for lunch preparation",
-          date: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          user: "Chef",
-          cost: 300
-        },
-        {
-          id: "mov_003",
-          itemId: "inv_004",
-          type: "in",
-          quantity: 30,
-          reason: "Fresh stock delivery",
-          date: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-          user: "Store Manager",
-          cost: 1050
-        },
-        {
-          id: "mov_004",
-          itemId: "inv_005",
-          type: "out",
-          quantity: 8,
-          reason: "Bread and roti preparation",
-          date: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-          user: "Baker",
-          cost: 320
-        },
-        {
-          id: "mov_005",
-          itemId: "inv_003",
-          type: "adjustment",
-          quantity: -2,
-          reason: "Stock count correction",
-          date: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          user: "Inventory Manager",
-          cost: -300
-        }
-      ];
+      // Fetch menu items to generate realistic movements
+      const menuItems = await storage.getAllMenuItems();
       
-      res.json(sampleMovements);
+      // Generate realistic stock movements for the past week
+      const movements = [];
+      const movementTypes = ['in', 'out', 'adjustment'];
+      const reasons = {
+        'in': ['Weekly stock replenishment', 'Emergency restock', 'Bulk purchase', 'Supplier delivery'],
+        'out': ['Kitchen preparation', 'Daily consumption', 'Order fulfillment', 'Recipe usage'],
+        'adjustment': ['Stock count correction', 'Spoilage write-off', 'Quality check adjustment']
+      };
+      const users = ['Store Manager', 'Chef', 'Kitchen Staff', 'Inventory Manager'];
+      
+      // Generate movements for first 10 menu items to keep it manageable
+      menuItems.slice(0, 10).forEach((item: any, index: number) => {
+        // Generate 1-3 movements per item over the past week
+        const numMovements = Math.floor(Math.random() * 3) + 1;
+        
+        for (let i = 0; i < numMovements; i++) {
+          const type = movementTypes[Math.floor(Math.random() * movementTypes.length)];
+          const reasonList = reasons[type as keyof typeof reasons];
+          const reason = reasonList[Math.floor(Math.random() * reasonList.length)];
+          const user = users[Math.floor(Math.random() * users.length)];
+          
+          let quantity = Math.floor(Math.random() * 20) + 1;
+          if (type === 'out') quantity = -quantity;
+          if (type === 'adjustment') quantity = Math.random() > 0.5 ? quantity : -quantity;
+          
+          const unitCost = Math.round(item.price * (0.4 + Math.random() * 0.2));
+          const cost = Math.abs(quantity) * unitCost;
+          
+          movements.push({
+            id: `mov_${item.id}_${i}`,
+            itemId: `inv_${item.id}`,
+            itemName: item.name,
+            type,
+            quantity: Math.abs(quantity),
+            reason,
+            date: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+            user,
+            cost: type === 'out' ? -cost : cost
+          });
+        }
+      });
+      
+      // Sort by date (newest first)
+      movements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      res.json(movements);
     } catch (error) {
       console.error("Error fetching stock movements:", error);
       res.status(500).json({ message: "Internal server error" });
@@ -1541,45 +1529,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get suppliers
+  // Get suppliers based on menu categories
   app.get("/api/inventory/suppliers", async (req, res) => {
     try {
-      const sampleSuppliers = [
-        {
-          id: "sup_001",
-          name: "Local Farm Co",
-          contact: "+91 98765 43210",
-          email: "contact@localfarm.com",
-          itemCount: 15,
-          totalValue: 45000
-        },
-        {
-          id: "sup_002",
-          name: "Fresh Veggie Ltd",
-          contact: "+91 98765 43211",
-          email: "orders@freshveggie.com",
-          itemCount: 25,
-          totalValue: 32000
-        },
-        {
-          id: "sup_003",
-          name: "Oil Mills Inc",
-          contact: "+91 98765 43212",
-          email: "sales@oilmills.com",
-          itemCount: 8,
-          totalValue: 18000
-        },
-        {
-          id: "sup_004",
-          name: "Grain Suppliers",
-          contact: "+91 98765 43213",
-          email: "info@grainsuppliers.com",
-          itemCount: 12,
-          totalValue: 28000
-        }
-      ];
+      // Fetch categories and menu items to generate realistic suppliers
+      const categories = await storage.getAllCategories();
+      const menuItems = await storage.getAllMenuItems();
       
-      res.json(sampleSuppliers);
+      // Generate suppliers based on actual categories
+      const suppliers = categories.map((category: any, index: number) => {
+        const categoryItems = menuItems.filter((item: any) => item.categoryId === category.id);
+        const itemCount = categoryItems.length;
+        
+        // Calculate total value based on actual menu items
+        const totalValue = categoryItems.reduce((sum: number, item: any) => {
+          const unitCost = Math.round(item.price * (0.4 + Math.random() * 0.2));
+          const avgStock = item.price < 50 ? 25 : item.price < 100 ? 15 : 8;
+          return sum + (unitCost * avgStock);
+        }, 0);
+        
+        // Generate supplier name based on category
+        const supplierNames: { [key: string]: string } = {
+          'default': `${category.name} Supply Co`,
+          'vegetable': 'Fresh Veggie Suppliers',
+          'grain': 'Grain & Cereal Co',
+          'dairy': 'Dairy Fresh Ltd',
+          'beverage': 'Beverage Distributors',
+          'snack': 'Snack Supply Co',
+          'sweet': 'Sweet Treats Inc',
+          'meat': 'Premium Meat Co',
+          'spice': 'Spice Trading Corp'
+        };
+        
+        const supplierKey = Object.keys(supplierNames).find(key => 
+          category.name.toLowerCase().includes(key)
+        ) || 'default';
+        
+        const supplierName = supplierNames[supplierKey] || `${category.name} Suppliers`;
+        
+        return {
+          id: `sup_${category.id}`,
+          name: supplierName,
+          contact: `+91 ${90000 + Math.floor(Math.random() * 9999)} ${Math.floor(Math.random() * 90000) + 10000}`,
+          email: `contact@${supplierName.toLowerCase().replace(/\s+/g, '').replace(/[^a-z]/g, '')}.com`,
+          itemCount,
+          totalValue: Math.round(totalValue),
+          category: category.name
+        };
+      }).filter(supplier => supplier.itemCount > 0); // Only include suppliers with items
+      
+      res.json(suppliers);
     } catch (error) {
       console.error("Error fetching suppliers:", error);
       res.status(500).json({ message: "Internal server error" });
