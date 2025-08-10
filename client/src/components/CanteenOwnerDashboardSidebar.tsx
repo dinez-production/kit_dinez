@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { useToast } from "@/hooks/use-toast";
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
@@ -48,7 +50,10 @@ import {
   Minus,
   ShoppingCart,
   Banknote,
-  CreditCard
+  CreditCard,
+  CalendarDays,
+  ChevronDown,
+  Filter
 } from "lucide-react";
 import { QuickOrdersManager } from "@/components/admin/QuickOrdersManager";
 import { TrendingItemsManager } from "@/components/admin/TrendingItemsManager";
@@ -135,11 +140,100 @@ export default function CanteenOwnerDashboardSidebar() {
   const [barcodeInput, setBarcodeInput] = useState("");
   const [scannedOrder, setScannedOrder] = useState<any>(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
+  const [analyticsTimeframe, setAnalyticsTimeframe] = useState<'daily' | 'weekly' | 'monthly' | 'annual'>('daily');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [calendarView, setCalendarView] = useState(false);
 
   // Helper functions
   const generateOrderNumber = () => Math.floor(Math.random() * 900000000000) + 100000000000;
   const generateBarcode = () => Math.floor(Math.random() * 900000000000) + 100000000000;
   const getTotalAmount = () => cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+
+  // Date filtering functions for analytics
+  const getDateRange = (timeframe: string, date: Date) => {
+    const now = new Date(date);
+    let startDate: Date, endDate: Date;
+
+    switch (timeframe) {
+      case 'daily':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        break;
+      case 'weekly':
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay());
+        startOfWeek.setHours(0, 0, 0, 0);
+        startDate = startOfWeek;
+        endDate = new Date(startOfWeek);
+        endDate.setDate(startOfWeek.getDate() + 7);
+        break;
+      case 'monthly':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        break;
+      case 'annual':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        endDate = new Date(now.getFullYear() + 1, 0, 1);
+        break;
+      default:
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    }
+    return { startDate, endDate };
+  };
+
+  const filterOrdersByDateRange = (orders: any[], startDate: Date, endDate: Date) => {
+    return orders.filter((order: any) => {
+      const orderDate = new Date(order.createdAt);
+      return orderDate >= startDate && orderDate < endDate;
+    });
+  };
+
+  const calculateAnalytics = (filteredOrders: any[]) => {
+    const totalOrders = filteredOrders.length;
+    const totalRevenue = filteredOrders.reduce((sum, order) => sum + (order.amount || 0), 0);
+    const averageOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
+
+    const statusCounts = filteredOrders.reduce((acc: any, order: any) => {
+      acc[order.status] = (acc[order.status] || 0) + 1;
+      return acc;
+    }, {});
+
+    const itemStats: any = {};
+    filteredOrders.forEach((order: any) => {
+      if (order.items && typeof order.items === 'string') {
+        try {
+          const parsedItems = JSON.parse(order.items);
+          if (Array.isArray(parsedItems)) {
+            parsedItems.forEach((item: any) => {
+              const key = item.name || item.id;
+              if (!itemStats[key]) {
+                itemStats[key] = {
+                  name: item.name,
+                  quantity: 0,
+                  revenue: 0,
+                  orders: 0
+                };
+              }
+              itemStats[key].quantity += item.quantity || 1;
+              itemStats[key].revenue += (item.price || 0) * (item.quantity || 1);
+              itemStats[key].orders += 1;
+            });
+          }
+        } catch (error) {
+          // Skip invalid JSON
+        }
+      }
+    });
+
+    return {
+      totalOrders,
+      totalRevenue,
+      averageOrderValue,
+      statusCounts,
+      itemStats
+    };
+  };
 
 
   // Enhanced security check - redirect if not authenticated OR not canteen owner
@@ -1453,372 +1547,379 @@ export default function CanteenOwnerDashboardSidebar() {
             {/* Analytics Content */}
             {activeTab === "analytics" && (
               <div className="space-y-6">
-                {/* Analytics Header */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-2xl font-bold">Analytics Dashboard</h2>
-                    <p className="text-muted-foreground">Comprehensive insights into your canteen performance</p>
+                {/* Analytics Header with Date Controls */}
+                <div className="flex flex-col space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-2xl font-bold">Analytics Dashboard</h2>
+                      <p className="text-muted-foreground">Comprehensive insights with date-based filtering</p>
+                    </div>
+                    <Button variant="outline" onClick={refreshAllData} className="flex items-center space-x-2">
+                      <RefreshCcw className="w-4 h-4" />
+                      <span>Refresh Data</span>
+                    </Button>
                   </div>
-                  <Button variant="outline" onClick={refreshAllData} className="flex items-center space-x-2">
-                    <RefreshCcw className="w-4 h-4" />
-                    <span>Refresh Data</span>
-                  </Button>
-                </div>
 
-                {/* Key Performance Indicators */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <Card className="border-l-4 border-l-blue-500">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Total Orders</p>
-                          <p className="text-3xl font-bold text-blue-600">{analytics.totalOrders || 0}</p>
-                          <p className="text-xs text-muted-foreground mt-1">All time</p>
-                        </div>
-                        <ShoppingBag className="w-8 h-8 text-blue-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-l-4 border-l-green-500">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
-                          <p className="text-3xl font-bold text-green-600">₹{analytics.totalRevenue || 0}</p>
-                          <p className="text-xs text-muted-foreground mt-1">All time</p>
-                        </div>
-                        <DollarSign className="w-8 h-8 text-green-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-l-4 border-l-orange-500">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Avg Order Value</p>
-                          <p className="text-3xl font-bold text-orange-600">₹{analytics.averageOrderValue || 0}</p>
-                          <p className="text-xs text-muted-foreground mt-1">Per order</p>
-                        </div>
-                        <TrendingUp className="w-8 h-8 text-orange-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-l-4 border-l-purple-500">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Active Items</p>
-                          <p className="text-3xl font-bold text-purple-600">{analytics.activeMenuItems || 0}</p>
-                          <p className="text-xs text-muted-foreground mt-1">Menu items</p>
-                        </div>
-                        <ChefHat className="w-8 h-8 text-purple-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Order Status Analysis */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <BarChart3 className="w-5 h-5" />
-                      Order Status Distribution
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {(() => {
-                        const statusCounts = orders.reduce((acc: any, order: any) => {
-                          acc[order.status] = (acc[order.status] || 0) + 1;
-                          return acc;
-                        }, {});
-
-                        const statusConfig = [
-                          { status: 'pending', label: 'Pending', color: 'bg-yellow-500', textColor: 'text-yellow-600' },
-                          { status: 'preparing', label: 'Preparing', color: 'bg-blue-500', textColor: 'text-blue-600' },
-                          { status: 'ready', label: 'Ready', color: 'bg-green-500', textColor: 'text-green-600' },
-                          { status: 'delivered', label: 'Delivered', color: 'bg-gray-500', textColor: 'text-gray-600' }
-                        ];
-
-                        return statusConfig.map(config => (
-                          <div key={config.status} className="text-center p-4 border rounded-lg">
-                            <div className={`w-12 h-12 ${config.color} rounded-full mx-auto mb-2 flex items-center justify-center`}>
-                              <span className="text-white font-bold">{statusCounts[config.status] || 0}</span>
-                            </div>
-                            <p className={`font-semibold ${config.textColor}`}>{config.label}</p>
-                            <p className="text-xs text-muted-foreground">Orders</p>
-                          </div>
-                        ));
-                      })()}
+                  {/* Date Controls */}
+                  <div className="flex flex-wrap items-center gap-4 p-4 bg-muted/50 rounded-lg">
+                    {/* Timeframe Selector */}
+                    <div className="flex items-center space-x-2">
+                      <Filter className="w-4 h-4" />
+                      <span className="text-sm font-medium">Time Period:</span>
+                      <Select value={analyticsTimeframe} onValueChange={(value: any) => setAnalyticsTimeframe(value)}>
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="daily">Daily</SelectItem>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                          <SelectItem value="annual">Annual</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                  </CardContent>
-                </Card>
 
-                {/* Top Performing Items */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <Star className="w-5 h-5" />
-                      Top Performing Menu Items
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {(() => {
-                        // Calculate item popularity from orders
-                        const itemStats: any = {};
-                        
-                        orders.forEach((order: any) => {
-                          if (order.items && typeof order.items === 'string') {
-                            try {
-                              const parsedItems = JSON.parse(order.items);
-                              if (Array.isArray(parsedItems)) {
-                                parsedItems.forEach((item: any) => {
-                                  const key = item.name || item.id;
-                                  if (!itemStats[key]) {
-                                    itemStats[key] = {
-                                      name: item.name,
-                                      quantity: 0,
-                                      revenue: 0,
-                                      orders: 0
-                                    };
-                                  }
-                                  itemStats[key].quantity += item.quantity || 1;
-                                  itemStats[key].revenue += (item.price || 0) * (item.quantity || 1);
-                                  itemStats[key].orders += 1;
-                                });
+                    {/* Calendar Date Picker */}
+                    <div className="flex items-center space-x-2">
+                      <CalendarDays className="w-4 h-4" />
+                      <span className="text-sm font-medium">Select Date:</span>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-48 justify-start text-left font-normal">
+                            <CalendarDays className="mr-2 h-4 w-4" />
+                            {selectedDate ? selectedDate.toLocaleDateString() : "Pick a date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={(date) => {
+                              if (date) setSelectedDate(date);
+                            }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    {/* Date Range Display */}
+                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                      <Clock className="w-4 h-4" />
+                      <span>
+                        {(() => {
+                          const { startDate, endDate } = getDateRange(analyticsTimeframe, selectedDate);
+                          const formatDateRange = () => {
+                            const start = startDate.toLocaleDateString();
+                            const end = new Date(endDate.getTime() - 1).toLocaleDateString();
+                            return analyticsTimeframe === 'daily' ? start : `${start} - ${end}`;
+                          };
+                          return `Showing: ${formatDateRange()}`;
+                        })()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {(() => {
+                  // Calculate filtered data based on selected timeframe and date
+                  const { startDate, endDate } = getDateRange(analyticsTimeframe, selectedDate);
+                  const filteredOrders = filterOrdersByDateRange(orders, startDate, endDate);
+                  const periodAnalytics = calculateAnalytics(filteredOrders);
+
+                  return (
+                    <>
+                      {/* Key Performance Indicators */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <Card className="border-l-4 border-l-blue-500">
+                          <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground">Total Orders</p>
+                                <p className="text-3xl font-bold text-blue-600">{periodAnalytics.totalOrders}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{analyticsTimeframe} period</p>
+                              </div>
+                              <ShoppingBag className="w-8 h-8 text-blue-500" />
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border-l-4 border-l-green-500">
+                          <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
+                                <p className="text-3xl font-bold text-green-600">₹{periodAnalytics.totalRevenue}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{analyticsTimeframe} period</p>
+                              </div>
+                              <DollarSign className="w-8 h-8 text-green-500" />
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border-l-4 border-l-orange-500">
+                          <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground">Avg Order Value</p>
+                                <p className="text-3xl font-bold text-orange-600">₹{periodAnalytics.averageOrderValue}</p>
+                                <p className="text-xs text-muted-foreground mt-1">Per order</p>
+                              </div>
+                              <TrendingUp className="w-8 h-8 text-orange-500" />
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border-l-4 border-l-purple-500">
+                          <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground">Active Items</p>
+                                <p className="text-3xl font-bold text-purple-600">{menuItems.filter((item: any) => item.available).length}</p>
+                                <p className="text-xs text-muted-foreground mt-1">Menu items</p>
+                              </div>
+                              <ChefHat className="w-8 h-8 text-purple-500" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Order Status Analysis */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center space-x-2">
+                            <BarChart3 className="w-5 h-5" />
+                            Order Status Distribution ({analyticsTimeframe})
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {(() => {
+                              const statusConfig = [
+                                { status: 'pending', label: 'Pending', color: 'bg-yellow-500', textColor: 'text-yellow-600' },
+                                { status: 'preparing', label: 'Preparing', color: 'bg-blue-500', textColor: 'text-blue-600' },
+                                { status: 'ready', label: 'Ready', color: 'bg-green-500', textColor: 'text-green-600' },
+                                { status: 'delivered', label: 'Delivered', color: 'bg-gray-500', textColor: 'text-gray-600' }
+                              ];
+
+                              return statusConfig.map(config => (
+                                <div key={config.status} className="text-center p-4 border rounded-lg">
+                                  <div className={`w-12 h-12 ${config.color} rounded-full mx-auto mb-2 flex items-center justify-center`}>
+                                    <span className="text-white font-bold">{periodAnalytics.statusCounts[config.status] || 0}</span>
+                                  </div>
+                                  <p className={`font-semibold ${config.textColor}`}>{config.label}</p>
+                                  <p className="text-xs text-muted-foreground">Orders</p>
+                                </div>
+                              ));
+                            })()}
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Top Performing Items for Period */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center space-x-2">
+                            <Star className="w-5 h-5" />
+                            Top Performing Items ({analyticsTimeframe})
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            {(() => {
+                              const topItems = Object.values(periodAnalytics.itemStats)
+                                .sort((a: any, b: any) => b.quantity - a.quantity)
+                                .slice(0, 5);
+
+                              if (topItems.length === 0) {
+                                return (
+                                  <div className="text-center py-8">
+                                    <ChefHat className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                                    <p className="text-muted-foreground">No order data for selected period</p>
+                                  </div>
+                                );
                               }
-                            } catch (error) {
-                              // Skip invalid JSON
-                            }
-                          }
-                        });
 
-                        const topItems = Object.values(itemStats)
-                          .sort((a: any, b: any) => b.quantity - a.quantity)
-                          .slice(0, 5);
+                              const maxQuantity = Math.max(...topItems.map((item: any) => item.quantity));
 
-                        if (topItems.length === 0) {
-                          return (
-                            <div className="text-center py-8">
-                              <ChefHat className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                              <p className="text-muted-foreground">No order data available</p>
-                            </div>
-                          );
-                        }
-
-                        const maxQuantity = Math.max(...topItems.map((item: any) => item.quantity));
-
-                        return topItems.map((item: any, index: number) => (
-                          <div key={index} className="flex items-center space-x-4">
-                            <div className="flex-shrink-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                              <span className="text-white text-sm font-bold">{index + 1}</span>
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between mb-1">
-                                <p className="font-medium">{item.name}</p>
-                                <p className="text-sm text-muted-foreground">{item.quantity} sold</p>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div 
-                                  className="bg-primary h-2 rounded-full transition-all duration-300"
-                                  style={{ width: `${(item.quantity / maxQuantity) * 100}%` }}
-                                ></div>
-                              </div>
-                              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                                <span>₹{item.revenue} revenue</span>
-                                <span>{item.orders} orders</span>
-                              </div>
-                            </div>
+                              return topItems.map((item: any, index: number) => (
+                                <div key={index} className="flex items-center space-x-4">
+                                  <div className="flex-shrink-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                                    <span className="text-white text-sm font-bold">{index + 1}</span>
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <p className="font-medium">{item.name}</p>
+                                      <p className="text-sm text-muted-foreground">{item.quantity} sold</p>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                      <div 
+                                        className="bg-primary h-2 rounded-full transition-all duration-300"
+                                        style={{ width: `${maxQuantity > 0 ? (item.quantity / maxQuantity) * 100 : 0}%` }}
+                                      ></div>
+                                    </div>
+                                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                                      <span>₹{item.revenue} revenue</span>
+                                      <span>{item.orders} orders</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ));
+                            })()}
                           </div>
-                        ));
-                      })()}
-                    </div>
-                  </CardContent>
-                </Card>
+                        </CardContent>
+                      </Card>
 
-                {/* Recent Activity Timeline */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <Clock className="w-5 h-5" />
-                      Recent Activity Timeline
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {(() => {
-                        const recentOrders = [...orders]
-                          .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                          .slice(0, 10);
+                      {/* Period Activity Timeline */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center space-x-2">
+                            <Clock className="w-5 h-5" />
+                            Activity Timeline ({analyticsTimeframe})
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            {(() => {
+                              const recentOrders = [...filteredOrders]
+                                .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                                .slice(0, 10);
 
-                        if (recentOrders.length === 0) {
-                          return (
-                            <div className="text-center py-8">
-                              <Clock className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                              <p className="text-muted-foreground">No recent activity</p>
-                            </div>
-                          );
-                        }
+                              if (recentOrders.length === 0) {
+                                return (
+                                  <div className="text-center py-8">
+                                    <Clock className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                                    <p className="text-muted-foreground">No activity for selected period</p>
+                                  </div>
+                                );
+                              }
 
-                        return recentOrders.map((order: any, index: number) => (
-                          <div key={order.id} className="flex items-start space-x-3 pb-4 border-b last:border-b-0">
-                            <div className={`w-3 h-3 rounded-full mt-2 ${
-                              order.status === 'delivered' ? 'bg-green-500' :
-                              order.status === 'ready' ? 'bg-blue-500' :
-                              order.status === 'preparing' ? 'bg-orange-500' :
-                              'bg-yellow-500'
-                            }`}></div>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between">
-                                <p className="font-medium">
-                                  Order #{(() => {
-                                    const formatted = formatOrderIdDisplay(order.orderNumber || order.id.toString());
-                                    return formatted.prefix + formatted.highlighted;
-                                  })()}
-                                </p>
-                                <span className="text-xs text-muted-foreground">
-                                  {order.createdAt ? new Date(order.createdAt).toLocaleTimeString() : 'N/A'}
-                                </span>
-                              </div>
-                              <p className="text-sm text-muted-foreground">{order.customerName}</p>
-                              <div className="flex items-center justify-between mt-1">
-                                <Badge className={getOrderStatusColor(order.status)} variant="outline">
-                                  {getOrderStatusText(order.status)}
-                                </Badge>
-                                <span className="text-sm font-medium">₹{order.amount}</span>
-                              </div>
-                            </div>
+                              return recentOrders.map((order: any, index: number) => (
+                                <div key={order.id} className="flex items-start space-x-3 pb-4 border-b last:border-b-0">
+                                  <div className={`w-3 h-3 rounded-full mt-2 ${
+                                    order.status === 'delivered' ? 'bg-green-500' :
+                                    order.status === 'ready' ? 'bg-blue-500' :
+                                    order.status === 'preparing' ? 'bg-orange-500' :
+                                    'bg-yellow-500'
+                                  }`}></div>
+                                  <div className="flex-1">
+                                    <div className="flex items-center justify-between">
+                                      <p className="font-medium">
+                                        Order #{(() => {
+                                          const formatted = formatOrderIdDisplay(order.orderNumber || order.id.toString());
+                                          return formatted.prefix + formatted.highlighted;
+                                        })()}
+                                      </p>
+                                      <span className="text-xs text-muted-foreground">
+                                        {order.createdAt ? new Date(order.createdAt).toLocaleString() : 'N/A'}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">{order.customerName}</p>
+                                    <div className="flex items-center justify-between mt-1">
+                                      <Badge className={getOrderStatusColor(order.status)} variant="outline">
+                                        {getOrderStatusText(order.status)}
+                                      </Badge>
+                                      <span className="text-sm font-medium">₹{order.amount}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ));
+                            })()}
                           </div>
-                        ));
-                      })()}
-                    </div>
-                  </CardContent>
-                </Card>
+                        </CardContent>
+                      </Card>
 
-                {/* Daily Performance Summary */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <TrendingUp className="w-5 h-5" />
-                      Today's Performance Summary
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {(() => {
-                        const today = new Date();
-                        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                        
-                        const todayOrders = orders.filter((order: any) => {
-                          const orderDate = new Date(order.createdAt);
-                          return orderDate >= todayStart;
-                        });
-
-                        const todayRevenue = todayOrders.reduce((sum: number, order: any) => sum + (order.amount || 0), 0);
-                        const avgOrderToday = todayOrders.length > 0 ? Math.round(todayRevenue / todayOrders.length) : 0;
-
-                        return [
-                          {
-                            title: "Today's Orders",
-                            value: todayOrders.length,
-                            subtitle: "orders placed",
-                            color: "text-blue-600"
-                          },
-                          {
-                            title: "Today's Revenue", 
-                            value: `₹${todayRevenue}`,
-                            subtitle: "total sales",
-                            color: "text-green-600"
-                          },
-                          {
-                            title: "Avg Order Value",
-                            value: `₹${avgOrderToday}`,
-                            subtitle: "per order today",
-                            color: "text-orange-600"
-                          }
-                        ].map((metric, index) => (
-                          <div key={index} className="text-center p-4 border rounded-lg">
-                            <p className="text-sm font-medium text-muted-foreground">{metric.title}</p>
-                            <p className={`text-2xl font-bold ${metric.color}`}>{metric.value}</p>
-                            <p className="text-xs text-muted-foreground">{metric.subtitle}</p>
-                          </div>
-                        ));
-                      })()}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Menu Performance Matrix */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <ChefHat className="w-5 h-5" />
-                      Menu Performance Matrix
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left p-2">Item Name</th>
-                            <th className="text-left p-2">Category</th>
-                            <th className="text-left p-2">Price</th>
-                            <th className="text-left p-2">Status</th>
-                            <th className="text-left p-2">Orders</th>
-                            <th className="text-left p-2">Revenue</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {menuItems.map((item: any) => {
-                            // Calculate stats for this item
-                            let itemOrders = 0;
-                            let itemRevenue = 0;
-                            
-                            orders.forEach((order: any) => {
-                              if (order.items && typeof order.items === 'string') {
-                                try {
-                                  const parsedItems = JSON.parse(order.items);
-                                  if (Array.isArray(parsedItems)) {
-                                    parsedItems.forEach((orderItem: any) => {
-                                      if (orderItem.id === item.id || orderItem.name === item.name) {
-                                        itemOrders += orderItem.quantity || 1;
-                                        itemRevenue += (orderItem.price || 0) * (orderItem.quantity || 1);
-                                      }
-                                    });
-                                  }
-                                } catch (error) {
-                                  // Skip invalid JSON
+                      {/* Daily Detailed View (when daily is selected) */}
+                      {analyticsTimeframe === 'daily' && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center space-x-2">
+                              <CalendarDays className="w-5 h-5" />
+                              Daily Performance Details - {selectedDate.toLocaleDateString()}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                              {[
+                                {
+                                  title: "Daily Orders",
+                                  value: periodAnalytics.totalOrders,
+                                  subtitle: "orders placed",
+                                  color: "text-blue-600"
+                                },
+                                {
+                                  title: "Daily Revenue", 
+                                  value: `₹${periodAnalytics.totalRevenue}`,
+                                  subtitle: "total sales",
+                                  color: "text-green-600"
+                                },
+                                {
+                                  title: "Avg Order Value",
+                                  value: `₹${periodAnalytics.averageOrderValue}`,
+                                  subtitle: "per order",
+                                  color: "text-orange-600"
                                 }
-                              }
-                            });
+                              ].map((metric, index) => (
+                                <div key={index} className="text-center p-4 border rounded-lg">
+                                  <p className="text-sm font-medium text-muted-foreground">{metric.title}</p>
+                                  <p className={`text-2xl font-bold ${metric.color}`}>{metric.value}</p>
+                                  <p className="text-xs text-muted-foreground">{metric.subtitle}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
 
-                            const category = categories.find((cat: any) => cat.id === item.categoryId);
+                      {/* Menu Performance Matrix for Period */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center space-x-2">
+                            <ChefHat className="w-5 h-5" />
+                            Menu Performance Matrix ({analyticsTimeframe})
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="overflow-x-auto">
+                            <table className="w-full">
+                              <thead>
+                                <tr className="border-b">
+                                  <th className="text-left p-2">Item Name</th>
+                                  <th className="text-left p-2">Category</th>
+                                  <th className="text-left p-2">Price</th>
+                                  <th className="text-left p-2">Status</th>
+                                  <th className="text-left p-2">Orders</th>
+                                  <th className="text-left p-2">Revenue</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {menuItems.map((item: any) => {
+                                  const itemStat = periodAnalytics.itemStats[item.name] || { quantity: 0, revenue: 0, orders: 0 };
+                                  const category = categories.find((cat: any) => cat.id === item.categoryId);
 
-                            return (
-                              <tr key={item.id} className="border-b hover:bg-gray-50">
-                                <td className="p-2 font-medium">{item.name}</td>
-                                <td className="p-2 text-muted-foreground">{category?.name || 'Uncategorized'}</td>
-                                <td className="p-2">₹{item.price}</td>
-                                <td className="p-2">
-                                  <Badge variant={item.available ? "default" : "secondary"}>
-                                    {item.available ? "Available" : "Unavailable"}
-                                  </Badge>
-                                </td>
-                                <td className="p-2">{itemOrders}</td>
-                                <td className="p-2 font-medium">₹{itemRevenue}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
+                                  return (
+                                    <tr key={item.id} className="border-b hover:bg-gray-50">
+                                      <td className="p-2 font-medium">{item.name}</td>
+                                      <td className="p-2 text-muted-foreground">{category?.name || 'Uncategorized'}</td>
+                                      <td className="p-2">₹{item.price}</td>
+                                      <td className="p-2">
+                                        <Badge variant={item.available ? "default" : "secondary"}>
+                                          {item.available ? "Available" : "Unavailable"}
+                                        </Badge>
+                                      </td>
+                                      <td className="p-2">{itemStat.quantity}</td>
+                                      <td className="p-2 font-medium">₹{itemStat.revenue}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </>
+                  );
+                })()}
               </div>
             )}
 
