@@ -52,7 +52,7 @@ MONGODB_URI=mongodb://localhost:27017/kit-canteen
 
 ### Option 3: Custom MongoDB Instance
 
-For custom MongoDB installations (Docker, remote servers, etc.):
+For custom MongoDB installations (remote servers, cloud providers, etc.):
 
 ```bash
 MONGODB_URI=mongodb://username:password@host:port/database
@@ -192,7 +192,7 @@ The application provides connection information through the `getConnectionInfo()
 
 ### Local Development
 
-1. Install MongoDB locally or use Docker
+1. Install MongoDB locally or on a remote server
 2. Start MongoDB service
 3. Run the application - it will automatically connect to local MongoDB
 
