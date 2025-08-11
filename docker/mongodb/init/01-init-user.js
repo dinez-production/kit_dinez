@@ -5,9 +5,13 @@
 db = db.getSiblingDB('kit-canteen');
 
 // Create application user with readWrite permissions
+// Note: In production, these should be set via Docker environment variables
+const username = process.env.MONGODB_USER || 'kit-canteen-user';
+const password = process.env.MONGODB_PASSWORD || 'kit-canteen-password';
+
 db.createUser({
-  user: 'kit-canteen-user',
-  pwd: 'kit-canteen-password',
+  user: username,
+  pwd: password,
   roles: [
     {
       role: 'readWrite',
@@ -47,5 +51,5 @@ db.quickorders.createIndex({ position: 1 });
 db.quickorders.createIndex({ isActive: 1 });
 
 print('MongoDB initialization completed for kit-canteen database');
-print('Created user: kit-canteen-user');
+print('Created user: ' + username);
 print('Created indexes for optimal performance');

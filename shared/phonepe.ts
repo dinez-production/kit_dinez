@@ -1,11 +1,11 @@
 import crypto from 'crypto';
 
-// PhonePe Test Configuration
+// PhonePe Configuration - loaded from environment variables
 export const PHONEPE_CONFIG = {
-  MERCHANT_ID: 'PGTESTPAYUAT86',
-  SALT_KEY: '96434309-7796-489d-8924-ab56988a6076',
-  SALT_INDEX: '1',
-  BASE_URL: 'https://api-preprod.phonepe.com/apis/pg-sandbox',
+  MERCHANT_ID: process.env.PHONEPE_MERCHANT_ID || 'PGTESTPAYUAT86',
+  SALT_KEY: process.env.PHONEPE_SALT_KEY || '96434309-7796-489d-8924-ab56988a6076',
+  SALT_INDEX: process.env.PHONEPE_SALT_INDEX || '1',
+  BASE_URL: process.env.PHONEPE_BASE_URL || 'https://api-preprod.phonepe.com/apis/pg-sandbox',
   CALLBACK_VERSION: '/pg/v1/callback'
 };
 

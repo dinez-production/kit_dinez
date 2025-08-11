@@ -41,7 +41,8 @@ export function getDatabaseConfig(): DatabaseConfig {
       throw new Error('DATABASE_URL must be set in production environment');
     }
     // Default local PostgreSQL for development
-    postgresUrl = 'postgresql://postgres:password@localhost:5432/kit_canteen_dev';
+    const localPassword = process.env.POSTGRES_LOCAL_PASSWORD || 'password';
+    postgresUrl = `postgresql://postgres:${localPassword}@localhost:5432/kit_canteen_dev`;
   } else {
     postgresUrl = process.env.DATABASE_URL;
   }

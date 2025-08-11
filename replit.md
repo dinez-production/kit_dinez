@@ -2,6 +2,12 @@
 KIT-Canteen is a modern food ordering application for college campuses, enabling students, faculty, and staff to browse menus, place orders, and manage preferences via a web application. It offers both customer-facing features and administrative panels for canteen management, aiming to provide a complete solution for campus food service operations. The project's vision is to streamline campus food services, enhance user experience, and provide efficient management tools for canteen operators.
 
 ## Recent Changes (August 2025)
+- **Security Hardening - Secret Management (August 11, 2025)**: Moved all hardcoded secrets to secure environment variables.
+  - **PhonePe Configuration**: Moved MERCHANT_ID, SALT_KEY, SALT_INDEX, BASE_URL from hardcoded values to environment variables
+  - **Firebase Configuration**: Moved MESSAGING_SENDER_ID and MEASUREMENT_ID to environment variables
+  - **Database Security**: Improved MongoDB and PostgreSQL credential handling with environment variable fallbacks
+  - **Docker Security**: Updated MongoDB initialization script to use environment-based credentials
+  - All sensitive credentials now properly managed through Replit Secrets system
 - **Drizzle ORM Removal (August 11, 2025)**: Completely removed Drizzle ORM from the project while maintaining hybrid database architecture.
   - Uninstalled all Drizzle packages: `drizzle-orm`, `drizzle-zod`, and `drizzle-kit`
   - Removed `drizzle.config.ts` and associated migration files
