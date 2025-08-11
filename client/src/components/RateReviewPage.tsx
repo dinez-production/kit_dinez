@@ -21,17 +21,17 @@ const RateReviewPage = () => {
       {
         id: 1,
         name: 'Grilled Chicken Burger',
-        image: '/placeholder.svg'
+        image: '/placeholder.png'
       },
       {
         id: 2,
         name: 'Crispy French Fries',
-        image: '/placeholder.svg'
+        image: '/placeholder.png'
       },
       {
         id: 3,
         name: 'Chocolate Milkshake',
-        image: '/placeholder.svg'
+        image: '/placeholder.png'
       }
     ]
   };

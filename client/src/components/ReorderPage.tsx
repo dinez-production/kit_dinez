@@ -20,7 +20,7 @@ const ReorderPage = () => {
         id: 1,
         name: 'Grilled Chicken Burger',
         price: 12.99,
-        image: '/placeholder.svg',
+        image: '/placeholder.png',
         quantity: 1,
         customizations: ['No onions', 'Extra cheese']
       },
@@ -28,7 +28,7 @@ const ReorderPage = () => {
         id: 2,
         name: 'Crispy French Fries',
         price: 4.99,
-        image: '/placeholder.svg',
+        image: '/placeholder.png',
         quantity: 2,
         customizations: []
       },
@@ -36,7 +36,7 @@ const ReorderPage = () => {
         id: 3,
         name: 'Chocolate Milkshake',
         price: 5.99,
-        image: '/placeholder.svg',
+        image: '/placeholder.png',
         quantity: 1,
         customizations: ['Extra chocolate']
       }

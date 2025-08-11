@@ -1,0 +1,31 @@
+{
+  "name": "Dinez Canteen App",
+  "short_name": "Dinez",
+  "description": "Order food from your college canteen with ease",
+  "theme_color": "#EA5A47",
+  "background_color": "#F5F5F0",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
