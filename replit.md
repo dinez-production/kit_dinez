@@ -2,6 +2,12 @@
 KIT-Canteen is a modern food ordering application for college campuses, enabling students, faculty, and staff to browse menus, place orders, and manage preferences via a web application. It offers both customer-facing features and administrative panels for canteen management, aiming to provide a complete solution for campus food service operations. The project's vision is to streamline campus food services, enhance user experience, and provide efficient management tools for canteen operators.
 
 ## Recent Changes (August 2025)
+- **Drizzle ORM Removal (August 11, 2025)**: Completely removed Drizzle ORM from the project while maintaining hybrid database architecture.
+  - Uninstalled all Drizzle packages: `drizzle-orm`, `drizzle-zod`, and `drizzle-kit`
+  - Removed `drizzle.config.ts` and associated migration files
+  - Cleaned up package.json scripts (removed `db:push` command)
+  - Maintained hybrid PostgreSQL + MongoDB architecture using only Prisma + Mongoose
+  - All functionality remains intact with simplified database stack
 - **Payment URL Fix (August 9, 2025)**: Fixed hardcoded localhost:5000 URLs in payment callback system to use dynamic host detection for proper deployment compatibility.
   - Updated payment initiation endpoint to dynamically detect base URL from request headers and environment
   - Added priority system: REPLIT_DOMAINS → request host → localhost fallback
@@ -72,7 +78,7 @@ The application is built as a **React-based SPA** using **React 18** and **TypeS
 
 The backend is a **Node.js Express server** written in TypeScript, leveraging **ESM modules** and a middleware-based architecture. It uses an **abstract storage interface** (`IStorage`) for flexible data persistence.
 
-Data storage employs a **hybrid database architecture**: **PostgreSQL with Drizzle ORM** for user authentication and **MongoDB with Mongoose** for all business data (categories, menu items, orders, payments, etc.). This approach optimizes for authentication consistency while leveraging MongoDB's flexibility for complex business entities. The `HybridStorage` class provides a unified interface managing both databases seamlessly.
+Data storage employs a **hybrid database architecture**: **PostgreSQL with Prisma ORM** for user authentication and **MongoDB with Mongoose** for all business data (categories, menu items, orders, payments, etc.). This approach optimizes for authentication consistency while leveraging MongoDB's flexibility for complex business entities. The `HybridStorage` class provides a unified interface managing both databases seamlessly.
 
 Authentication is **flexible**, supporting **Google OAuth** and guest access. It implements **role-based permissions** (Student, Faculty, Staff, Admin, Super Admin) and session-based authentication with granular admin controls.
 
