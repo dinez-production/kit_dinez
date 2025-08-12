@@ -23,6 +23,7 @@ import {
   PHONEPE_RESPONSE_CODES
 } from "@shared/phonepe";
 import { healthCheckHandler } from "./health-check";
+import { SimpleSchemaValidator } from "./migrations/simple-schema-check";
 import axios from "axios";
 
 // Store SSE connections for real-time notifications
@@ -35,6 +36,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Simple health check endpoint for quick status
   app.get("/api/status", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  // Database schema health check endpoint
+  app.get("/api/schema-status", async (req, res) => {
+    try {
+      const validator = new SimpleSchemaValidator();
+      const status = await validator.getSchemaStatus();
+      res.json({
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        schema: status
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: "error",
+        timestamp: new Date().toISOString(),
+        error: error instanceof Error ? error.message : "Schema status check failed"
+      });
+    }
   });
 
   // Server-Sent Events endpoint for real-time order notifications

@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { performStartupCheck } from "./startup-check";
+import { performStartupSchemaCheck } from "./startup-schema-check";
 
 const app = express();
 app.use(express.json());
@@ -44,6 +45,9 @@ app.use((req, res, next) => {
     console.error("❌ Server startup aborted due to failed health check");
     process.exit(1);
   }
+
+  // Perform database schema validation and migration
+  await performStartupSchemaCheck();
 
   const server = await registerRoutes(app);
 
