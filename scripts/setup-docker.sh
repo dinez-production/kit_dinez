@@ -33,7 +33,7 @@ sleep 10
 
 # Run PostgreSQL migrations
 echo "🐘 Setting up PostgreSQL schema..."
-npx prisma migrate dev --schema=prisma/postgres/schema.prisma --name init
+node scripts/init-postgres.js
 
 # Push MongoDB schema
 echo "🍃 Setting up MongoDB schema..."

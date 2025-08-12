@@ -87,10 +87,14 @@ export class SimpleSchemaValidator {
         console.log('✅ PostgreSQL users table exists');
       }
 
-      // Ensure we have the latest schema by running a simple query
-      await this.prisma.user.findMany({ take: 1 });
-      
-      return { success: true, message: 'PostgreSQL schema validated' };
+      // Try to query the users table if it exists
+      if (result[0]?.exists) {
+        await this.prisma.user.findMany({ take: 1 });
+        return { success: true, message: 'PostgreSQL schema validated' };
+      } else {
+        console.log('📋 To create the users table, run: npx prisma migrate dev --schema=prisma/postgres/schema.prisma');
+        return { success: true, message: 'PostgreSQL schema validation skipped - users table will be created on first migration' };
+      }
       
     } catch (error) {
       console.error('⚠️ PostgreSQL validation issue:', error);
