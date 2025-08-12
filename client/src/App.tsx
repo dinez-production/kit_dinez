@@ -61,6 +61,7 @@ import CanteenOrderDetailPage from "./components/CanteenOrderDetailPage";
 import BarcodeScannerPage from "./components/BarcodeScannerPage";
 import PaymentCallbackPage from "./components/PaymentCallbackPage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { InstallPWA } from "./components/InstallPWA";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
@@ -70,6 +71,7 @@ const App = () => (
       <CartProvider>
         <Toaster />
         <Sonner />
+        <InstallPWA />
         <Router>
         <Switch>
           <Route path="/" component={SplashScreen} />
