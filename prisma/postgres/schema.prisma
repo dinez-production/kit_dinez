@@ -1,0 +1,61 @@
+// PostgreSQL Schema - Handles authentication and user data
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/@prisma/client-postgres"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  username  String   @unique
+  password  String?
+  name      String
+  role      UserRole @default(STUDENT)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // OAuth fields
+  googleId  String?  @unique
+  avatar    String?
+  
+  // Profile fields
+  phone     String?
+  department String?
+  studentId  String?
+  facultyId  String?
+  
+  // Relations
+  posts     Post[]
+  
+  @@map("users")
+}
+
+model Post {
+  id        Int      @id @default(autoincrement())
+  title     String
+  content   String
+  published Boolean  @default(false)
+  authorId  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  @@map("posts")
+}
+
+enum UserRole {
+  STUDENT
+  FACULTY
+  STAFF
+  ADMIN
+  SUPER_ADMIN
+}
