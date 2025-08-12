@@ -43,7 +43,7 @@ if (missingVars.length > 0) {
 try {
   console.log('📦 Building frontend with Vite...');
   
-  execSync('vite build', {
+  execSync('npx vite build', {
     cwd: rootDir,
     stdio: 'inherit',
     env: {
