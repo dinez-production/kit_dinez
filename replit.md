@@ -2,15 +2,22 @@
 KIT-Canteen is a modern food ordering application for college campuses, enabling students, faculty, and staff to browse menus, place orders, and manage preferences via a web application. It offers both customer-facing features and administrative panels for canteen management, aiming to provide a complete solution for campus food service operations. The project's vision is to streamline campus food services, enhance user experience, and provide efficient management tools for canteen operators.
 
 ## Recent Changes (August 2025)
+- **Enhanced PWA Support for Mobile Installation (August 12, 2025)**: Implemented comprehensive Progressive Web App functionality with platform-specific optimizations.
+  - **Service Worker Integration**: Added complete service worker (`sw.js`) with caching, offline support, and background sync capabilities
+  - **Android PWA Fix**: Resolved Android installation issues by implementing required service worker (Android needs both manifest + service worker)
+  - **iPhone/iOS Optimization**: Enhanced iOS PWA support with Safari detection, comprehensive Apple Touch icons, and splash screen support
+  - **Smart Install Prompts**: Created intelligent `InstallPWA` component with device-specific installation guidance
+    - Detects iOS Safari vs other browsers and provides appropriate instructions
+    - Shows Android Chrome-specific installation steps
+    - Handles native beforeinstallprompt events when available
+  - **Enhanced Manifest**: Upgraded `manifest.json` with shortcuts, categories, and improved metadata
+  - **Cross-Platform Meta Tags**: Added comprehensive PWA meta tags for iOS, Android, and Windows
+  - **Browser Compatibility**: Added Safari-specific detection and guidance for optimal iOS installation experience
 - **Brand Logo Implementation (August 11, 2025)**: Integrated Dinez Canteen App branding throughout the application.
   - **Favicon Update**: Replaced default favicon with new Dinez logo (`client/public/favicon.png`)
   - **Logo Assets**: Added logo files (`logo.png`, `placeholder.png`) to public directory for consistent branding
   - **Component Updates**: Updated all placeholder image references in `RateReviewPage.tsx` and `ReorderPage.tsx` to use new logo
-  - **PWA Configuration**: Added complete Progressive Web App support for mobile home screen installation
-    - **Web App Manifest**: Created `manifest.json` with Dinez branding and app metadata
-    - **Apple Touch Icons**: Added multiple icon sizes for iOS home screen support
-    - **Meta Tags**: Implemented PWA meta tags for theme color, app title, and mobile optimization
-    - **Mobile Icons**: Added `icon-192.png` and `icon-512.png` for different device resolutions
+  - **Mobile Icons**: Added `icon-192.png` and `icon-512.png` for different device resolutions
   - **HTML Updates**: Updated page title to "Dinez Canteen" and added all necessary PWA meta tags
   - **Brand Consistency**: All visual elements now use the official Dinez branding with fork, plate, and spoon design
 - **Project Cleanup & Optimization (August 11, 2025)**: Removed unwanted files and cleaned up project structure for better maintainability.

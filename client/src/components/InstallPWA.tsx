@@ -22,6 +22,9 @@ export function InstallPWA() {
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
+  const [isSafari, setIsSafari] = useState(false);
 
   useEffect(() => {
     // Check if app is already installed
@@ -29,6 +32,35 @@ export function InstallPWA() {
         (window.navigator as any).standalone === true) {
       setIsInstalled(true);
       return;
+    }
+
+    // Detect device type and browser
+    const iosDetected = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const androidDetected = /Android/.test(navigator.userAgent);
+    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+    
+    setIsIOS(iosDetected);
+    setIsAndroid(androidDetected);
+    setIsSafari(isSafari);
+    
+    const isInStandaloneMode = (window.navigator as any).standalone;
+    
+    // For iOS Safari, show install prompt if not in standalone mode  
+    if (iosDetected && isSafari && !isInStandaloneMode) {
+      const iosTimer = setTimeout(() => {
+        setShowInstallBanner(true);
+      }, 2000);
+      
+      return () => clearTimeout(iosTimer);
+    }
+    
+    // For iOS non-Safari browsers, show different guidance
+    if (iosDetected && !isSafari && !isInStandaloneMode) {
+      const iosTimer = setTimeout(() => {
+        setShowInstallBanner(true);
+      }, 3000);
+      
+      return () => clearTimeout(iosTimer);
     }
 
     // Listen for the beforeinstallprompt event
@@ -111,19 +143,56 @@ export function InstallPWA() {
         </div>
         
         <div className="text-sm text-gray-600 dark:text-gray-300 space-y-2">
-          <p className="font-medium">Android:</p>
-          <ol className="list-decimal list-inside space-y-1 ml-2">
-            <li>Tap the menu (⋮) in your browser</li>
-            <li>Look for "Install app" or "Add to Home screen"</li>
-            <li>Tap "Install" when prompted</li>
-          </ol>
-          
-          <p className="font-medium mt-3">iPhone:</p>
-          <ol className="list-decimal list-inside space-y-1 ml-2">
-            <li>Tap the share button (□↗)</li>
-            <li>Tap "Add to Home Screen"</li>
-            <li>Tap "Add" to confirm</li>
-          </ol>
+          {isIOS ? (
+            isSafari ? (
+              <>
+                <p className="font-medium">iPhone/iPad Installation (Safari):</p>
+                <ol className="list-decimal list-inside space-y-1 ml-2">
+                  <li>Tap the share button <span className="bg-gray-200 dark:bg-gray-700 px-1 rounded">□↗</span> at the bottom</li>
+                  <li>Scroll down and tap "Add to Home Screen"</li>
+                  <li>Edit the name if desired, then tap "Add"</li>
+                  <li>The app icon will appear on your home screen</li>
+                </ol>
+                <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                  ✅ Perfect! You're using Safari - installation will work great
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-medium">iPhone/iPad Installation:</p>
+                <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg">
+                  <p className="text-xs text-orange-600 dark:text-orange-400 font-medium mb-2">
+                    ⚠️ To install on iPhone, you need to use Safari browser
+                  </p>
+                  <ol className="list-decimal list-inside space-y-1 ml-2 text-xs">
+                    <li>Copy this website's URL</li>
+                    <li>Open Safari browser</li>
+                    <li>Paste the URL and visit the site</li>
+                    <li>Then tap share <span className="bg-gray-200 dark:bg-gray-700 px-1 rounded">□↗</span> and "Add to Home Screen"</li>
+                  </ol>
+                </div>
+              </>
+            )
+          ) : isAndroid ? (
+            <>
+              <p className="font-medium">Android Installation:</p>
+              <ol className="list-decimal list-inside space-y-1 ml-2">
+                <li>Tap the menu (⋮) in Chrome</li>
+                <li>Look for "Install app" or "Add to Home screen"</li>
+                <li>Tap "Install" when prompted</li>
+                <li>The app will be installed like a native app</li>
+              </ol>
+            </>
+          ) : (
+            <>
+              <p className="font-medium">Desktop Installation:</p>
+              <ol className="list-decimal list-inside space-y-1 ml-2">
+                <li>Look for the install icon in your browser's address bar</li>
+                <li>Click "Install" when prompted</li>
+                <li>The app will open in its own window</li>
+              </ol>
+            </>
+          )}
         </div>
       </div>
     );
@@ -138,14 +207,14 @@ export function InstallPWA() {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-lg">
-            <Download className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            {isIOS ? <Smartphone className="h-5 w-5 text-blue-600 dark:text-blue-400" /> : <Download className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
           </div>
           <div>
             <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
-              Install Dinez Canteen
+              {isIOS ? 'Add to Home Screen' : 'Install Dinez Canteen'}
             </h3>
             <p className="text-xs text-gray-600 dark:text-gray-300">
-              Get quick access to your canteen orders
+              {isIOS ? 'Quick access from your home screen' : 'Get quick access to your canteen orders'}
             </p>
           </div>
         </div>
