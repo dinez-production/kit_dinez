@@ -44,6 +44,8 @@ export default function CanteenOwnerMenuManagement({
   const [stockFilter, setStockFilter] = useState("all"); // all, low_stock, out_of_stock
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isAddingItem, setIsAddingItem] = useState(false);
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [editForm, setEditForm] = useState({
     name: "",
     price: "",
@@ -137,6 +139,34 @@ export default function CanteenOwnerMenuManagement({
     }
   });
 
+  const addCategoryMutation = useMutation({
+    mutationFn: async (data: { name: string }) => {
+      return apiRequest('/api/categories', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/categories'] });
+      toast({
+        title: "Success",
+        description: "Category added successfully!"
+      });
+      setNewCategoryName("");
+      setIsAddingCategory(false);
+      onMenuUpdate();
+    },
+    onError: (error) => {
+      console.error('Add category error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add category. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
   const resetForm = () => {
     setEditForm({
       name: "",
@@ -225,6 +255,19 @@ export default function CanteenOwnerMenuManagement({
     };
     
     addMenuItemMutation.mutate(newItemData);
+  };
+
+  const handleAddCategory = () => {
+    if (!newCategoryName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a category name",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    addCategoryMutation.mutate({ name: newCategoryName.trim() });
   };
 
   const addAddon = () => {
@@ -337,13 +380,65 @@ export default function CanteenOwnerMenuManagement({
           <ChefHat className="w-6 h-6 mr-2" />
           Menu Management
         </h2>
-        <Dialog open={isAddingItem} onOpenChange={setIsAddingItem}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-menu-item">
-              <Plus className="w-4 h-4 mr-2" />
-              Add New Item
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          {/* Add Category Dialog */}
+          <Dialog open={isAddingCategory} onOpenChange={setIsAddingCategory}>
+            <DialogTrigger asChild>
+              <Button variant="outline" data-testid="button-add-category">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Category
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Add New Category</DialogTitle>
+                <DialogDescription>
+                  Create a new category for your menu items.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="category-name">Category Name *</Label>
+                  <Input
+                    id="category-name"
+                    data-testid="input-category-name"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    placeholder="e.g., Beverages, Snacks, Main Course"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsAddingCategory(false);
+                    setNewCategoryName("");
+                  }}
+                  data-testid="button-cancel-add-category"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAddCategory}
+                  disabled={addCategoryMutation.isPending}
+                  data-testid="button-save-add-category"
+                >
+                  {addCategoryMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Add Category
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Add Menu Item Dialog */}
+          <Dialog open={isAddingItem} onOpenChange={setIsAddingItem}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-menu-item">
+                <Plus className="w-4 h-4 mr-2" />
+                Add New Item
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Add New Menu Item</DialogTitle>
@@ -526,6 +621,7 @@ export default function CanteenOwnerMenuManagement({
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Search and Filter */}
