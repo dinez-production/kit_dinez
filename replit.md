@@ -4,6 +4,7 @@ KIT-Canteen is a modern food ordering application for college campuses, designed
 # User Preferences
 Preferred communication style: Simple, everyday language.
 Environment variables: Always store credentials in .env file when possible for better organization.
+Production builds: Use custom build script (`node scripts/build.js`) to ensure Firebase environment variables are properly embedded during Vite build process.
 
 # System Architecture
 The application features a **React-based Single Page Application (SPA)** built with **React 18** and **TypeScript**, using **Vite** for fast builds. **Wouter** handles client-side routing, and **Tailwind CSS** with **shadcn/ui** provides a consistent, mobile-first responsive design system. **TanStack Query** manages server state, while **React Hook Form** with **Zod** ensures robust form validation.
