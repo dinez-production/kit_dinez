@@ -27,6 +27,7 @@
 ### Documentation
 - ✅ `README-DOCKER.md` - Comprehensive Docker setup guide
 - ✅ `PACKAGE_JSON_UPDATES.md` - Required script additions for package.json
+- ✅ `ENV_CONFIGURATION_GUIDE.md` - Complete environment variable setup guide
 - ✅ `DELIVERABLES_SUMMARY.md` - This summary file
 
 ## 🚀 Key Features Implemented
@@ -192,3 +193,23 @@ npm run db:test:mongo      # Test MongoDB
 5. **Deploy to production**: Configure production environment and run `npm run deploy:prod`
 
 This setup provides a production-ready, scalable foundation for your dual database architecture with comprehensive development and deployment tooling.
+
+## 🔧 External Service Configuration
+
+### Firebase Setup Required
+- Create Firebase project at [console.firebase.google.com](https://console.firebase.google.com/)
+- Generate service account credentials for server-side operations
+- Get web app configuration for client-side operations
+- Update environment variables with your project credentials
+
+### PhonePe Payment Gateway Setup
+- Register at [PhonePe Business Portal](https://business.phonepe.com/)
+- Complete merchant onboarding process
+- Get Merchant ID and Salt Key from dashboard
+- Use sandbox credentials for development, production for live payments
+
+### Environment Configuration
+- Comprehensive Firebase and PhonePe settings included in .env files
+- Separate development (sandbox) and production configurations
+- Client-side (VITE_*) and server-side environment variables
+- Complete setup guide available in `ENV_CONFIGURATION_GUIDE.md`
