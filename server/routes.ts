@@ -88,7 +88,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sseConnections.delete(res);
         }
       } catch (error) {
-        console.warn('📡 SSE keep-alive failed:', error.message);
+        console.warn('📡 SSE keep-alive failed:', error instanceof Error ? error.message : 'Unknown error');
         clearInterval(keepAliveInterval);
         sseConnections.delete(res);
       }
@@ -457,25 +457,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           data: order
         })}\n\n`;
         
+        console.log(`📡 Broadcasting new order to ${sseConnections.size} SSE connections:`, {
+          orderNumber: order.orderNumber,
+          messageType: 'new_order'
+        });
+        
         // Send to all connected SSE clients with improved error handling
         const deadConnections = new Set();
         sseConnections.forEach((connection) => {
           try {
             if (connection.writable && !connection.destroyed) {
               connection.write(message);
+              console.log('📤 Message sent to SSE client');
             } else {
+              console.log('📡 Removing dead SSE connection');
               deadConnections.add(connection);
             }
           } catch (error) {
+            console.warn('📡 SSE connection error during broadcast:', error instanceof Error ? error.message : 'Unknown error');
             deadConnections.add(connection);
-            console.warn('📡 SSE connection error during broadcast:', error.message);
           }
         });
         
         // Clean up dead connections
         deadConnections.forEach(conn => sseConnections.delete(conn));
         
-        console.log(`📢 Broadcasted new order ${order.orderNumber} to ${sseConnections.size} connected clients`);
+        console.log(`📢 Successfully broadcasted new order ${order.orderNumber} to ${sseConnections.size} active clients`);
+      } else {
+        console.log('📡 No SSE connections available for broadcast');
       }
       
       res.status(201).json(order);
@@ -510,25 +519,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
           newStatus: req.body.status
         })}\n\n`;
         
+        console.log(`📡 Broadcasting order status change to ${sseConnections.size} SSE connections:`, {
+          orderNumber: order.orderNumber,
+          oldStatus: req.body.oldStatus,
+          newStatus: req.body.status,
+          messageType: 'order_status_changed'
+        });
+        
         // Send to all connected SSE clients with improved error handling
         const deadConnections = new Set();
         sseConnections.forEach((connection) => {
           try {
             if (connection.writable && !connection.destroyed) {
               connection.write(message);
+              console.log('📤 Status update message sent to SSE client');
             } else {
+              console.log('📡 Removing dead SSE connection');
               deadConnections.add(connection);
             }
           } catch (error) {
+            console.warn('📡 SSE connection error during status broadcast:', error instanceof Error ? error.message : 'Unknown error');
             deadConnections.add(connection);
-            console.warn('📡 SSE connection error during status broadcast:', error.message);
           }
         });
         
         // Clean up dead connections
         deadConnections.forEach(conn => sseConnections.delete(conn));
         
-        console.log(`📢 Broadcasted order status change for ${order.orderNumber} to ${sseConnections.size} connected clients`);
+        console.log(`📢 Successfully broadcasted status change for ${order.orderNumber} to ${sseConnections.size} active clients`);
+      } else if (!req.body.status) {
+        console.log('📡 No status change to broadcast');
+      } else {
+        console.log('📡 No SSE connections available for status broadcast');
       }
       
       res.json(order);

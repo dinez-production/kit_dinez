@@ -68,11 +68,17 @@ export default function PaymentCallbackPage() {
               
               // Get the order to redirect to order status page with proper fallback
               const orderNumber = statusResponse.data?.orderNumber || statusResponse.data?.orderId || storedOrderId;
+              console.log('💳 Payment success - Order data:', statusResponse.data);
+              console.log('💳 Extracted order number:', orderNumber);
+              console.log('💳 Stored order ID:', storedOrderId);
+              
               if (orderNumber) {
+                console.log(`💳 Redirecting to order status page: /order-status/${orderNumber}`);
                 setTimeout(() => {
                   setLocation(`/order-status/${orderNumber}`);
                 }, 2000);
               } else {
+                console.log('💳 No order number found, redirecting to orders page');
                 // Fallback to orders page if no order number available
                 setTimeout(() => {
                   setLocation('/orders');

@@ -285,16 +285,25 @@ export default function CanteenOwnerDashboardSidebar() {
         console.log("📨 Received real-time update:", data);
         
         if (data.type === 'new_order') {
+          console.log("🔄 Processing new order update, refreshing data...");
           // Refresh orders when a new order is placed
           refetchOrders();
-          toast.success("New order received!");
+          toast.success(`New order received! Order #${data.data?.orderNumber || 'Unknown'}`);
         } else if (data.type === 'order_updated' || data.type === 'order_status_changed') {
+          console.log("🔄 Processing order status update, refreshing data...");
           // Refresh orders when there's an update
           refetchOrders();
-          toast.success("Order updated!");
+          toast.success(`Order ${data.data?.orderNumber || 'Unknown'} status updated!`);
+        } else if (data.type === 'connected') {
+          console.log("✅ SSE connection confirmed");
+        } else if (data.type === 'ping') {
+          // Ignore ping messages, just log occasionally
+          if (Math.random() < 0.1) { // Log only 10% of pings to avoid spam
+            console.log("📡 SSE keep-alive ping received");
+          }
         }
       } catch (error) {
-        console.error("Error parsing SSE message:", error);
+        console.error("Error parsing SSE message:", error, "Raw data:", event.data);
       }
     };
 

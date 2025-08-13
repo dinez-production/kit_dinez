@@ -92,14 +92,20 @@ export default function OrderStatusPage() {
             
             // Handle different message types
             if (data.type === 'order_updated' || data.type === 'order_status_changed') {
+              console.log("🔄 User refreshing order data due to status change");
               // Refresh orders when there's a status update
               refetch();
+            } else if (data.type === 'new_order') {
+              // Users don't need to refresh for new orders unless it's their order
+              console.log("📦 New order notification received (for canteen owners)");
+            } else if (data.type === 'connected') {
+              console.log("✅ User SSE connection confirmed");
             } else if (data.type === 'ping') {
               // Ignore keep-alive pings
               return;
             }
           } catch (error) {
-            console.error("Error parsing SSE message:", error);
+            console.error("Error parsing SSE message:", error, "Raw data:", event.data);
           }
         };
 
