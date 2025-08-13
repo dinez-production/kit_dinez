@@ -59,6 +59,10 @@ const BarcodeGenerator = ({ orderId }: { orderId: string }) => {
 export default function OrderStatusPage() {
   const [, setLocation] = useLocation();
   const { orderId } = useParams();
+  
+  // Get source from URL parameters to determine correct back navigation
+  const urlParams = new URLSearchParams(window.location.search);
+  const sourceContext = urlParams.get('from');
 
   // Fetch real order data from API - using SSE for real-time updates instead of polling
   const { data: orders = [], isLoading, refetch } = useQuery<Order[]>({
@@ -307,12 +311,22 @@ export default function OrderStatusPage() {
             variant="ghost" 
             size="icon" 
             className="text-white hover:bg-white/20"
+            title={sourceContext === 'payment' ? 'Back to Home' : sourceContext === 'orders' ? 'Back to Orders' : 'Go Back'}
             onClick={() => {
-              // Use browser's back functionality, but with fallback
-              if (window.history.length > 1) {
-                window.history.back();
-              } else {
+              // Smart navigation based on source context
+              if (sourceContext === 'payment') {
+                // From payment callback - go to home page
+                setLocation('/home');
+              } else if (sourceContext === 'orders') {
+                // From orders page - go back to orders
                 setLocation('/orders');
+              } else {
+                // Fallback - use browser history or default to orders
+                if (window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  setLocation('/orders');
+                }
               }
             }}
           >

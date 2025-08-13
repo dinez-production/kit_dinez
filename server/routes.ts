@@ -29,6 +29,15 @@ import axios from "axios";
 // Store SSE connections for real-time notifications
 const sseConnections = new Set<any>();
 
+// Performance optimization: Cache payment status API failures to avoid repeated slow calls
+const paymentStatusCache = new Map<string, { 
+  lastAttempt: number; 
+  consecutiveFailures: number; 
+  shouldSkipApi: boolean;
+}>();
+const API_RETRY_INTERVAL = 30000; // 30 seconds before retrying failed API calls
+const MAX_CONSECUTIVE_FAILURES = 3; // Skip API after 3 consecutive failures
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint with comprehensive database status
   app.get("/api/health", healthCheckHandler);
@@ -985,9 +994,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const checksumTime = Date.now() - checksumStart;
       console.log(`📡 Checksum verification took ${checksumTime}ms`);
 
-      const { merchantTransactionId, state, responseCode } = payload.data;
-      const phonePeTransactionId = payload.data.transactionId;
-      const paymentMethod = payload.data.paymentInstrument?.type;
+      // Handle webhook payload structure - might be encoded
+      let webhookData;
+      if (payload.response) {
+        // PhonePe sometimes sends response as base64 encoded
+        const decodedResponse = Buffer.from(payload.response, 'base64').toString('utf-8');
+        webhookData = JSON.parse(decodedResponse);
+      } else if (payload.data) {
+        webhookData = payload.data;
+      } else {
+        console.error('📡 Invalid webhook payload structure:', payload);
+        return res.status(400).json({ success: false, message: 'Invalid payload structure' });
+      }
+      
+      const { merchantTransactionId, state, responseCode } = webhookData;
+      const phonePeTransactionId = webhookData.transactionId;
+      const paymentMethod = webhookData.paymentInstrument?.type;
 
       // Update payment status
       let paymentStatus: string;
@@ -1005,7 +1027,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: paymentStatus,
         paymentMethod,
         responseCode,
-        responseMessage: payload.message
+        responseMessage: webhookData.message
       });
 
       // If payment successful, create order from metadata
@@ -1153,10 +1175,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Check with PhonePe for latest status
+      // Check if we should skip API call due to recent failures
+      const cacheKey = merchantTransactionId;
+      const cachedInfo = paymentStatusCache.get(cacheKey);
+      const now = Date.now();
+      
+      if (cachedInfo?.shouldSkipApi && (now - cachedInfo.lastAttempt) < API_RETRY_INTERVAL) {
+        console.log(`⚡ Skipping PhonePe API (${cachedInfo.consecutiveFailures} failures) - returning cached data for ${merchantTransactionId}`);
+        return res.json({
+          success: true,
+          status: payment.status,
+          data: { ...payment, fromCache: true, reason: 'api_temporarily_disabled' }
+        });
+      }
+      
+      // Try to check with PhonePe for latest status (with fast timeout)
       const checksum = generateStatusChecksum(merchantTransactionId);
       const endpoint = `/pg/v1/status/${PHONEPE_CONFIG.MERCHANT_ID}/${merchantTransactionId}`;
-
+      
+      console.log(`⚡ Attempting fast PhonePe status check for ${merchantTransactionId}`);
       const phonePeResponse = await axios.get(
         `${PHONEPE_CONFIG.BASE_URL}${endpoint}`,
         {
@@ -1165,11 +1202,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             'X-VERIFY': checksum,
             'X-MERCHANT-ID': PHONEPE_CONFIG.MERCHANT_ID
           },
-          timeout: 10000 // 10 second timeout instead of hanging indefinitely
+          timeout: 3000 // 3 second timeout for better UX - fail fast and use cache
         }
       );
 
       if (phonePeResponse.data.success) {
+        // API call succeeded - reset failure count
+        paymentStatusCache.set(cacheKey, { lastAttempt: now, consecutiveFailures: 0, shouldSkipApi: false });
+        
         const { state, responseCode, transactionId, paymentInstrument } = phonePeResponse.data.data;
         
         let paymentStatus: string;
@@ -1286,7 +1326,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
     } catch (error) {
-      console.error('Payment status check error:', error);
+      // Track API failure for caching
+      const now = Date.now();
+      const cacheKey = req.params.merchantTransactionId;
+      const currentInfo = paymentStatusCache.get(cacheKey) || { lastAttempt: 0, consecutiveFailures: 0, shouldSkipApi: false };
+      const newFailures = currentInfo.consecutiveFailures + 1;
+      paymentStatusCache.set(cacheKey, {
+        lastAttempt: now,
+        consecutiveFailures: newFailures,
+        shouldSkipApi: newFailures >= MAX_CONSECUTIVE_FAILURES
+      });
+      
+      console.log(`⚡ PhonePe API failed (${newFailures}/${MAX_CONSECUTIVE_FAILURES}) for ${req.params.merchantTransactionId}`);
       
       // Handle timeout specifically
       if ((error as any).code === 'ECONNABORTED' || (error as any).code === 'ETIMEDOUT') {

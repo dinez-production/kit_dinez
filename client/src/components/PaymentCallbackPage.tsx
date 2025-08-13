@@ -75,7 +75,7 @@ export default function PaymentCallbackPage() {
               if (orderNumber) {
                 console.log(`💳 Redirecting to order status page: /order-status/${orderNumber}`);
                 setTimeout(() => {
-                  setLocation(`/order-status/${orderNumber}`);
+                  setLocation(`/order-status/${orderNumber}?from=payment`);
                 }, 2000);
               } else {
                 console.log('💳 No order number found, redirecting to orders page');

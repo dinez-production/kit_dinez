@@ -1,0 +1,23 @@
+💳 Payment status check completed in 10409ms
+index-DkDSO1U7.js:2002 useAuthSync Debug: {localStorage_user: '{"id":1,"name":"Steepan","email":"kit27.ad55@gmail…ent":"CSE","currentStudyYear":3,"isPassed":false}', parsed_user: {…}, isAuthenticated: true, userRole: 'student'}
+index-DkDSO1U7.js:2002 useAuthSync Debug: {localStorage_user: '{"id":1,"name":"Steepan","email":"kit27.ad55@gmail…ent":"CSE","currentStudyYear":3,"isPassed":false}', parsed_user: {…}, isAuthenticated: true, userRole: 'student'}
+index-DkDSO1U7.js:2011 🔄 Setting up real-time order updates for user orders list...
+index-DkDSO1U7.js:2002 useAuthSync Debug: {localStorage_user: '{"id":1,"name":"Steepan","email":"kit27.ad55@gmail…ent":"CSE","currentStudyYear":3,"isPassed":false}', parsed_user: {…}, isAuthenticated: true, userRole: 'student'}
+index-DkDSO1U7.js:2011 📡 User orders list connected to real-time updates
+index-DkDSO1U7.js:2011 📨 User orders list received real-time update: {type: 'connected', message: 'Connected to real-time order updates'}
+index-DkDSO1U7.js:2002 useAuthSync Debug: {localStorage_user: '{"id":1,"name":"Steepan","email":"kit27.ad55@gmail…ent":"CSE","currentStudyYear":3,"isPassed":false}', parsed_user: {…}, isAuthenticated: true, userRole: 'student'}
+index-DkDSO1U7.js:2127 💳 Payment status check completed in 10357ms
+index-DkDSO1U7.js:2127 💳 Payment status check completed in 10409ms
+index-DkDSO1U7.js:2011 📨 User orders list received real-time update: {type: 'ping'}
+index-DkDSO1U7.js:2127 💳 Payment status check completed in 10358ms
+index-DkDSO1U7.js:2127 💳 Payment status check completed in 10340ms
+index-DkDSO1U7.js:2011 📨 User orders list received real-time update: {type: 'ping'}
+index-DkDSO1U7.js:2127 💳 Payment status check completed in 10404ms
+index-DkDSO1U7.js:2127 💳 Payment status check completed in 1012ms
+index-DkDSO1U7.js:2002 useAuthSync Debug: {localStorage_user: '{"id":1,"name":"Steepan","email":"kit27.ad55@gmail…ent":"CSE","currentStudyYear":3,"isPassed":false}', parsed_user: {…}, isAuthenticated: true, userRole: 'student'}
+index-DkDSO1U7.js:2011 📨 User orders list received real-time update: {type: 'new_order', data: {…}}
+index-DkDSO1U7.js:2002 useAuthSync Debug: {localStorage_user: '{"id":1,"name":"Steepan","email":"kit27.ad55@gmail…ent":"CSE","currentStudyYear":3,"isPassed":false}', parsed_user: {…}, isAuthenticated: true, userRole: 'student'}
+index-DkDSO1U7.js:2011 📡 Closing user orders list real-time connection
+index-DkDSO1U7.js:2011 🔄 Setting up real-time order updates for user...
+index-DkDSO1U7.js:2011 📡 User connected to real-time order updates
+index-DkDSO1U7.js:2011 📨 User received real-time update: {type: 'connected', message: 'Connected to real-time order updates'}

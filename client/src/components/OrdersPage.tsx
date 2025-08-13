@@ -23,7 +23,11 @@ export default function OrdersPage() {
   // Enhanced security check for authenticated users only
   useEffect(() => {
     if (!isAuthenticated) {
-      toast("Please log in to view your orders.");
+      toast({
+        title: "Authentication Required", 
+        description: "Please log in to view your orders.",
+        variant: "destructive"
+      });
       setLocation("/login");
       return;
     }
@@ -265,7 +269,7 @@ export default function OrdersPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setLocation(`/order-status/${order.id}`)}
+                      onClick={() => setLocation(`/order-status/${order.id}?from=orders`)}
                     >
                       View Details
                     </Button>
