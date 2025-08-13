@@ -8,6 +8,7 @@ Production builds: Use custom build script (`node scripts/build.js`) to ensure F
 Session Management: Users should stay logged in until manual logout, even after app restarts or deployments. Extended session duration to 90 days for better mobile experience.
 Cache Management: App should automatically clear cache on new deployments while preserving user session data.
 Production Performance: SSE connections should have reconnection logic and keep-alive pings. Payment processing should have timeouts and performance monitoring. Use production-optimized scripts for deployment. Fixed duplicate registration validation and enhanced error handling.
+Real-time Updates: Both "skip payment" and "pay now" orders must trigger identical real-time UI updates for canteen owners via SSE. Payment callback pages should redirect properly to order status pages after successful payment.
 
 # System Architecture
 The application features a **React-based Single Page Application (SPA)** built with **React 18** and **TypeScript**, using **Vite** for fast builds. **Wouter** handles client-side routing, and **Tailwind CSS** with **shadcn/ui** provides a consistent, mobile-first responsive design system. **TanStack Query** manages server state, while **React Hook Form** with **Zod** ensures robust form validation.

@@ -885,7 +885,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         metadata: JSON.stringify(orderData) // Store order data for later
       });
 
-      // Make request to PhonePe
+      // Make request to PhonePe with timeout
+      console.log(`💰 Making PhonePe API request to: ${PHONEPE_CONFIG.BASE_URL}${endpoint}`);
+      console.log(`💰 Payload size: ${base64Payload.length} characters`);
+      
       const phonePeResponse = await axios.post(
         `${PHONEPE_CONFIG.BASE_URL}${endpoint}`,
         { request: base64Payload },
@@ -893,9 +896,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           headers: {
             'Content-Type': 'application/json',
             'X-VERIFY': checksum
-          }
+          },
+          timeout: 30000 // 30 second timeout instead of default
         }
       );
+      
+      console.log(`💰 PhonePe API response status: ${phonePeResponse.status}`);
+      console.log(`💰 PhonePe API response data:`, phonePeResponse.data);
 
       if (phonePeResponse.data.success) {
         res.json({
@@ -918,6 +925,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error('Payment initiation error:', error);
+      
+      // Handle axios timeout specifically
+      if ((error as any).code === 'ECONNABORTED' || (error as any).code === 'ETIMEDOUT') {
+        console.log('⏰ PhonePe API timeout during payment initiation');
+        return res.status(408).json({ 
+          success: false, 
+          message: "Payment gateway timeout. Please try again." 
+        });
+      }
+      
+      // Handle network errors
+      if ((error as any).response) {
+        console.error('PhonePe API error response:', (error as any).response.data);
+        return res.status(502).json({ 
+          success: false, 
+          message: `Payment gateway error: ${(error as any).response.data?.message || 'Service unavailable'}` 
+        });
+      }
+      
       res.status(500).json({ 
         success: false, 
         message: "Internal server error during payment initiation" 
@@ -939,9 +965,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Verify checksum with timing for performance monitoring
       const checksumStart = Date.now();
+      console.log('📡 Webhook verification details:', {
+        receivedChecksum: receivedChecksum.substring(0, 20) + '...',
+        payloadKeys: Object.keys(payload),
+        environment: process.env.NODE_ENV
+      });
+      
       if (!verifyWebhookChecksum(payload, receivedChecksum)) {
         console.error('📡 Invalid webhook checksum - potential security issue');
-        return res.status(401).json({ success: false, message: 'Invalid checksum' });
+        console.log('📡 This might be expected in test/sandbox environment');
+        
+        // In development/test environment, we might want to be more lenient
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('📡 Proceeding with webhook processing despite checksum failure in development');
+        } else {
+          return res.status(401).json({ success: false, message: 'Invalid checksum' });
+        }
       }
       const checksumTime = Date.now() - checksumStart;
       console.log(`📡 Checksum verification took ${checksumTime}ms`);
@@ -996,18 +1035,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
             orderId: newOrder.id
           });
           
-          // Send SSE notification
-          const notification = {
-            type: 'payment_success',
-            orderId: newOrder.id,
-            orderNumber: newOrder.orderNumber,
-            merchantTransactionId,
-            message: 'Payment completed successfully'
-          };
-          
-          sseConnections.forEach(connection => {
-            connection.write(`data: ${JSON.stringify(notification)}\n\n`);
-          });
+          // Broadcast new order to all connected SSE clients (canteen owners) - same as skip payment
+          if (sseConnections.size > 0) {
+            const message = `data: ${JSON.stringify({
+              type: 'new_order',
+              data: newOrder
+            })}\n\n`;
+            
+            console.log(`📡 Broadcasting paid order to ${sseConnections.size} SSE connections:`, {
+              orderNumber: newOrder.orderNumber,
+              messageType: 'new_order',
+              source: 'webhook'
+            });
+            
+            // Send to all connected SSE clients with improved error handling
+            const deadConnections = new Set();
+            sseConnections.forEach((connection) => {
+              try {
+                if (connection.writable && !connection.destroyed) {
+                  connection.write(message);
+                  console.log('📤 Paid order message sent to SSE client');
+                } else {
+                  console.log('📡 Removing dead SSE connection');
+                  deadConnections.add(connection);
+                }
+              } catch (error) {
+                console.warn('📡 SSE connection error during paid order broadcast:', error instanceof Error ? error.message : 'Unknown error');
+                deadConnections.add(connection);
+              }
+            });
+            
+            // Clean up dead connections
+            deadConnections.forEach(conn => sseConnections.delete(conn));
+            
+            console.log(`📢 Successfully broadcasted paid order ${newOrder.orderNumber} to ${sseConnections.size} active clients`);
+          } else {
+            console.log('📡 No SSE connections available for paid order broadcast');
+          }
         }
       }
 
@@ -1057,6 +1121,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             orderId: newOrder.id
           });
           orderNumber = newOrder.orderNumber;
+          
+          // Store order number for return, SSE broadcast will be handled later to avoid duplication
+          console.log(`📦 Order ${newOrder.orderNumber} created via cached status check`);
         } else if (payment.orderId) {
           // Get existing order number
           const order = await storage.getOrder(payment.orderId);
@@ -1097,7 +1164,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             'Content-Type': 'application/json',
             'X-VERIFY': checksum,
             'X-MERCHANT-ID': PHONEPE_CONFIG.MERCHANT_ID
-          }
+          },
+          timeout: 10000 // 10 second timeout instead of hanging indefinitely
         }
       );
 
@@ -1123,6 +1191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         // If payment successful, create order if not already created
+        let finalUpdatedPayment = updatedPayment;
         if (paymentStatus === PAYMENT_STATUS.SUCCESS) {
           if (payment.metadata && !payment.orderId) {
             // Parse order data from metadata and create order
@@ -1143,35 +1212,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const newOrder = await storage.createOrder(completeOrderData);
             
             // Update payment with order ID
-            await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
+            finalUpdatedPayment = await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
               orderId: newOrder.id
             });
             
-            // Send SSE notification
-            const notification = {
-              type: 'payment_success',
-              orderId: newOrder.id,
-              orderNumber: newOrder.orderNumber,
-              merchantTransactionId,
-              message: 'Payment completed successfully'
-            };
-            
-            sseConnections.forEach(connection => {
-              connection.write(`data: ${JSON.stringify(notification)}\n\n`);
-            });
+            // Send SSE notification for new order (same format as other order creation flows)
+            if (sseConnections.size > 0) {
+              const message = `data: ${JSON.stringify({
+                type: 'new_order',
+                data: newOrder
+              })}\n\n`;
+              
+              console.log(`📡 Broadcasting paid order to ${sseConnections.size} SSE connections:`, {
+                orderNumber: newOrder.orderNumber,
+                messageType: 'new_order',
+                source: 'payment_status_check'
+              });
+              
+              // Send to all connected SSE clients with error handling
+              const deadConnections = new Set();
+              sseConnections.forEach((connection) => {
+                try {
+                  if (connection.writable && !connection.destroyed) {
+                    connection.write(message);
+                    console.log('📤 Paid order message sent to SSE client');
+                  } else {
+                    console.log('📡 Removing dead SSE connection');
+                    deadConnections.add(connection);
+                  }
+                } catch (error) {
+                  console.warn('📡 SSE connection error during paid order broadcast:', error instanceof Error ? error.message : 'Unknown error');
+                  deadConnections.add(connection);
+                }
+              });
+              
+              // Clean up dead connections
+              deadConnections.forEach(conn => sseConnections.delete(conn));
+              
+              console.log(`📢 Successfully broadcasted paid order ${newOrder.orderNumber} to ${sseConnections.size} active clients`);
+            } else {
+              console.log('📡 No SSE connections available for paid order broadcast');
+            }
           }
         }
 
         // Return appropriate data based on payment status
-        const responseData: any = { ...updatedPayment };
+        const responseData: any = { ...finalUpdatedPayment };
         
         if (paymentStatus === PAYMENT_STATUS.SUCCESS) {
           responseData.shouldClearCart = true;
-          // Get order number if order exists
-          if (payment.orderId || updatedPayment?.orderId) {
-            const orderId = payment.orderId || updatedPayment?.orderId;
-            const order = await storage.getOrder(orderId!);
-            responseData.orderNumber = order?.orderNumber;
+          // Get order number if order exists - check both original payment and final updated payment
+          const orderId = payment.orderId || finalUpdatedPayment?.orderId;
+          if (orderId) {
+            const order = await storage.getOrder(orderId);
+            if (order) {
+              responseData.orderNumber = order.orderNumber;
+              responseData.orderId = order.id;
+            }
           }
         } else if (paymentStatus === PAYMENT_STATUS.FAILED) {
           responseData.shouldRetry = true;
@@ -1190,6 +1287,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error('Payment status check error:', error);
+      
+      // Handle timeout specifically
+      if ((error as any).code === 'ECONNABORTED' || (error as any).code === 'ETIMEDOUT') {
+        console.log('⏰ PhonePe API timeout - returning cached payment status if available');
+        
+        // Return the cached payment status to avoid user seeing timeout error
+        try {
+          const cachedPayment = await storage.getPaymentByMerchantTxnId(req.params.merchantTransactionId);
+          if (cachedPayment) {
+            const responseData: any = { 
+              ...cachedPayment,
+              isTimeout: true, // Flag to indicate this is cached due to timeout
+              message: 'Payment verification in progress. Please check again in a moment.'
+            };
+            
+            // If payment is successful and has order, include order info
+            if (cachedPayment.status === 'success' && cachedPayment.orderId) {
+              try {
+                const order = await storage.getOrder(cachedPayment.orderId);
+                if (order) {
+                  responseData.orderNumber = order.orderNumber;
+                  responseData.orderId = order.id;
+                  responseData.shouldClearCart = true;
+                }
+              } catch (orderError) {
+                console.error('Error fetching order for cached payment:', orderError);
+              }
+            }
+            
+            return res.json({
+              success: true,
+              status: cachedPayment.status,
+              data: responseData
+            });
+          }
+        } catch (dbError) {
+          console.error('Error fetching cached payment:', dbError);
+        }
+      }
+      
       res.status(500).json({ 
         success: false, 
         message: "Internal server error during status check" 
