@@ -180,6 +180,7 @@ export default function ProfileSetupScreen({ userEmail, userName, onComplete, on
         };
         
         localStorage.setItem('user', JSON.stringify(userDisplayData));
+        localStorage.setItem('session_timestamp', Date.now().toString());
         
         toast({
           title: "Profile Setup Complete!",
@@ -190,9 +191,20 @@ export default function ProfileSetupScreen({ userEmail, userName, onComplete, on
         setLocation("/home");
       } else {
         const error = await response.json();
+        let errorMessage = error.message || "Failed to complete profile setup. Please try again.";
+        
+        // Handle specific duplicate errors with better messaging
+        if (error.message === "Register number is already registered") {
+          errorMessage = "This register number is already registered with another account. Please check your register number or use 'Back to Login' to sign in.";
+        } else if (error.message === "Staff ID is already registered") {
+          errorMessage = "This staff ID is already registered with another account. Please check your staff ID or use 'Back to Login' to sign in.";
+        } else if (error.message === "Email is already registered") {
+          errorMessage = "This email is already registered with another account. Please use 'Back to Login' to sign in.";
+        }
+        
         toast({
           title: "Setup Failed",
-          description: error.message || "Failed to complete profile setup. Please try again.",
+          description: errorMessage,
           variant: "destructive",
         });
       }

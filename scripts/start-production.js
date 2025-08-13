@@ -23,7 +23,7 @@ process.env.NODE_ENV = 'production';
 process.env.VITE_NODE_ENV = 'production';
 
 // Start the server with optimizations
-const server = spawn('node', ['dist/index.js'], {
+const server = spawn('node', ['dist/server/index.js'], {
   stdio: 'inherit',
   env: {
     ...process.env,

@@ -66,6 +66,7 @@ export default function LoginScreen() {
           };
           
           localStorage.setItem('user', JSON.stringify(userDisplayData));
+          localStorage.setItem('session_timestamp', Date.now().toString());
           
           // Redirect based on role
           if (userData.role === 'super_admin') {

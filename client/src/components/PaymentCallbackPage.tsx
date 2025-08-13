@@ -66,10 +66,16 @@ export default function PaymentCallbackPage() {
               localStorage.removeItem('currentPaymentTxnId');
               localStorage.removeItem('pendingOrderData');
               
-              // Get the order to redirect to order status page
-              if (statusResponse.data?.orderNumber) {
+              // Get the order to redirect to order status page with proper fallback
+              const orderNumber = statusResponse.data?.orderNumber || statusResponse.data?.orderId || storedOrderId;
+              if (orderNumber) {
                 setTimeout(() => {
-                  setLocation(`/order-status/${statusResponse.data.orderNumber}`);
+                  setLocation(`/order-status/${orderNumber}`);
+                }, 2000);
+              } else {
+                // Fallback to orders page if no order number available
+                setTimeout(() => {
+                  setLocation('/orders');
                 }, 2000);
               }
             } else if (paymentStatus === 'failed') {

@@ -105,6 +105,7 @@ export function validateStaffId(staffId: string): { isValid: boolean; error?: st
 // Department mapping for better display
 export const DEPARTMENTS = {
   'CSE': 'Computer Science and Engineering',
+  'CS': 'Computer Science',
   'ECE': 'Electronics and Communication Engineering',
   'EEE': 'Electrical and Electronics Engineering',
   'MECH': 'Mechanical Engineering',
@@ -124,6 +125,11 @@ export const DEPARTMENTS = {
   'MCA': 'Master of Computer Applications',
   'MSC': 'Master of Science',
   'BAD': 'Bachelor of Architecture and Design',
+  'AI': 'Artificial Intelligence and Data Science',
+  'AIDS': 'Artificial Intelligence and Data Science',
+  'DS': 'Data Science',
+  'BUS': 'Business Studies',
+  'BS': 'Business Studies',
 } as const;
 
 // Get department full name

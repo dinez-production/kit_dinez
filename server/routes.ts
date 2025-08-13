@@ -81,12 +81,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Set up keep-alive ping to prevent connection timeout in production
     const keepAliveInterval = setInterval(() => {
       try {
-        res.write('data: {"type": "ping"}\n\n');
+        if (res.writable && !res.destroyed) {
+          res.write('data: {"type": "ping"}\n\n');
+        } else {
+          clearInterval(keepAliveInterval);
+          sseConnections.delete(res);
+        }
       } catch (error) {
+        console.warn('📡 SSE keep-alive failed:', error.message);
         clearInterval(keepAliveInterval);
         sseConnections.delete(res);
       }
-    }, 30000); // Send ping every 30 seconds
+    }, 25000); // Send ping every 25 seconds for better reliability
 
     // Handle client disconnect
     req.on('close', () => {
@@ -128,9 +134,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/users", async (req, res) => {
     try {
       const validatedData = insertUserSchema.parse(req.body);
+      
+      // Check for duplicate email first
+      const existingEmailUser = await storage.getUserByEmail(validatedData.email);
+      if (existingEmailUser) {
+        return res.status(409).json({ message: "Email is already registered" });
+      }
+      
+      // Check for duplicate register number if student
+      if (validatedData.role === "student" && validatedData.registerNumber) {
+        const existingRegisterUser = await storage.getUserByRegisterNumber(validatedData.registerNumber);
+        if (existingRegisterUser) {
+          return res.status(409).json({ message: "Register number is already registered" });
+        }
+      }
+      
+      // Check for duplicate staff ID if staff
+      if (validatedData.role === "staff" && validatedData.staffId) {
+        const existingStaffUser = await storage.getUserByStaffId(validatedData.staffId);
+        if (existingStaffUser) {
+          return res.status(409).json({ message: "Staff ID is already registered" });
+        }
+      }
+      
       const user = await storage.createUser(validatedData);
       res.status(201).json(user);
     } catch (error) {
+      console.error("Error creating user:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

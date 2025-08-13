@@ -21,13 +21,13 @@ export function useAuth() {
         const userData = JSON.parse(storedUser);
         const loginTime = parseInt(sessionTimestamp);
         
-        // Session persists until manual logout (30 days max for security)
-        const maxSessionDuration = 30 * 24 * 60 * 60 * 1000; // 30 days
+        // Session persists until manual logout (90 days max for mobile convenience)
+        const maxSessionDuration = 90 * 24 * 60 * 60 * 1000; // 90 days for better mobile experience
         const currentTime = Date.now();
         
         if (currentTime - loginTime < maxSessionDuration) {
           setUser(userData);
-          // Update session timestamp to extend session
+          // Update session timestamp to extend session on each app open
           localStorage.setItem('session_timestamp', currentTime.toString());
         } else {
           // Session expired, clear stored data
