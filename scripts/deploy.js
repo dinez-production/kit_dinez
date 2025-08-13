@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
-
+ * Production Deployment Script
  * 
  * This script performs a safe production deployment:
  * 1. Takes backups of both databases

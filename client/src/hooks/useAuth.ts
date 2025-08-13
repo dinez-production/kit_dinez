@@ -12,27 +12,48 @@ export function useAuth() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load user from localStorage on mount
+    // Load user from localStorage on mount with session persistence
     const storedUser = localStorage.getItem('user');
-    if (storedUser) {
+    const sessionTimestamp = localStorage.getItem('session_timestamp');
+    
+    if (storedUser && sessionTimestamp) {
       try {
-        setUser(JSON.parse(storedUser));
+        const userData = JSON.parse(storedUser);
+        const loginTime = parseInt(sessionTimestamp);
+        
+        // Session persists until manual logout (30 days max for security)
+        const maxSessionDuration = 30 * 24 * 60 * 60 * 1000; // 30 days
+        const currentTime = Date.now();
+        
+        if (currentTime - loginTime < maxSessionDuration) {
+          setUser(userData);
+          // Update session timestamp to extend session
+          localStorage.setItem('session_timestamp', currentTime.toString());
+        } else {
+          // Session expired, clear stored data
+          localStorage.removeItem('user');
+          localStorage.removeItem('session_timestamp');
+        }
       } catch (error) {
         // Error parsing stored user data - clear invalid data
         localStorage.removeItem('user');
+        localStorage.removeItem('session_timestamp');
       }
     }
     setIsLoading(false);
   }, []);
 
   const login = (userData: User) => {
+    const currentTime = Date.now();
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('session_timestamp', currentTime.toString());
   };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('session_timestamp');
   };
 
   const updateUser = (updates: Partial<User>) => {

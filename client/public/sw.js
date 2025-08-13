@@ -1,5 +1,6 @@
 // Service Worker for Dinez Canteen PWA
 const CACHE_NAME = 'dinez-canteen-v1';
+const CACHE_VERSION = 'cache-v1755077641093-6090eab8f6f0e7de'; // Will be replaced during build
 const STATIC_CACHE_URLS = [
   '/',
   '/manifest.json',
@@ -28,7 +29,7 @@ self.addEventListener('install', event => {
   );
 });
 
-// Activate event - clean up old caches
+// Activate event - clean up old caches with version checking
 self.addEventListener('activate', event => {
   console.log('Service Worker: Activating');
   event.waitUntil(
@@ -36,7 +37,8 @@ self.addEventListener('activate', event => {
       .then(cacheNames => {
         return Promise.all(
           cacheNames.map(cache => {
-            if (cache !== CACHE_NAME) {
+            // Delete old caches or caches with different versions
+            if (cache !== CACHE_NAME || !cache.includes(CACHE_VERSION)) {
               console.log('Service Worker: Deleting old cache', cache);
               return caches.delete(cache);
             }
@@ -48,6 +50,14 @@ self.addEventListener('activate', event => {
         return self.clients.claim();
       })
   );
+});
+
+// Handle skip waiting message from main thread
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('Service Worker: Skipping waiting...');
+    self.skipWaiting();
+  }
 });
 
 // Fetch event - serve cached content when offline

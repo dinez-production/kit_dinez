@@ -5,6 +5,8 @@ KIT-Canteen is a modern food ordering application for college campuses, designed
 Preferred communication style: Simple, everyday language.
 Environment variables: Always store credentials in .env file when possible for better organization.
 Production builds: Use custom build script (`node scripts/build.js`) to ensure Firebase environment variables are properly embedded during Vite build process.
+Session Management: Users should stay logged in until manual logout, even after app restarts or deployments.
+Cache Management: App should automatically clear cache on new deployments while preserving user session data.
 
 # System Architecture
 The application features a **React-based Single Page Application (SPA)** built with **React 18** and **TypeScript**, using **Vite** for fast builds. **Wouter** handles client-side routing, and **Tailwind CSS** with **shadcn/ui** provides a consistent, mobile-first responsive design system. **TanStack Query** manages server state, while **React Hook Form** with **Zod** ensures robust form validation.
@@ -13,7 +15,7 @@ The backend is a **Node.js Express server** written in TypeScript, utilizing **E
 
 A **hybrid database architecture** is used, combining **PostgreSQL with Prisma ORM** for user authentication and **MongoDB with Mongoose** for all business data (categories, menu items, orders, payments, etc.). A `HybridStorage` class provides a unified interface for seamless management of both databases.
 
-Authentication supports **Google OAuth** and guest access, with **role-based permissions** (Student, Faculty, Staff, Admin, Super Admin) and session-based authentication offering granular admin controls. Key features include a comprehensive database schema auto-migration system, enhanced Progressive Web App (PWA) support with platform-specific optimizations, real-time order notifications via Server-Sent Events (SSE), and a complete counter order management system for canteen owners.
+Authentication supports **Google OAuth** and guest access, with **role-based permissions** (Student, Faculty, Staff, Admin, Super Admin) and session-based authentication offering granular admin controls. **Persistent session management** ensures users remain logged in until manual logout (up to 30 days for security). Key features include a comprehensive database schema auto-migration system, enhanced Progressive Web App (PWA) support with platform-specific optimizations, **automatic cache invalidation on deployments** with user session preservation, real-time order notifications via Server-Sent Events (SSE), and a complete counter order management system for canteen owners.
 
 # External Dependencies
 **UI and Styling:** @radix-ui, Tailwind CSS, shadcn/ui, Lucide React

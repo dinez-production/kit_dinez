@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Router, Route, Switch } from "wouter";
 import { CartProvider } from "@/contexts/CartContext";
+import { useDeploymentDetection } from "@/utils/deploymentHook";
 import SplashScreen from "./components/SplashScreen";
 import LoginScreen from "./components/LoginScreen";
 import HomeScreen from "./components/HomeScreen";
@@ -65,14 +66,18 @@ import { InstallPWA } from "./components/InstallPWA";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <CartProvider>
-        <Toaster />
-        <Sonner />
-        <InstallPWA />
-        <Router>
+const App = () => {
+  // Enable deployment detection for cache invalidation
+  useDeploymentDetection();
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <CartProvider>
+          <Toaster />
+          <Sonner />
+          <InstallPWA />
+          <Router>
         <Switch>
           <Route path="/" component={SplashScreen} />
           <Route path="/login" component={LoginScreen} />
@@ -209,6 +214,7 @@ const App = () => (
       </CartProvider>
     </TooltipProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;
