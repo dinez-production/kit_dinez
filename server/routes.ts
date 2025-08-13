@@ -59,13 +59,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Server-Sent Events endpoint for real-time order notifications
   app.get("/api/events/orders", (req, res) => {
-    // Set headers for SSE
+    // Set headers for SSE with production optimizations
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Cache-Control'
+      'Access-Control-Allow-Headers': 'Cache-Control',
+      'X-Accel-Buffering': 'no', // Disable Nginx buffering for SSE
+      'Content-Encoding': 'identity' // Prevent compression for SSE
     });
 
     // Add connection to the set
@@ -76,10 +78,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     console.log(`📡 SSE client connected. Total connections: ${sseConnections.size}`);
 
+    // Set up keep-alive ping to prevent connection timeout in production
+    const keepAliveInterval = setInterval(() => {
+      try {
+        res.write('data: {"type": "ping"}\n\n');
+      } catch (error) {
+        clearInterval(keepAliveInterval);
+        sseConnections.delete(res);
+      }
+    }, 30000); // Send ping every 30 seconds
+
     // Handle client disconnect
     req.on('close', () => {
+      clearInterval(keepAliveInterval);
       sseConnections.delete(res);
       console.log(`📡 SSE client disconnected. Total connections: ${sseConnections.size}`);
+    });
+
+    // Handle connection errors
+    req.on('error', () => {
+      clearInterval(keepAliveInterval);
+      sseConnections.delete(res);
     });
   });
 
@@ -401,22 +420,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Broadcast new order to all connected SSE clients (canteen owners)
+      // Broadcast new order to all connected SSE clients (canteen owners) with error handling
       if (sseConnections.size > 0) {
         const message = `data: ${JSON.stringify({
           type: 'new_order',
           data: order
         })}\n\n`;
         
-        // Send to all connected SSE clients
+        // Send to all connected SSE clients with improved error handling
+        const deadConnections = new Set();
         sseConnections.forEach((connection) => {
           try {
-            connection.write(message);
+            if (connection.writable && !connection.destroyed) {
+              connection.write(message);
+            } else {
+              deadConnections.add(connection);
+            }
           } catch (error) {
-            // Remove dead connections
-            sseConnections.delete(connection);
+            deadConnections.add(connection);
+            console.warn('📡 SSE connection error during broadcast:', error.message);
           }
         });
+        
+        // Clean up dead connections
+        deadConnections.forEach(conn => sseConnections.delete(conn));
         
         console.log(`📢 Broadcasted new order ${order.orderNumber} to ${sseConnections.size} connected clients`);
       }
@@ -444,7 +471,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const order = await storage.updateOrder(req.params.id, req.body);
       console.log("Updated order:", order);
       
-      // Broadcast order status update to all connected SSE clients (canteen owners)
+      // Broadcast order status update to all connected SSE clients (canteen owners) with error handling
       if (sseConnections.size > 0 && req.body.status) {
         const message = `data: ${JSON.stringify({
           type: 'order_status_changed',
@@ -453,15 +480,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           newStatus: req.body.status
         })}\n\n`;
         
-        // Send to all connected SSE clients
+        // Send to all connected SSE clients with improved error handling
+        const deadConnections = new Set();
         sseConnections.forEach((connection) => {
           try {
-            connection.write(message);
+            if (connection.writable && !connection.destroyed) {
+              connection.write(message);
+            } else {
+              deadConnections.add(connection);
+            }
           } catch (error) {
-            // Remove dead connections
-            sseConnections.delete(connection);
+            deadConnections.add(connection);
+            console.warn('📡 SSE connection error during status broadcast:', error.message);
           }
         });
+        
+        // Clean up dead connections
+        deadConnections.forEach(conn => sseConnections.delete(conn));
         
         console.log(`📢 Broadcasted order status change for ${order.orderNumber} to ${sseConnections.size} connected clients`);
       }
@@ -838,21 +873,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // PhonePe webhook handler
+  // PhonePe webhook handler with production optimizations
   app.post("/api/payments/webhook", async (req, res) => {
+    const startTime = Date.now();
     try {
       const receivedChecksum = req.headers['x-verify'] as string;
       const payload = req.body;
 
       if (!receivedChecksum) {
+        console.warn('📡 Webhook missing checksum');
         return res.status(401).json({ success: false, message: 'Missing checksum' });
       }
 
-      // Verify checksum
+      // Verify checksum with timing for performance monitoring
+      const checksumStart = Date.now();
       if (!verifyWebhookChecksum(payload, receivedChecksum)) {
-        console.error('Invalid webhook checksum');
+        console.error('📡 Invalid webhook checksum - potential security issue');
         return res.status(401).json({ success: false, message: 'Invalid checksum' });
       }
+      const checksumTime = Date.now() - checksumStart;
+      console.log(`📡 Checksum verification took ${checksumTime}ms`);
 
       const { merchantTransactionId, state, responseCode } = payload.data;
       const phonePeTransactionId = payload.data.transactionId;

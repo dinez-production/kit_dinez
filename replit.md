@@ -7,6 +7,7 @@ Environment variables: Always store credentials in .env file when possible for b
 Production builds: Use custom build script (`node scripts/build.js`) to ensure Firebase environment variables are properly embedded during Vite build process.
 Session Management: Users should stay logged in until manual logout, even after app restarts or deployments.
 Cache Management: App should automatically clear cache on new deployments while preserving user session data.
+Production Performance: SSE connections should have reconnection logic and keep-alive pings. Payment processing should have timeouts and performance monitoring. Use production-optimized scripts for deployment.
 
 # System Architecture
 The application features a **React-based Single Page Application (SPA)** built with **React 18** and **TypeScript**, using **Vite** for fast builds. **Wouter** handles client-side routing, and **Tailwind CSS** with **shadcn/ui** provides a consistent, mobile-first responsive design system. **TanStack Query** manages server state, while **React Hook Form** with **Zod** ensures robust form validation.

@@ -71,34 +71,73 @@ export default function OrderStatusPage() {
   // Real-time order updates via Server-Sent Events (SSE) for user-facing status updates
   useEffect(() => {
     console.log("🔄 Setting up real-time order updates for user...");
-    const eventSource = new EventSource('/api/events/orders');
+    let eventSource: EventSource | null = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+    let reconnectTimeout: NodeJS.Timeout;
 
-    eventSource.onopen = () => {
-      console.log("📡 User connected to real-time order updates");
-    };
-
-    eventSource.onmessage = (event) => {
+    const connect = () => {
       try {
-        const data = JSON.parse(event.data);
-        console.log("📨 User received real-time update:", data);
-        
-        if (data.type === 'order_updated' || data.type === 'order_status_changed') {
-          // Refresh orders when there's a status update
-          refetch();
-        }
+        eventSource = new EventSource('/api/events/orders');
+
+        eventSource.onopen = () => {
+          console.log("📡 User connected to real-time order updates");
+          reconnectAttempts = 0; // Reset on successful connection
+        };
+
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log("📨 User received real-time update:", data);
+            
+            // Handle different message types
+            if (data.type === 'order_updated' || data.type === 'order_status_changed') {
+              // Refresh orders when there's a status update
+              refetch();
+            } else if (data.type === 'ping') {
+              // Ignore keep-alive pings
+              return;
+            }
+          } catch (error) {
+            console.error("Error parsing SSE message:", error);
+          }
+        };
+
+        eventSource.onerror = (error) => {
+          console.error("📡 User SSE connection error:", error);
+          
+          // Attempt reconnection in production environment
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000); // Exponential backoff, max 30s
+            console.log(`📡 Attempting reconnection ${reconnectAttempts}/${maxReconnectAttempts} in ${delay}ms`);
+            
+            reconnectTimeout = setTimeout(() => {
+              if (eventSource) {
+                eventSource.close();
+              }
+              connect();
+            }, delay);
+          } else {
+            console.warn("📡 Max reconnection attempts reached. SSE disabled.");
+          }
+        };
       } catch (error) {
-        console.error("Error parsing SSE message:", error);
+        console.error("📡 Failed to create SSE connection:", error);
       }
     };
 
-    eventSource.onerror = (error) => {
-      console.error("📡 User SSE connection error:", error);
-    };
+    connect();
 
     // Cleanup on unmount
     return () => {
       console.log("📡 Closing user real-time connection");
-      eventSource.close();
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      if (eventSource) {
+        eventSource.close();
+      }
     };
   }, [refetch]);
 

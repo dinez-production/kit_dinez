@@ -15,6 +15,7 @@ export default function PaymentCallbackPage() {
 
   useEffect(() => {
     const checkPaymentStatus = async () => {
+      const startTime = Date.now();
       try {
         // Get stored transaction ID and order ID
         const merchantTransactionId = localStorage.getItem('currentPaymentTxnId');
@@ -32,72 +33,92 @@ export default function PaymentCallbackPage() {
 
         setOrderId(storedOrderId || '');
 
-        // Check payment status
-        const statusResponse = await apiRequest(`/api/payments/status/${merchantTransactionId}`);
-        
-        if (statusResponse.success) {
-          const paymentStatus = statusResponse.status;
+        // Check payment status with timeout for production
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+        try {
+          const statusResponse = await apiRequest(`/api/payments/status/${merchantTransactionId}`, {
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
           
-          if (paymentStatus === 'success') {
-            setStatus('success');
-            setPaymentData(statusResponse.data);
+          const responseTime = Date.now() - startTime;
+          console.log(`💳 Payment status check completed in ${responseTime}ms`);
+          
+          if (statusResponse.success) {
+            const paymentStatus = statusResponse.status;
             
-            // Clear cart if payment successful
-            if (statusResponse.data?.shouldClearCart) {
-              clearCart();
-              toast({
-                title: "Payment Successful",
-                description: "Your order has been confirmed and cart has been cleared!",
-              });
-            }
-            
-            // Clear stored transaction data
-            localStorage.removeItem('currentPaymentTxnId');
-            localStorage.removeItem('pendingOrderData');
-            
-            // Get the order to redirect to order status page
-            if (statusResponse.data?.orderNumber) {
-              setTimeout(() => {
-                setLocation(`/order-status/${statusResponse.data.orderNumber}`);
-              }, 2000);
-            }
-          } else if (paymentStatus === 'failed') {
-            setStatus('failed');
-            setPaymentData(statusResponse.data);
-            
-            // Clear transaction ID but keep pending order data for retry
-            localStorage.removeItem('currentPaymentTxnId');
-            
-            toast({
-              title: "Payment Failed",
-              description: "Your payment could not be processed. Please try again.",
-              variant: "destructive"
-            });
-          } else if (paymentStatus === 'pending') {
-            setStatus('pending');
-            setPaymentData(statusResponse.data);
-            
-            // Keep checking for a bit more, but add timeout
-            let retryCount = (window as any).paymentRetryCount || 0;
-            if (retryCount < 15) { // Max 15 retries (45 seconds)
-              (window as any).paymentRetryCount = retryCount + 1;
-              setTimeout(checkPaymentStatus, 3000);
-            } else {
-              // After max retries, show timeout but keep order in pending state
-              setStatus('pending');
+            if (paymentStatus === 'success') {
+              setStatus('success');
+              setPaymentData(statusResponse.data);
+              
+              // Clear cart if payment successful
+              if (statusResponse.data?.shouldClearCart) {
+                clearCart();
+                toast({
+                  title: "Payment Successful",
+                  description: "Your order has been confirmed and cart has been cleared!",
+                });
+              }
+              
+              // Clear stored transaction data
+              localStorage.removeItem('currentPaymentTxnId');
+              localStorage.removeItem('pendingOrderData');
+              
+              // Get the order to redirect to order status page
+              if (statusResponse.data?.orderNumber) {
+                setTimeout(() => {
+                  setLocation(`/order-status/${statusResponse.data.orderNumber}`);
+                }, 2000);
+              }
+            } else if (paymentStatus === 'failed') {
+              setStatus('failed');
+              setPaymentData(statusResponse.data);
+              
+              // Clear transaction ID but keep pending order data for retry
+              localStorage.removeItem('currentPaymentTxnId');
               
               toast({
-                title: "Payment Still Processing",
-                description: "Payment is taking longer than expected. Check your orders later.",
-                variant: "default"
+                title: "Payment Failed",
+                description: "Your payment could not be processed. Please try again.",
+                variant: "destructive"
               });
+            } else if (paymentStatus === 'pending') {
+              setStatus('pending');
+              setPaymentData(statusResponse.data);
+              
+              // Keep checking for a bit more, but add timeout
+              let retryCount = (window as any).paymentRetryCount || 0;
+              if (retryCount < 15) { // Max 15 retries (45 seconds)
+                (window as any).paymentRetryCount = retryCount + 1;
+                setTimeout(checkPaymentStatus, 3000);
+              } else {
+                // After max retries, show timeout but keep order in pending state
+                setStatus('pending');
+                
+                toast({
+                  title: "Payment Still Processing",
+                  description: "Payment is taking longer than expected. Check your orders later.",
+                  variant: "default"
+                });
+              }
             }
+          } else {
+            setStatus('failed');
+            toast({
+              title: "Payment Status Error",
+              description: statusResponse.message || "Unable to check payment status.",
+              variant: "destructive"
+            });
           }
-        } else {
+        } catch (timeoutError) {
+          clearTimeout(timeoutId);
+          console.error('Payment status check timeout:', timeoutError);
           setStatus('failed');
           toast({
-            title: "Payment Status Error",
-            description: statusResponse.message || "Unable to check payment status.",
+            title: "Payment Timeout",
+            description: "Payment verification timed out. Please check your orders later.",
             variant: "destructive"
           });
         }
@@ -113,7 +134,7 @@ export default function PaymentCallbackPage() {
     };
 
     checkPaymentStatus();
-  }, [setLocation]);
+  }, [setLocation, clearCart]);
 
   const handleRetry = () => {
     // Clear payment transaction data but keep pending order data
@@ -153,14 +174,16 @@ export default function PaymentCallbackPage() {
               <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-500" />
               <h2 className="text-xl font-semibold mb-2 text-green-700">Payment Successful!</h2>
               <p className="text-muted-foreground mb-4">
-                Your order has been confirmed. You will be redirected to the order status page.
+                Your order has been confirmed.
               </p>
-              <button
-                onClick={handleGoToOrders}
-                className="text-primary hover:underline"
-              >
-                View My Orders
-              </button>
+              {paymentData?.orderNumber && (
+                <p className="text-sm text-muted-foreground">
+                  Order Number: {paymentData.orderNumber}
+                </p>
+              )}
+              <p className="text-sm text-muted-foreground mt-2">
+                Redirecting to order status...
+              </p>
             </>
           )}
 
@@ -168,24 +191,19 @@ export default function PaymentCallbackPage() {
             <>
               <XCircle className="w-12 h-12 mx-auto mb-4 text-red-500" />
               <h2 className="text-xl font-semibold mb-2 text-red-700">Payment Failed</h2>
-              <p className="text-muted-foreground mb-2">
-                Unfortunately, your payment could not be processed.
+              <p className="text-muted-foreground mb-6">
+                We couldn't process your payment. Please try again.
               </p>
-              {paymentData?.responseMessage && (
-                <p className="text-sm text-muted-foreground mb-4 p-2 bg-red-50 rounded">
-                  Reason: {paymentData.responseMessage}
-                </p>
-              )}
-              <div className="space-y-3">
-                <button
+              <div className="space-y-2">
+                <button 
                   onClick={handleRetry}
-                  className="bg-primary text-primary-foreground px-6 py-2 rounded-md hover:bg-primary/90 w-full"
+                  className="w-full bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors"
                 >
-                  Retry Payment
+                  Try Again
                 </button>
-                <button
+                <button 
                   onClick={() => setLocation('/cart')}
-                  className="border border-gray-300 text-gray-700 px-6 py-2 rounded-md hover:bg-gray-50 w-full"
+                  className="w-full bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/90 transition-colors"
                 >
                   Back to Cart
                 </button>
@@ -195,34 +213,23 @@ export default function PaymentCallbackPage() {
 
           {status === 'pending' && (
             <>
-              <Clock className="w-12 h-12 mx-auto mb-4 text-yellow-500 animate-pulse" />
+              <Clock className="w-12 h-12 mx-auto mb-4 text-yellow-500" />
               <h2 className="text-xl font-semibold mb-2 text-yellow-700">Payment Processing</h2>
-              <p className="text-muted-foreground mb-2">
-                Your payment is being processed. This may take a few moments.
+              <p className="text-muted-foreground mb-6">
+                Your payment is still being processed. This may take a few minutes.
               </p>
-              <p className="text-sm text-yellow-600 mb-4 p-2 bg-yellow-50 rounded">
-                Please don't close this page. Your order will be created once payment is confirmed.
-              </p>
-              {paymentData && (
-                <div className="text-xs text-muted-foreground mb-4">
-                  Transaction ID: {paymentData.merchantTransactionId}
-                </div>
-              )}
-              <div className="flex gap-2 justify-center">
-                <button
-                  onClick={() => setLocation('/orders')}
-                  className="border border-primary text-primary px-4 py-2 rounded-md hover:bg-primary/10"
+              <div className="space-y-2">
+                <button 
+                  onClick={handleGoToOrders}
+                  className="w-full bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors"
                 >
-                  Check My Orders
+                  Check Orders
                 </button>
-                <button
-                  onClick={() => {
-                    // Don't clear transaction data, let user manually exit
-                    setLocation('/home');
-                  }}
-                  className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600"
+                <button 
+                  onClick={() => setLocation('/')}
+                  className="w-full bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/90 transition-colors"
                 >
-                  Continue Shopping
+                  Back to Home
                 </button>
               </div>
             </>
