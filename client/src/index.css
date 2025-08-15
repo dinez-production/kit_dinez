@@ -245,3 +245,5 @@
     box-shadow: 0 0 30px hsl(var(--primary) / 0.8);
   }
 }
+
+/* Toast styles removed - now using full-screen mandatory update modal */

@@ -182,24 +182,44 @@ export class HybridStorage implements IStorage {
 
   async getUserByRegisterNumber(registerNumber: string): Promise<User | undefined> {
     const db = getPostgresDb();
-    const user = await db.user.findUnique({
-      where: { registerNumber }
+    // Case-insensitive search for register number
+    const user = await db.user.findFirst({
+      where: { 
+        registerNumber: {
+          equals: registerNumber,
+          mode: 'insensitive'
+        }
+      }
     });
     return user || undefined;
   }
 
   async getUserByStaffId(staffId: string): Promise<User | undefined> {
     const db = getPostgresDb();
-    const user = await db.user.findUnique({
-      where: { staffId }
+    // Case-insensitive search for staff ID
+    const user = await db.user.findFirst({
+      where: { 
+        staffId: {
+          equals: staffId,
+          mode: 'insensitive'
+        }
+      }
     });
     return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const db = getPostgresDb();
+    
+    // Normalize register number and staff ID to uppercase for consistency
+    const normalizedUser = {
+      ...insertUser,
+      registerNumber: insertUser.registerNumber?.toUpperCase(),
+      staffId: insertUser.staffId?.toUpperCase()
+    };
+    
     const user = await db.user.create({
-      data: insertUser
+      data: normalizedUser
     });
     return user;
   }

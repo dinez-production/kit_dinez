@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { isPWAInstalled, getPWAAuthState } from "@/utils/pwaAuth";
+import { serverRestartDetector } from "@/utils/devUpdateDetector";
 
 export default function SplashScreen() {
   const [, setLocation] = useLocation();
@@ -18,6 +19,10 @@ export default function SplashScreen() {
     });
 
     const timer = setTimeout(() => {
+      // Trigger server restart detection once after splash screen
+      console.log('🚀 Splash screen complete - checking for server restart...');
+      serverRestartDetector.startMonitoring();
+      
       // Get comprehensive PWA authentication state
       const pwaAuthState = getPWAAuthState();
       

@@ -29,6 +29,9 @@ import axios from "axios";
 // Store SSE connections for real-time notifications
 const sseConnections = new Set<any>();
 
+// Global server start time for development update detection
+const SERVER_START_TIME = Date.now();
+
 // Performance optimization: Cache payment status API failures to avoid repeated slow calls
 const paymentStatusCache = new Map<string, { 
   lastAttempt: number; 
@@ -45,6 +48,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Simple health check endpoint for quick status
   app.get("/api/status", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  // Server info endpoint for development update detection
+  app.get("/api/server-info", (req, res) => {
+    res.json({
+      startTime: SERVER_START_TIME,
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development',
+      version: '1.0.0',
+      timestamp: new Date().toISOString()
+    });
   });
 
   // Database schema health check endpoint
@@ -150,17 +164,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(409).json({ message: "Email is already registered" });
       }
       
-      // Check for duplicate register number if student
+      // Check for duplicate register number if student (case-insensitive)
       if (validatedData.role === "student" && validatedData.registerNumber) {
-        const existingRegisterUser = await storage.getUserByRegisterNumber(validatedData.registerNumber);
+        const normalizedRegisterNumber = validatedData.registerNumber.toUpperCase();
+        const existingRegisterUser = await storage.getUserByRegisterNumber(normalizedRegisterNumber);
         if (existingRegisterUser) {
           return res.status(409).json({ message: "Register number is already registered" });
         }
       }
       
-      // Check for duplicate staff ID if staff
+      // Check for duplicate staff ID if staff (case-insensitive)
       if (validatedData.role === "staff" && validatedData.staffId) {
-        const existingStaffUser = await storage.getUserByStaffId(validatedData.staffId);
+        const normalizedStaffId = validatedData.staffId.toUpperCase();
+        const existingStaffUser = await storage.getUserByStaffId(normalizedStaffId);
         if (existingStaffUser) {
           return res.status(409).json({ message: "Staff ID is already registered" });
         }
@@ -188,7 +204,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/users/by-register/:registerNumber", async (req, res) => {
     try {
-      const user = await storage.getUserByRegisterNumber(req.params.registerNumber);
+      // Normalize register number for case-insensitive lookup
+      const normalizedRegisterNumber = req.params.registerNumber.toUpperCase();
+      const user = await storage.getUserByRegisterNumber(normalizedRegisterNumber);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -200,7 +218,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/users/by-staff/:staffId", async (req, res) => {
     try {
-      const user = await storage.getUserByStaffId(req.params.staffId);
+      // Normalize staff ID for case-insensitive lookup
+      const normalizedStaffId = req.params.staffId.toUpperCase();
+      const user = await storage.getUserByStaffId(normalizedStaffId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -844,30 +864,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate unique merchant transaction ID
       const merchantTransactionId = `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // Create callback URLs - Dynamic base URL detection
-      let baseUrl: string;
-      
-      if (process.env.REPLIT_DOMAINS) {
-        // Replit deployment - use the domain from environment
-        baseUrl = `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`;
-      } else if (req.get('host')) {
-        // Use the actual host from the request header
-        const protocol = req.get('x-forwarded-proto') || (req.connection as any)?.encrypted ? 'https' : 'http';
-        baseUrl = `${protocol}://${req.get('host')}`;
-      } else {
-        // Final fallback to localhost with current port
-        const port = process.env.PORT || '5000';
-        baseUrl = `http://localhost:${port}`;
-      }
+      // Optimized URL generation - cache base URL to avoid repeated detection
+      const baseUrl = process.env.REPLIT_DOMAINS 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+        : req.get('host') 
+          ? `${req.get('x-forwarded-proto') || 'https'}://${req.get('host')}`
+          : `http://localhost:${process.env.PORT || '5000'}`;
       
       const redirectUrl = `${baseUrl}/payment-callback`;
       const callbackUrl = `${baseUrl}/api/payments/webhook`;
       
-      // Log the generated URLs for debugging
-      console.log(`💰 Payment URLs generated:`);
-      console.log(`   Base URL: ${baseUrl}`);
-      console.log(`   Redirect URL: ${redirectUrl}`);
-      console.log(`   Callback URL: ${callbackUrl}`);
+      // Minimal logging for production performance
+      console.log(`💰 Payment URLs generated: ${baseUrl}`);
 
       // Create payment payload
       const paymentPayload = createPaymentPayload(
@@ -885,18 +893,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Base64 encode the payload
       const base64Payload = Buffer.from(JSON.stringify(paymentPayload)).toString('base64');
 
-      // Store payment record with order data for later order creation
-      await storage.createPayment({
-        merchantTransactionId,
-        amount: amount * 100, // Store in paise
-        status: PAYMENT_STATUS.PENDING,
-        checksum,
-        metadata: JSON.stringify(orderData) // Store order data for later
-      });
-
-      // Make request to PhonePe with timeout
+      // Make request to PhonePe with optimized timeout (reduce from 30s to 10s)
       console.log(`💰 Making PhonePe API request to: ${PHONEPE_CONFIG.BASE_URL}${endpoint}`);
-      console.log(`💰 Payload size: ${base64Payload.length} characters`);
       
       const phonePeResponse = await axios.post(
         `${PHONEPE_CONFIG.BASE_URL}${endpoint}`,
@@ -906,27 +904,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
             'Content-Type': 'application/json',
             'X-VERIFY': checksum
           },
-          timeout: 30000 // 30 second timeout instead of default
+          timeout: 10000 // 10 second timeout for faster response
         }
       );
       
       console.log(`💰 PhonePe API response status: ${phonePeResponse.status}`);
-      console.log(`💰 PhonePe API response data:`, phonePeResponse.data);
 
       if (phonePeResponse.data.success) {
+        // Store payment record AFTER successful PhonePe response for better performance
+        await storage.createPayment({
+          merchantTransactionId,
+          amount: amount * 100, // Store in paise
+          status: PAYMENT_STATUS.PENDING,
+          checksum,
+          metadata: JSON.stringify(orderData) // Store order data for later
+        });
+
         res.json({
           success: true,
           merchantTransactionId,
           paymentUrl: phonePeResponse.data.data.instrumentResponse.redirectInfo.url
         });
       } else {
-        // Update payment status to failed
-        await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
-          status: PAYMENT_STATUS.FAILED,
-          responseCode: phonePeResponse.data.code,
-          responseMessage: phonePeResponse.data.message
-        });
-        
         res.status(400).json({
           success: false,
           message: phonePeResponse.data.message || "Payment initiation failed"

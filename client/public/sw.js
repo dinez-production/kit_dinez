@@ -1,6 +1,7 @@
 // Service Worker for Dinez Canteen PWA
 const CACHE_NAME = 'dinez-canteen-v1';
-const CACHE_VERSION = 'cache-v1755077641093-6090eab8f6f0e7de'; // Will be replaced during build
+const CACHE_VERSION = 'cache-v' + Date.now(); // Dynamic cache version
+const APP_VERSION = '1.0.0'; // App version for tracking
 const STATIC_CACHE_URLS = [
   '/',
   '/manifest.json',
@@ -13,15 +14,18 @@ const STATIC_CACHE_URLS = [
 // Install event - cache static resources
 self.addEventListener('install', event => {
   console.log('Service Worker: Installing');
+  
+  // In development, always skip waiting for immediate updates
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname.includes('replit.dev')) {
+    console.log('🔧 Development mode: Skipping waiting immediately');
+    self.skipWaiting();
+  }
+  
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
         console.log('Service Worker: Caching static files');
         return cache.addAll(STATIC_CACHE_URLS);
-      })
-      .then(() => {
-        console.log('Service Worker: Skip waiting');
-        return self.skipWaiting();
       })
       .catch(err => {
         console.log('Service Worker: Cache failed', err);
@@ -52,11 +56,19 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Handle skip waiting message from main thread
+// Handle messages from main thread
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     console.log('Service Worker: Skipping waiting...');
     self.skipWaiting();
+  }
+  
+  if (event.data && event.data.type === 'GET_VERSION') {
+    // Send version info back to client
+    event.ports[0].postMessage({
+      version: APP_VERSION,
+      cacheVersion: CACHE_VERSION
+    });
   }
 });
 

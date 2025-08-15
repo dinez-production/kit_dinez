@@ -11,6 +11,7 @@ import { ArrowLeft, Edit, Clock, Star, LogOut, ChevronRight } from "lucide-react
 import BottomNavigation from "./BottomNavigation";
 import { queryClient } from "@/lib/queryClient";
 import UserProfileDisplay from "./UserProfileDisplay";
+import AppUpdateButton from "./AppUpdateButton";
 import { formatOrderIdDisplay } from "@shared/utils";
 
 export default function ProfilePage() {
@@ -110,7 +111,7 @@ export default function ProfilePage() {
         <div className="flex items-center space-x-4 mt-6">
           <Avatar className="w-20 h-20">
             <AvatarFallback className="bg-white text-primary text-2xl font-bold">
-              {userInfo?.name ? userInfo.name.split(' ').map(n => n[0]).join('') : 'U'}
+              {userInfo?.name ? userInfo.name.split(' ').map((n: string) => n[0]).join('') : 'U'}
             </AvatarFallback>
           </Avatar>
           <div className="text-white">
@@ -252,6 +253,11 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
+        {/* App Updates */}
+        <div className="mb-4">
+          <AppUpdateButton />
+        </div>
+
         {/* Logout */}
         <Card className="shadow-card">
           <CardContent className="p-4">
@@ -259,6 +265,7 @@ export default function ProfilePage() {
               variant="destructive"
               className="w-full"
               onClick={handleLogout}
+              data-testid="button-logout"
             >
               <LogOut className="w-4 h-4 mr-2" />
               Logout

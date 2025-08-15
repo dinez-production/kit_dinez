@@ -180,8 +180,8 @@ export const insertComplaintSchema = z.object({
 
 // Validation for staff ID format
 export const staffIdSchema = z.string().regex(
-  /^\d{6}$/,
-  "Staff ID must be 6 digits (e.g., 000001)"
+  /^[A-Za-z_]{3}\d{3}$/,
+  "Staff ID must be 3 letters followed by 3 numbers (e.g., ABC123). Use '_' for missing letters."
 );
 
 // Form validation schemas for API endpoints

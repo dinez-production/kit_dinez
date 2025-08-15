@@ -145,6 +145,9 @@ export default function CheckoutPage() {
   };
 
   const handlePlaceOrder = async () => {
+    // Show immediate feedback to user
+    setPaymentInProgress(true);
+    
     // Start the timer
     startPaymentTimer();
 
@@ -161,6 +164,13 @@ export default function CheckoutPage() {
       // Store order data in localStorage for later order creation
       localStorage.setItem('pendingOrderData', JSON.stringify(orderData));
       
+      // Show loading toast immediately with performance tracking
+      const startTime = Date.now();
+      toast({
+        title: "Initiating Payment",
+        description: "Connecting to payment gateway...",
+      });
+      
       // Initiate PhonePe payment without creating order first
       const paymentResponse = await apiRequest('/api/payments/initiate', {
         method: 'POST',
@@ -172,10 +182,20 @@ export default function CheckoutPage() {
       });
 
       if (paymentResponse.success) {
+        // Log performance metrics
+        const responseTime = Date.now() - startTime;
+        console.log(`💳 Payment initiation completed in ${responseTime}ms`);
+        
         // Store merchant transaction ID for status checking
         localStorage.setItem('currentPaymentTxnId', paymentResponse.merchantTransactionId);
         
-        // Redirect to PhonePe payment page
+        // Update loading message
+        toast({
+          title: "Payment Gateway Ready",
+          description: "Redirecting now...",
+        });
+        
+        // Immediate redirect - no delay needed
         window.location.href = paymentResponse.paymentUrl;
       } else {
         // Payment initiation failed
@@ -201,9 +221,13 @@ export default function CheckoutPage() {
       // Clean up stored data
       localStorage.removeItem('pendingOrderData');
       
+      const errorMessage = (error as any).message?.includes('timeout') 
+        ? "Payment gateway is taking too long to respond. Please try again."
+        : "Failed to process payment. Please try again.";
+      
       toast({
         title: "Payment Error",
-        description: "Failed to process payment. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       });
       console.error('Payment error:', error);
@@ -330,7 +354,14 @@ export default function CheckoutPage() {
           onClick={handlePlaceOrder}
           disabled={paymentInProgress || cart.length === 0}
         >
-          {paymentInProgress ? 'Processing...' : `Pay Now • ₹${total}`}
+          {paymentInProgress ? (
+            <>
+              <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Redirecting to PaymentGateway...
+            </>
+          ) : (
+            `Pay Now • ₹${total}`
+          )}
         </Button>
         
         {/* Test mode - Direct order creation */}
