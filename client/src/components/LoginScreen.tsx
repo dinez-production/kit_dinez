@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { signInWithGoogle, signInWithGoogleRedirect, handleGoogleRedirect } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import ProfileSetupScreen from "./ProfileSetupScreen";
 import ForgotEmailScreen from "./ForgotEmailScreen";
@@ -11,6 +12,7 @@ import LoginIssuesScreen from "./LoginIssuesScreen";
 export default function LoginScreen() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showForgotEmail, setShowForgotEmail] = useState(false);
   const [showLoginIssues, setShowLoginIssues] = useState(false);
@@ -65,8 +67,8 @@ export default function LoginScreen() {
             }),
           };
           
-          localStorage.setItem('user', JSON.stringify(userDisplayData));
-          localStorage.setItem('session_timestamp', Date.now().toString());
+          // Use the proper login function to maintain authentication state
+          login(userDisplayData);
           
           // Redirect based on role
           if (userData.role === 'super_admin') {
@@ -106,12 +108,12 @@ export default function LoginScreen() {
           
           if (createResponse.ok) {
             const newUser = await createResponse.json();
-            localStorage.setItem('user', JSON.stringify({
+            login({
               id: newUser.id,
               name: newUser.name,
               email: newUser.email,
               role: newUser.role,
-            }));
+            });
             toast({ title: "Welcome Super Admin!", description: "Access to all system controls" });
             setLocation("/admin");
           }
@@ -133,12 +135,12 @@ export default function LoginScreen() {
           
           if (createResponse.ok) {
             const newUser = await createResponse.json();
-            localStorage.setItem('user', JSON.stringify({
+            login({
               id: newUser.id,
               name: newUser.name,
               email: newUser.email,
               role: newUser.role,
-            }));
+            });
             toast({ title: "Welcome Canteen Owner!", description: "Manage your canteen operations" });
             setLocation("/canteen-owner-dashboard");
           }

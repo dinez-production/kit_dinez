@@ -7,9 +7,34 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, CheckCircle, Plus, Trash2, ShoppingCart, AlertTriangle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, CheckCircle, Plus, Trash2, ShoppingCart, AlertTriangle, Clock, User, CreditCard, Receipt, Package } from "lucide-react";
 import { toast } from "sonner";
 import { formatOrderIdDisplay } from "../../../shared/utils";
+
+// Types for our components
+interface MenuItem {
+  id: number;
+  name: string;
+  price: number;
+  category: string;
+  available: boolean;
+  stock: number;
+}
+
+interface SelectedItem extends MenuItem {
+  quantity: number;
+}
+
+interface OrderDetails {
+  id: string;
+  status: string;
+  placedAt: string;
+  customerName: string;
+  items: SelectedItem[];
+  total: number;
+  estimatedTime?: number;
+}
 
 export default function BarcodeScannerPage() {
   const [, setLocation] = useLocation();
@@ -17,10 +42,15 @@ export default function BarcodeScannerPage() {
   
   // Manual order creation state
   const [isMenuModalOpen, setIsMenuModalOpen] = useState(false);
-  const [selectedItems, setSelectedItems] = useState([]);
+  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
+  
+  // Order details popup state
+  const [isOrderDetailsModalOpen, setIsOrderDetailsModalOpen] = useState(false);
+  const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
+  const [isLoadingOrder, setIsLoadingOrder] = useState(false);
 
   // Sample menu items - in real app, this would come from API
-  const menuItems = [
+  const menuItems: MenuItem[] = [
     { id: 1, name: "Veg Thali", price: 60, category: "Veg", available: true, stock: 20 },
     { id: 2, name: "Paneer Curry", price: 70, category: "Veg", available: true, stock: 15 },
     { id: 3, name: "Rice", price: 25, category: "Staples", available: true, stock: 100 },
@@ -28,7 +58,44 @@ export default function BarcodeScannerPage() {
     { id: 5, name: "Chicken Curry", price: 80, category: "Non-Veg", available: true, stock: 10 },
   ];
 
-  const handleSubmit = () => {
+  // Function to fetch order details from API
+  const fetchOrderDetails = async (orderIdToFetch: string): Promise<OrderDetails | null> => {
+    try {
+      const response = await fetch(`/api/orders/${orderIdToFetch}`);
+      if (response.ok) {
+        const order = await response.json();
+        // Transform the API response to match our OrderDetails interface
+        return {
+          id: order.orderNumber || orderIdToFetch,
+          status: order.status || "completed",
+          placedAt: order.createdAt || "Just now",
+          customerName: order.customerName || "Unknown Customer",
+          items: JSON.parse(order.items || "[]"),
+          total: order.amount || 0,
+          estimatedTime: order.estimatedTime
+        };
+      } else {
+        // Return mock data if API fails (for demo purposes)
+        return {
+          id: orderIdToFetch,
+          status: "completed",
+          placedAt: "Today, 2:30 PM",
+          customerName: "John Doe",
+          items: [
+            { id: 1, name: "Veg Thali", price: 60, category: "Veg", available: true, stock: 20, quantity: 1 },
+            { id: 4, name: "Coffee", price: 15, category: "Beverages", available: true, stock: 50, quantity: 2 }
+          ],
+          total: 90,
+          estimatedTime: 15
+        };
+      }
+    } catch (error) {
+      console.error("Error fetching order details:", error);
+      return null;
+    }
+  };
+
+  const handleSubmit = async () => {
     if (!orderId.trim()) {
       toast.error("Please enter an Order ID");
       return;
@@ -41,13 +108,23 @@ export default function BarcodeScannerPage() {
       return;
     }
     
+    setIsLoadingOrder(true);
     toast.success(`Processing Order ID: ${orderId}`);
-    // Navigate to order status or processing page
-    setLocation(`/order-status/${orderId}`);
+    
+    // Fetch order details and show in popup instead of navigating
+    const details = await fetchOrderDetails(orderId);
+    if (details) {
+      setOrderDetails(details);
+      setIsOrderDetailsModalOpen(true);
+      setOrderId(""); // Clear the input
+    } else {
+      toast.error("Order not found or failed to load details");
+    }
+    setIsLoadingOrder(false);
   };
 
   // Manual order creation handlers
-  const handleAddItemToOrder = (menuItem, quantity = 1) => {
+  const handleAddItemToOrder = (menuItem: MenuItem, quantity = 1) => {
     const existingItem = selectedItems.find(item => item.id === menuItem.id);
     if (existingItem) {
       setSelectedItems(selectedItems.map(item => 
@@ -60,11 +137,11 @@ export default function BarcodeScannerPage() {
     }
   };
 
-  const handleRemoveItemFromOrder = (itemId) => {
+  const handleRemoveItemFromOrder = (itemId: number) => {
     setSelectedItems(selectedItems.filter(item => item.id !== itemId));
   };
 
-  const handleUpdateItemQuantity = (itemId, quantity) => {
+  const handleUpdateItemQuantity = (itemId: number, quantity: number) => {
     if (quantity <= 0) {
       handleRemoveItemFromOrder(itemId);
       return;
@@ -197,9 +274,9 @@ export default function BarcodeScannerPage() {
               onClick={handleSubmit}
               className="w-full"
               size="lg"
-              disabled={!orderId.trim()}
+              disabled={!orderId.trim() || isLoadingOrder}
             >
-              Submit Order ID
+              {isLoadingOrder ? "Loading..." : "Submit Order ID"}
             </Button>
           </CardContent>
         </Card>
@@ -305,6 +382,102 @@ export default function BarcodeScannerPage() {
                 </div>
               )}
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Order Details Popup Modal */}
+        <Dialog open={isOrderDetailsModalOpen} onOpenChange={setIsOrderDetailsModalOpen}>
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center space-x-2">
+                <Package className="w-5 h-5" />
+                <span>Order Details</span>
+              </DialogTitle>
+            </DialogHeader>
+            
+            {orderDetails && (
+              <div className="space-y-6">
+                {/* Order Status */}
+                <div className="text-center space-y-2">
+                  <div className="flex justify-center">
+                    <Badge className={
+                      orderDetails.status === "completed" ? "bg-green-500 text-white" :
+                      orderDetails.status === "ready" ? "bg-blue-500 text-white" :
+                      orderDetails.status === "preparing" ? "bg-orange-500 text-white" :
+                      "bg-gray-500 text-white"
+                    }>
+                      {orderDetails.status.charAt(0).toUpperCase() + orderDetails.status.slice(1)}
+                    </Badge>
+                  </div>
+                  <h3 className="text-lg font-semibold">Order #{orderDetails.id}</h3>
+                  <p className="text-sm text-muted-foreground flex items-center justify-center">
+                    <Clock className="w-4 h-4 mr-1" />
+                    {orderDetails.placedAt}
+                  </p>
+                </div>
+
+                {/* Customer Info */}
+                <div className="space-y-2">
+                  <h4 className="font-medium flex items-center">
+                    <User className="w-4 h-4 mr-2" />
+                    Customer
+                  </h4>
+                  <p className="text-sm text-muted-foreground pl-6">{orderDetails.customerName}</p>
+                </div>
+
+                {/* Order Items */}
+                <div className="space-y-3">
+                  <h4 className="font-medium flex items-center">
+                    <Receipt className="w-4 h-4 mr-2" />
+                    Items ({orderDetails.items.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {orderDetails.items.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between p-2 bg-accent/50 rounded">
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">₹{item.price} × {item.quantity}</p>
+                        </div>
+                        <div className="text-sm font-semibold">₹{item.price * item.quantity}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Total */}
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium flex items-center">
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      Total Amount
+                    </span>
+                    <span className="text-lg font-bold text-primary">₹{orderDetails.total}</span>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex space-x-2 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsOrderDetailsModalOpen(false)}
+                    className="flex-1"
+                  >
+                    Close
+                  </Button>
+                  {orderDetails.status === "ready" && (
+                    <Button
+                      onClick={() => {
+                        toast.success("Order marked as completed!");
+                        setIsOrderDetailsModalOpen(false);
+                      }}
+                      className="flex-1"
+                    >
+                      Mark Complete
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>

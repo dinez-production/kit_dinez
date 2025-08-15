@@ -5,10 +5,11 @@ KIT-Canteen is a modern food ordering application for college campuses, designed
 Preferred communication style: Simple, everyday language.
 Environment variables: Always store credentials in .env file when possible for better organization.
 Production builds: Use custom build script (`node scripts/build.js`) to ensure Firebase environment variables are properly embedded during Vite build process.
-Session Management: Users should stay logged in until manual logout, even after app restarts or deployments. Extended session duration to 90 days for better mobile experience.
+Session Management: Users should stay logged in until manual logout, even after app restarts or deployments. Extended session duration to 90 days for better mobile experience. Implemented cross-tab synchronization and automatic activity tracking for PWA users to maintain sessions across app switches and device interactions.
 Cache Management: App should automatically clear cache on new deployments while preserving user session data.
 Production Performance: SSE connections should have reconnection logic and keep-alive pings. Payment processing should have timeouts and performance monitoring. Use production-optimized scripts for deployment. Fixed duplicate registration validation and enhanced error handling.
 Real-time Updates: Both "skip payment" and "pay now" orders must trigger identical real-time UI updates for canteen owners via SSE. Payment callback pages should redirect properly to order status pages after successful payment.
+Staff ID Format: Changed from 6-digit numbers to 3 letters + 3 numbers format (e.g., ABC123). Staff with shorter IDs should pad with underscores for letters (_AB123) or zeros for numbers (ABC012). Updated validation and all related forms.
 
 # System Architecture
 The application features a **React-based Single Page Application (SPA)** built with **React 18** and **TypeScript**, using **Vite** for fast builds. **Wouter** handles client-side routing, and **Tailwind CSS** with **shadcn/ui** provides a consistent, mobile-first responsive design system. **TanStack Query** manages server state, while **React Hook Form** with **Zod** ensures robust form validation.

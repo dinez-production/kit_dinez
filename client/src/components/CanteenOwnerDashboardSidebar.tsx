@@ -53,7 +53,10 @@ import {
   CreditCard,
   CalendarDays,
   ChevronDown,
-  Filter
+  Filter,
+  Loader2,
+  Receipt,
+  User
 } from "lucide-react";
 import { QuickOrdersManager } from "@/components/admin/QuickOrdersManager";
 import { TrendingItemsManager } from "@/components/admin/TrendingItemsManager";
@@ -143,6 +146,8 @@ export default function CanteenOwnerDashboardSidebar() {
   const [analyticsTimeframe, setAnalyticsTimeframe] = useState<'daily' | 'weekly' | 'monthly' | 'annual'>('daily');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [calendarView, setCalendarView] = useState(false);
+  const [showOrderDetailPopup, setShowOrderDetailPopup] = useState(false);
+  const [selectedOrderForDetails, setSelectedOrderForDetails] = useState<any>(null);
 
   // Helper functions
   const generateOrderNumber = () => Math.floor(Math.random() * 900000000000) + 100000000000;
@@ -415,12 +420,9 @@ export default function CanteenOwnerDashboardSidebar() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      // Refresh scan result to show updated status
       if (variables.status === "delivered") {
         toast.success("Order marked as delivered!");
         setTimeout(() => {
-          setScannedOrderId("");
-          setScanResult(null);
           setShowBarcodeDialog(false);
           setSelectedOrderForScan(null);
           setBarcodeInput("");
@@ -458,8 +460,20 @@ export default function CanteenOwnerDashboardSidebar() {
     );
 
     if (matchingOrder) {
+      // Check if the scanned barcode matches the selected order
+      if (selectedOrderForScan && 
+          selectedOrderForScan.id !== matchingOrder.id &&
+          selectedOrderForScan.barcode !== barcodeInput &&
+          selectedOrderForScan.orderNumber !== barcodeInput) {
+        toast.error("This barcode doesn't match the selected order. Please scan the correct barcode.");
+        setBarcodeInput("");
+        return;
+      }
+      
+      console.log("🔍 Barcode scan successful, showing order details in dialog");
       setScannedOrder(matchingOrder);
       setShowOrderDetails(true);
+      // Keep the dialog open to show order details within the popup - DO NOT NAVIGATE
     } else {
       toast.error("No order found with this barcode");
       setBarcodeInput("");
@@ -472,18 +486,18 @@ export default function CanteenOwnerDashboardSidebar() {
       if (showBarcodeDialog) {
         if (event.key === 'Enter') {
           event.preventDefault();
-          if (!showOrderDetails) {
+          if (!showOrderDetails && barcodeInput.trim()) {
             // If order details not shown yet, submit barcode
             handleBarcodeSubmit();
-          } else if (scannedOrder) {
+          } else if (showOrderDetails && scannedOrder) {
             // If order details are shown, mark as delivered
             markOrderReadyMutation.mutate({ 
               orderId: scannedOrder.id, 
               status: "delivered" 
             });
           }
-        }
-        if (event.key === 'Escape') {
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
           setShowBarcodeDialog(false);
           setSelectedOrderForScan(null);
           setBarcodeInput("");
@@ -499,7 +513,7 @@ export default function CanteenOwnerDashboardSidebar() {
         document.removeEventListener('keydown', handleKeyPress);
       };
     }
-  }, [showBarcodeDialog, showOrderDetails, scannedOrder, barcodeInput, markOrderReadyMutation]);
+  }, [showBarcodeDialog, showOrderDetails, scannedOrder, barcodeInput, markOrderReadyMutation, handleBarcodeSubmit]);
 
   const handlePlaceOfflineOrder = () => {
     if (cart.length === 0) {
@@ -538,6 +552,13 @@ export default function CanteenOwnerDashboardSidebar() {
     } catch (error) {
       toast.error("Failed to refresh data");
     }
+  };
+
+  // Handle order card click for details popup
+  const handleOrderCardClick = (order: any) => {
+    console.log("📋 Order card clicked for order:", order.id);
+    setSelectedOrderForDetails(order);
+    setShowOrderDetailPopup(true);
   };
 
   return (
@@ -820,11 +841,11 @@ export default function CanteenOwnerDashboardSidebar() {
                           ) : (
                             <div className="space-y-3">
                               {activeOrders.map((order: any) => (
-                                <Card key={order.id} className={`border-l-4 ${
+                                <Card key={order.id} className={`border-l-4 cursor-pointer hover:shadow-lg transition-shadow ${
                                   order.status === 'preparing' ? 'border-l-blue-500' : 
                                   order.status === 'ready' ? 'border-l-green-500' : 
                                   'border-l-yellow-500'
-                                }`}>
+                                }`} onClick={() => handleOrderCardClick(order)}>
                                   <CardContent className="p-4">
                                     <div className="flex items-center justify-between">
                                       <div className="flex-1">
@@ -902,7 +923,10 @@ export default function CanteenOwnerDashboardSidebar() {
                                                   <Button
                                                     size="sm"
                                                     variant="default"
-                                                    onClick={() => handleScanBarcode(order)}
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      handleScanBarcode(order);
+                                                    }}
                                                     className="bg-blue-600 hover:bg-blue-700 text-white"
                                                     data-testid={`button-scan-barcode-${order.id}`}
                                                   >
@@ -918,7 +942,10 @@ export default function CanteenOwnerDashboardSidebar() {
                                                   <Button
                                                     size="sm"
                                                     variant="default"
-                                                    onClick={() => markOrderReadyMutation.mutate({ orderId: order.id, status: "ready" })}
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      markOrderReadyMutation.mutate({ orderId: order.id, status: "ready" });
+                                                    }}
                                                     disabled={markOrderReadyMutation.isPending}
                                                     className="bg-green-600 hover:bg-green-700 text-white"
                                                     data-testid={`button-mark-ready-${order.id}`}
@@ -934,7 +961,10 @@ export default function CanteenOwnerDashboardSidebar() {
                                                   <Button
                                                     size="sm"
                                                     variant="default"
-                                                    onClick={() => handleScanBarcode(order)}
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      handleScanBarcode(order);
+                                                    }}
                                                     className="bg-blue-600 hover:bg-blue-700 text-white"
                                                     data-testid={`button-scan-barcode-${order.id}`}
                                                   >
@@ -949,15 +979,6 @@ export default function CanteenOwnerDashboardSidebar() {
                                               return null;
                                             }
                                           })()}
-                                          
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => setLocation(`/canteen-order-detail/${order.id}`)}
-                                            data-testid={`button-view-details-${order.id}`}
-                                          >
-                                            View Details
-                                          </Button>
                                         </div>
                                       </div>
                                     </div>
@@ -1932,6 +1953,7 @@ export default function CanteenOwnerDashboardSidebar() {
         </div>
       </div>
 
+
       {/* Notifications Dialog */}
       <Dialog open={showNotifications} onOpenChange={setShowNotifications}>
         <DialogContent>
@@ -1984,7 +2006,7 @@ export default function CanteenOwnerDashboardSidebar() {
 
       {/* Barcode Scanning Dialog */}
       <Dialog open={showBarcodeDialog} onOpenChange={setShowBarcodeDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg w-[90%] sm:max-w-md max-h-[85vh] overflow-y-auto p-6 rounded-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               <ScanLine className="w-5 h-5" />
@@ -2006,6 +2028,16 @@ export default function CanteenOwnerDashboardSidebar() {
                     placeholder="Scan barcode or type manually..."
                     value={barcodeInput}
                     onChange={(e) => setBarcodeInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log("🔍 Enter key pressed in barcode input, preventing form submission");
+                        if (barcodeInput.trim()) {
+                          handleBarcodeSubmit();
+                        }
+                      }
+                    }}
                     className="text-center font-mono text-lg"
                     autoFocus
                   />
@@ -2022,7 +2054,13 @@ export default function CanteenOwnerDashboardSidebar() {
                 </div>
 
                 <Button 
-                  onClick={handleBarcodeSubmit}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log("🔍 Find Order button clicked, preventing navigation");
+                    handleBarcodeSubmit();
+                  }}
                   className="w-full"
                   disabled={!barcodeInput.trim()}
                 >
@@ -2032,88 +2070,129 @@ export default function CanteenOwnerDashboardSidebar() {
               </CardContent>
             </Card>
 
-            {/* Order Details - Only show after barcode is scanned */}
+            {/* Complete Order Details - Show after successful barcode scan */}
             {showOrderDetails && scannedOrder && (
-              <>
-                <Card className="border-2 border-green-200 bg-green-50/50">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg text-green-800">Order Found!</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Order ID</p>
-                        <div className="flex items-center">
-                          <span className="font-mono text-sm">#{(() => {
-                            const formatted = formatOrderIdDisplay(scannedOrder.orderNumber || scannedOrder.id.toString());
-                            return formatted.prefix;
-                          })()}</span>
-                          <span className="bg-primary/20 text-primary font-bold px-1 rounded ml-0 font-mono text-sm">
-                            {(() => {
-                              const formatted = formatOrderIdDisplay(scannedOrder.orderNumber || scannedOrder.id.toString());
-                              return formatted.highlighted;
-                            })()}
-                          </span>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Amount</p>
-                        <p className="font-semibold text-lg">₹{scannedOrder.amount}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Status</p>
+              <div className="space-y-4">
+                {/* Complete Order Information */}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <h3 className="font-semibold text-green-800">Order Found!</h3>
+                  </div>
+                  
+                  {/* Basic Order Info */}
+                  <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+                    <div>
+                      <span className="text-muted-foreground">Order ID:</span>
+                      <p className="font-mono font-medium">#{(() => {
+                        const formatted = formatOrderIdDisplay(scannedOrder.orderNumber || scannedOrder.id.toString());
+                        return formatted.prefix + formatted.highlighted;
+                      })()}</p>
+                    </div>
+                    
+                    <div>
+                      <span className="text-muted-foreground">Status:</span>
+                      <div className="mt-1">
                         <Badge className={getOrderStatusColor(scannedOrder.status)}>
                           {getOrderStatusText(scannedOrder.status)}
                         </Badge>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Time</p>
-                        <p className="text-sm">{scannedOrder.createdAt ? new Date(scannedOrder.createdAt).toLocaleTimeString() : 'N/A'}</p>
-                      </div>
                     </div>
                     
-                    <div className="border-t pt-3">
-                      <p className="text-sm font-medium text-muted-foreground mb-2">Customer</p>
+                    <div>
+                      <span className="text-muted-foreground">Customer:</span>
                       <p className="font-medium">{scannedOrder.customerName || 'N/A'}</p>
                     </div>
                     
-                    <div className="border-t pt-3">
-                      <p className="text-sm font-medium text-muted-foreground mb-2">Items Ordered</p>
-                      <div className="text-sm space-y-1">
-                        {scannedOrder.items && typeof scannedOrder.items === 'string' 
-                          ? (() => {
-                              try {
-                                const parsedItems = JSON.parse(scannedOrder.items);
-                                return Array.isArray(parsedItems) 
-                                  ? parsedItems.map((item: any, index: number) => (
-                                      <div key={index} className="flex justify-between items-center py-1 px-2 bg-white rounded">
-                                        <span>{item.quantity}x {item.name}</span>
-                                        <span className="font-medium">₹{item.price * item.quantity}</span>
-                                      </div>
-                                    ))
-                                  : scannedOrder.items;
-                              } catch {
-                                return scannedOrder.items;
-                              }
-                            })()
-                          : 'No items'
-                        }
-                      </div>
+                    <div>
+                      <span className="text-muted-foreground">Total Amount:</span>
+                      <p className="font-bold text-lg text-green-600">₹{scannedOrder.amount}</p>
                     </div>
-                  </CardContent>
-                </Card>
-
-                {/* Delivery Instructions */}
-                <div className="bg-green-100 border border-green-300 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                    <p className="font-medium text-green-800">Ready for Delivery</p>
+                    
+                    <div>
+                      <span className="text-muted-foreground">Barcode:</span>
+                      <p className="font-mono text-xs">{scannedOrder.barcode}</p>
+                    </div>
+                    
+                    <div>
+                      <span className="text-muted-foreground">Order Time:</span>
+                      <p className="text-xs">{new Date(scannedOrder.createdAt).toLocaleString()}</p>
+                    </div>
                   </div>
-                  <p className="text-sm text-green-700">
-                    Press <kbd className="px-2 py-1 text-xs font-semibold text-green-900 bg-green-200 border border-green-300 rounded">Enter</kbd> to mark this order as delivered, or <kbd className="px-2 py-1 text-xs font-semibold text-green-900 bg-green-200 border border-green-300 rounded">Esc</kbd> to cancel.
+
+                  {/* DISHES/ITEMS - PRIORITY DISPLAY */}
+                  <div className="border-t pt-4 mb-4">
+                    <h4 className="font-bold text-lg mb-3 flex items-center text-gray-800">
+                      <Receipt className="w-5 h-5 mr-2 text-blue-600" />
+                      Ordered Dishes
+                    </h4>
+                    <div className="space-y-3 max-h-48 overflow-y-auto bg-gray-50 rounded-lg p-3">
+                      {(() => {
+                        try {
+                          const items = typeof scannedOrder.items === 'string' 
+                            ? JSON.parse(scannedOrder.items) 
+                            : scannedOrder.items || [];
+                          
+                          return items.length > 0 ? items.map((item: any, index: number) => (
+                            <div key={index} className="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <div className="flex items-center space-x-2 mb-1">
+                                    <span className="font-bold text-lg text-gray-800">{item.name}</span>
+                                    {item.isVegetarian && (
+                                      <span className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-semibold">VEG</span>
+                                    )}
+                                  </div>
+                                  <div className="text-gray-600 font-medium">₹{item.price} × {item.quantity} pieces</div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="font-bold text-xl text-blue-600">₹{item.price * item.quantity}</div>
+                                </div>
+                              </div>
+                            </div>
+                          )) : (
+                            <div className="text-center py-4 text-muted-foreground">No items found</div>
+                          );
+                        } catch (error) {
+                          return (
+                            <div className="text-center py-4 text-red-500">Error loading items</div>
+                          );
+                        }
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Additional Details */}
+                  <div className="border-t pt-2 mt-2">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Est. Time:</span>
+                        <span>{scannedOrder.estimatedTime || 0} min</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Barcode Used:</span>
+                        <span className={scannedOrder.barcodeUsed ? "text-green-600" : "text-orange-600"}>
+                          {scannedOrder.barcodeUsed ? "Yes" : "No"}
+                        </span>
+                      </div>
+                      {scannedOrder.deliveredAt && (
+                        <div className="col-span-2 flex justify-between">
+                          <span className="text-muted-foreground">Delivered:</span>
+                          <span>{new Date(scannedOrder.deliveredAt).toLocaleString()}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                  <p className="text-sm text-blue-700">
+                    Press <kbd className="px-2 py-1 text-xs bg-blue-200 rounded">Enter</kbd> to deliver or <kbd className="px-2 py-1 text-xs bg-blue-200 rounded">Esc</kbd> to cancel
                   </p>
                 </div>
-              </>
+              </div>
             )}
 
             {/* Action Buttons */}
@@ -2140,11 +2219,160 @@ export default function CanteenOwnerDashboardSidebar() {
                   disabled={markOrderReadyMutation.isPending}
                   className="bg-green-600 hover:bg-green-700 text-white"
                 >
-                  {markOrderReadyMutation.isPending ? "Processing..." : "Mark as Delivered"}
+                  {markOrderReadyMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Mark as Delivered
+                    </>
+                  )}
                 </Button>
               )}
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Order Detail Popup */}
+      <Dialog open={showOrderDetailPopup} onOpenChange={setShowOrderDetailPopup}>
+        <DialogContent className="max-w-2xl w-[95%] max-h-[90vh] overflow-y-auto p-0">
+          <DialogHeader className="p-6 pb-0">
+            <DialogTitle className="flex items-center space-x-2">
+              <Receipt className="w-5 h-5" />
+              Order Details
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedOrderForDetails && (
+            <div className="p-6 space-y-6">
+              {/* ORDERED DISHES - PRIORITY DISPLAY */}
+              <div className="bg-blue-50 rounded-lg p-4">
+                <h3 className="font-bold text-xl mb-4 flex items-center text-gray-800">
+                  <ChefHat className="w-6 h-6 mr-2 text-blue-600" />
+                  Ordered Dishes
+                </h3>
+                <div className="space-y-3">
+                  {(() => {
+                    try {
+                      const items = typeof selectedOrderForDetails.items === 'string' 
+                        ? JSON.parse(selectedOrderForDetails.items) 
+                        : selectedOrderForDetails.items || [];
+                      
+                      return items.length > 0 ? items.map((item: any, index: number) => (
+                        <div key={index} className="bg-white rounded-lg p-4 shadow-sm border border-blue-200">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3 mb-2">
+                                <span className="font-bold text-xl text-gray-800">{item.name}</span>
+                                {item.isVegetarian && (
+                                  <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-semibold">VEG</span>
+                                )}
+                              </div>
+                              <div className="text-gray-600 font-medium text-lg">
+                                ₹{item.price} × {item.quantity} pieces
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-bold text-2xl text-blue-600">₹{item.price * item.quantity}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )) : (
+                        <div className="text-center py-4 text-muted-foreground">No items found</div>
+                      );
+                    } catch (error) {
+                      return (
+                        <div className="text-center py-4 text-red-500">Error loading items</div>
+                      );
+                    }
+                  })()}
+                </div>
+              </div>
+
+              {/* Order Information */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-semibold mb-2">Order Information</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Order ID:</span>
+                      <span className="font-mono">#{(() => {
+                        const formatted = formatOrderIdDisplay(selectedOrderForDetails.orderNumber || selectedOrderForDetails.id.toString());
+                        return formatted.prefix + formatted.highlighted;
+                      })()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Status:</span>
+                      <Badge className={getOrderStatusColor(selectedOrderForDetails.status)}>
+                        {getOrderStatusText(selectedOrderForDetails.status)}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Order Time:</span>
+                      <span>{new Date(selectedOrderForDetails.createdAt).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Est. Time:</span>
+                      <span>{selectedOrderForDetails.estimatedTime || 0} minutes</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-semibold mb-2">Customer & Payment</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Customer:</span>
+                      <span className="font-medium">{selectedOrderForDetails.customerName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Amount:</span>
+                      <span className="font-bold text-xl text-green-600">₹{selectedOrderForDetails.amount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Barcode:</span>
+                      <span className="font-mono text-xs">{selectedOrderForDetails.barcode}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Barcode Used:</span>
+                      <span className={selectedOrderForDetails.barcodeUsed ? "text-green-600" : "text-orange-600"}>
+                        {selectedOrderForDetails.barcodeUsed ? "Yes" : "No"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowOrderDetailPopup(false)}
+                >
+                  Close
+                </Button>
+                {selectedOrderForDetails.status === "ready" && (
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowOrderDetailPopup(false);
+                      setTimeout(() => {
+                        handleScanBarcode(selectedOrderForDetails);
+                      }, 100);
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <ScanLine className="w-4 h-4 mr-2" />
+                    Scan Barcode
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -1,10 +1,17 @@
 import { useState, useEffect } from 'react';
+import { getPWAAuthState, setPWAAuth, clearPWAAuth, isPWAInstalled } from '@/utils/pwaAuth';
 
 interface User {
-  id: string;
+  id: string | number;
   name: string;
   email: string;
   role: string;
+  phoneNumber?: string;
+  registerNumber?: string;
+  department?: string;
+  currentStudyYear?: string;
+  isPassed?: boolean;
+  staffId?: string;
 }
 
 export function useAuth() {
@@ -12,48 +19,62 @@ export function useAuth() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load user from localStorage on mount with session persistence
-    const storedUser = localStorage.getItem('user');
-    const sessionTimestamp = localStorage.getItem('session_timestamp');
-    
-    if (storedUser && sessionTimestamp) {
-      try {
-        const userData = JSON.parse(storedUser);
-        const loginTime = parseInt(sessionTimestamp);
-        
-        // Session persists until manual logout (90 days max for mobile convenience)
-        const maxSessionDuration = 90 * 24 * 60 * 60 * 1000; // 90 days for better mobile experience
-        const currentTime = Date.now();
-        
-        if (currentTime - loginTime < maxSessionDuration) {
-          setUser(userData);
-          // Update session timestamp to extend session on each app open
-          localStorage.setItem('session_timestamp', currentTime.toString());
-        } else {
-          // Session expired, clear stored data
-          localStorage.removeItem('user');
-          localStorage.removeItem('session_timestamp');
-        }
-      } catch (error) {
-        // Error parsing stored user data - clear invalid data
-        localStorage.removeItem('user');
-        localStorage.removeItem('session_timestamp');
+    // Use PWA authentication utilities for consistent handling
+    const loadUserFromStorage = () => {
+      const authState = getPWAAuthState();
+      
+      console.log("useAuth loadUserFromStorage - PWA State:", authState);
+      
+      if (authState.isAuthenticated && authState.user) {
+        console.log("Valid PWA session found, setting user:", authState.user);
+        setUser(authState.user);
+      } else {
+        console.log("No valid PWA session, clearing user state");
+        setUser(null);
       }
-    }
+    };
+
+    // Cross-tab synchronization for mobile PWA - sync login/logout across tabs
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'user' || e.key === 'session_timestamp') {
+        console.log("Storage change detected for PWA:", e.key);
+        loadUserFromStorage();
+      }
+    };
+
+    // Initial load
+    loadUserFromStorage();
     setIsLoading(false);
+
+    // Listen for storage changes to sync across tabs/windows
+    window.addEventListener('storage', handleStorageChange);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   const login = (userData: User) => {
-    const currentTime = Date.now();
+    console.log("useAuth login called with:", userData);
     setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
-    localStorage.setItem('session_timestamp', currentTime.toString());
+    setPWAAuth(userData);
   };
 
   const logout = () => {
+    console.log("useAuth logout called");
     setUser(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('session_timestamp');
+    clearPWAAuth();
+  };
+
+  // Update activity timestamp for mobile PWA users
+  const updateActivity = () => {
+    if (user) {
+      const currentTime = Date.now();
+      localStorage.setItem('last_activity', currentTime.toString());
+      // Extend session if user is active
+      localStorage.setItem('session_timestamp', currentTime.toString());
+    }
   };
 
   const updateUser = (updates: Partial<User>) => {
@@ -94,6 +115,7 @@ export function useAuth() {
     login,
     logout,
     updateUser,
+    updateActivity,
     isAdmin,
     isSuperAdmin,
     isCanteenOwner,

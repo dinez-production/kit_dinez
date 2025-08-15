@@ -64,6 +64,27 @@ export default function OrderStatusPage() {
   const urlParams = new URLSearchParams(window.location.search);
   const sourceContext = urlParams.get('from');
 
+  // Handle all back navigation scenarios (browser back, iOS swipe, Android back)
+  useEffect(() => {
+    // Override browser history behavior to always redirect to orders page
+    const handleBackNavigation = (event: PopStateEvent) => {
+      event.preventDefault();
+      // Always navigate to orders page regardless of how user tries to go back
+      setLocation('/orders');
+    };
+
+    // Push a new state to handle back navigation
+    window.history.pushState({ page: 'order-status' }, '', window.location.href);
+    
+    // Listen for popstate events (browser back, swipe gestures)
+    window.addEventListener('popstate', handleBackNavigation);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('popstate', handleBackNavigation);
+    };
+  }, [setLocation]);
+
   // Fetch real order data from API - using SSE for real-time updates instead of polling
   const { data: orders = [], isLoading, refetch } = useQuery<Order[]>({
     queryKey: ['/api/orders'],
@@ -311,23 +332,10 @@ export default function OrderStatusPage() {
             variant="ghost" 
             size="icon" 
             className="text-white hover:bg-white/20"
-            title={sourceContext === 'payment' ? 'Back to Home' : sourceContext === 'orders' ? 'Back to Orders' : 'Go Back'}
+            title="Back to Orders"
             onClick={() => {
-              // Smart navigation based on source context
-              if (sourceContext === 'payment') {
-                // From payment callback - go to home page
-                setLocation('/home');
-              } else if (sourceContext === 'orders') {
-                // From orders page - go back to orders
-                setLocation('/orders');
-              } else {
-                // Fallback - use browser history or default to orders
-                if (window.history.length > 1) {
-                  window.history.back();
-                } else {
-                  setLocation('/orders');
-                }
-              }
+              // Always navigate to orders page - consistent with our back navigation handling
+              setLocation('/orders');
             }}
           >
             <ArrowLeft className="w-5 h-5" />

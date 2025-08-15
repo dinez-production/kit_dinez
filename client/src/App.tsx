@@ -1,3 +1,4 @@
+import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,6 +7,7 @@ import { queryClient } from "@/lib/queryClient";
 import { Router, Route, Switch } from "wouter";
 import { CartProvider } from "@/contexts/CartContext";
 import { useDeploymentDetection } from "@/utils/deploymentHook";
+import { useActivityTracker } from "@/hooks/useActivityTracker";
 import SplashScreen from "./components/SplashScreen";
 import LoginScreen from "./components/LoginScreen";
 import HomeScreen from "./components/HomeScreen";
@@ -69,6 +71,23 @@ import NotFound from "./pages/NotFound";
 const App = () => {
   // Enable deployment detection for cache invalidation
   useDeploymentDetection();
+  
+  // Enable activity tracking for mobile PWA session persistence
+  useActivityTracker();
+
+  // PWA installation URL normalization - ensure consistent entry point
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const isPWALaunch = urlParams.get('pwa') === 'true' || 
+                       window.matchMedia('(display-mode: standalone)').matches ||
+                       (window.navigator as any).standalone === true;
+
+    // If this is a PWA launch from any URL other than root, redirect to root for consistent splash screen
+    if (isPWALaunch && window.location.pathname !== '/') {
+      console.log("PWA launch from non-root URL detected, redirecting to root:", window.location.pathname);
+      window.history.replaceState({}, '', '/?pwa=true');
+    }
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -90,12 +90,13 @@ export function validateRegisterNumber(registerNumber: string): {
 
 // Validate staff ID format
 export function validateStaffId(staffId: string): { isValid: boolean; error?: string } {
-  const regex = /^\d{6}$/;
+  // New format: 3 characters (letters) + 3 numbers
+  const regex = /^[A-Za-z_]{3}\d{3}$/;
   
   if (!regex.test(staffId)) {
     return {
       isValid: false,
-      error: "Staff ID must be exactly 6 digits (e.g., 000001)"
+      error: "Staff ID must be 3 letters followed by 3 numbers (e.g., ABC123). If you have only 2 letters, add '_' at the beginning (e.g., _AB123). If you have only 2 numbers, add '0' at the beginning (e.g., ABC012)."
     };
   }
   

@@ -406,12 +406,13 @@ export default function ProfileSetupScreen({ userEmail, userName, onComplete, on
                           <FormControl>
                             <Input 
                               {...field} 
-                              placeholder="e.g., 000001"
+                              placeholder="e.g., ABC123"
                               className="font-mono"
+                              maxLength={6}
                             />
                           </FormControl>
                           <p className="text-sm text-muted-foreground">
-                            6-digit staff ID number
+                            3 letters + 3 numbers. Use "_" for missing letters (e.g., _AB123) or "0" for missing numbers (e.g., ABC012)
                           </p>
                           <FormMessage />
                         </FormItem>
