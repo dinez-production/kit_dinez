@@ -1,0 +1,126 @@
+🔄 Order 397192400224: Has markable items - status: pending
+❌ Stock transaction failed: MongoServerError: Transaction numbers are only allowed on a replica set member or mongos
+    at Connection.sendCommand (/var/www/kit_dinez/node_modules/mongodb/src/cmap/connection.ts:559:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Connection.command (/var/www/kit_dinez/node_modules/mongodb/src/cmap/connection.ts:633:22)
+    at async Server.command (/var/www/kit_dinez/node_modules/mongodb/src/sdam/server.ts:342:21)
+    at async FindOperation.execute (/var/www/kit_dinez/node_modules/mongodb/src/operations/find.ts:130:12)
+    at async tryOperation (/var/www/kit_dinez/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+    at async executeOperation (/var/www/kit_dinez/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+    at async FindCursor._initialize (/var/www/kit_dinez/node_modules/mongodb/src/cursor/find_cursor.ts:92:22)
+    at async FindCursor.cursorInit (/var/www/kit_dinez/node_modules/mongodb/src/cursor/abstract_cursor.ts:949:21)
+    at async FindCursor.fetchBatch (/var/www/kit_dinez/node_modules/mongodb/src/cursor/abstract_cursor.ts:987:7)
+    at async FindCursor.next (/var/www/kit_dinez/node_modules/mongodb/src/cursor/abstract_cursor.ts:608:9)
+    at async Collection.findOne (/var/www/kit_dinez/node_modules/mongodb/src/collection.ts:526:17)
+    at async model.Query._findOne (/var/www/kit_dinez/node_modules/mongoose/lib/query.js:2687:15)
+    at async model.Query.exec (/var/www/kit_dinez/node_modules/mongoose/lib/query.js:4604:63)
+    at async <anonymous> (/var/www/kit_dinez/server/stock-service.ts:60:28)
+    at async ClientSession.withTransaction (/var/www/kit_dinez/node_modules/mongodb/src/sessions.ts:764:20)
+    at async AtomicStockService.processStockUpdates (/var/www/kit_dinez/server/stock-service.ts:58:7)
+    at async AtomicStockService.processOrderWithStockManagement (/var/www/kit_dinez/server/stock-service.ts:106:5)
+    at async <anonymous> (/var/www/kit_dinez/server/routes.ts:492:21) {
+  errorLabelSet: Set(0) {},
+  errorResponse: {
+    ok: 0,
+    errmsg: 'Transaction numbers are only allowed on a replica set member or mongos',
+    code: 20,
+    codeName: 'IllegalOperation'
+  },
+  ok: 0,
+  code: 20,
+  codeName: 'IllegalOperation'
+}
+Error creating order: MongoServerError: Transaction numbers are only allowed on a replica set member or mongos
+    at Connection.sendCommand (/var/www/kit_dinez/node_modules/mongodb/src/cmap/connection.ts:559:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Connection.command (/var/www/kit_dinez/node_modules/mongodb/src/cmap/connection.ts:633:22)
+    at async Server.command (/var/www/kit_dinez/node_modules/mongodb/src/sdam/server.ts:342:21)
+    at async FindOperation.execute (/var/www/kit_dinez/node_modules/mongodb/src/operations/find.ts:130:12)
+    at async tryOperation (/var/www/kit_dinez/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+    at async executeOperation (/var/www/kit_dinez/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+    at async FindCursor._initialize (/var/www/kit_dinez/node_modules/mongodb/src/cursor/find_cursor.ts:92:22)
+    at async FindCursor.cursorInit (/var/www/kit_dinez/node_modules/mongodb/src/cursor/abstract_cursor.ts:949:21)
+    at async FindCursor.fetchBatch (/var/www/kit_dinez/node_modules/mongodb/src/cursor/abstract_cursor.ts:987:7)
+    at async FindCursor.next (/var/www/kit_dinez/node_modules/mongodb/src/cursor/abstract_cursor.ts:608:9)
+    at async Collection.findOne (/var/www/kit_dinez/node_modules/mongodb/src/collection.ts:526:17)
+    at async model.Query._findOne (/var/www/kit_dinez/node_modules/mongoose/lib/query.js:2687:15)
+    at async model.Query.exec (/var/www/kit_dinez/node_modules/mongoose/lib/query.js:4604:63)
+    at async <anonymous> (/var/www/kit_dinez/server/stock-service.ts:60:28)
+    at async ClientSession.withTransaction (/var/www/kit_dinez/node_modules/mongodb/src/sessions.ts:764:20)
+    at async AtomicStockService.processStockUpdates (/var/www/kit_dinez/server/stock-service.ts:58:7)
+    at async AtomicStockService.processOrderWithStockManagement (/var/www/kit_dinez/server/stock-service.ts:106:5)
+    at async <anonymous> (/var/www/kit_dinez/server/routes.ts:492:21) {
+  errorLabelSet: Set(0) {},
+  errorResponse: {
+    ok: 0,
+    errmsg: 'Transaction numbers are only allowed on a replica set member or mongos',
+    code: 20,
+    codeName: 'IllegalOperation'
+  },
+  ok: 0,
+  code: 20,
+  codeName: 'IllegalOperation'
+}
+8:30:20 AM [express] POST /api/orders 500 in 106ms :: {"message":"Internal server error"}
+🔄 Order 220862501743: Has markable items - status: pending
+❌ Stock transaction failed: MongoServerError: Transaction numbers are only allowed on a replica set member or mongos
+    at Connection.sendCommand (/var/www/kit_dinez/node_modules/mongodb/src/cmap/connection.ts:559:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Connection.command (/var/www/kit_dinez/node_modules/mongodb/src/cmap/connection.ts:633:22)
+    at async Server.command (/var/www/kit_dinez/node_modules/mongodb/src/sdam/server.ts:342:21)
+    at async FindOperation.execute (/var/www/kit_dinez/node_modules/mongodb/src/operations/find.ts:130:12)
+    at async tryOperation (/var/www/kit_dinez/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+    at async executeOperation (/var/www/kit_dinez/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+    at async FindCursor._initialize (/var/www/kit_dinez/node_modules/mongodb/src/cursor/find_cursor.ts:92:22)
+    at async FindCursor.cursorInit (/var/www/kit_dinez/node_modules/mongodb/src/cursor/abstract_cursor.ts:949:21)
+    at async FindCursor.fetchBatch (/var/www/kit_dinez/node_modules/mongodb/src/cursor/abstract_cursor.ts:987:7)
+    at async FindCursor.next (/var/www/kit_dinez/node_modules/mongodb/src/cursor/abstract_cursor.ts:608:9)
+    at async Collection.findOne (/var/www/kit_dinez/node_modules/mongodb/src/collection.ts:526:17)
+    at async model.Query._findOne (/var/www/kit_dinez/node_modules/mongoose/lib/query.js:2687:15)
+    at async model.Query.exec (/var/www/kit_dinez/node_modules/mongoose/lib/query.js:4604:63)
+    at async <anonymous> (/var/www/kit_dinez/server/stock-service.ts:60:28)
+    at async ClientSession.withTransaction (/var/www/kit_dinez/node_modules/mongodb/src/sessions.ts:764:20)
+    at async AtomicStockService.processStockUpdates (/var/www/kit_dinez/server/stock-service.ts:58:7)
+    at async AtomicStockService.processOrderWithStockManagement (/var/www/kit_dinez/server/stock-service.ts:106:5)
+    at async <anonymous> (/var/www/kit_dinez/server/routes.ts:492:21) {
+  errorLabelSet: Set(0) {},
+  errorResponse: {
+    ok: 0,
+    errmsg: 'Transaction numbers are only allowed on a replica set member or mongos',
+    code: 20,
+    codeName: 'IllegalOperation'
+  },
+  ok: 0,
+  code: 20,
+  codeName: 'IllegalOperation'
+}
+Error creating order: MongoServerError: Transaction numbers are only allowed on a replica set member or mongos
+    at Connection.sendCommand (/var/www/kit_dinez/node_modules/mongodb/src/cmap/connection.ts:559:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Connection.command (/var/www/kit_dinez/node_modules/mongodb/src/cmap/connection.ts:633:22)
+    at async Server.command (/var/www/kit_dinez/node_modules/mongodb/src/sdam/server.ts:342:21)
+    at async FindOperation.execute (/var/www/kit_dinez/node_modules/mongodb/src/operations/find.ts:130:12)
+    at async tryOperation (/var/www/kit_dinez/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+    at async executeOperation (/var/www/kit_dinez/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+    at async FindCursor._initialize (/var/www/kit_dinez/node_modules/mongodb/src/cursor/find_cursor.ts:92:22)
+    at async FindCursor.cursorInit (/var/www/kit_dinez/node_modules/mongodb/src/cursor/abstract_cursor.ts:949:21)
+    at async FindCursor.fetchBatch (/var/www/kit_dinez/node_modules/mongodb/src/cursor/abstract_cursor.ts:987:7)
+    at async FindCursor.next (/var/www/kit_dinez/node_modules/mongodb/src/cursor/abstract_cursor.ts:608:9)
+    at async Collection.findOne (/var/www/kit_dinez/node_modules/mongodb/src/collection.ts:526:17)
+    at async model.Query._findOne (/var/www/kit_dinez/node_modules/mongoose/lib/query.js:2687:15)
+    at async model.Query.exec (/var/www/kit_dinez/node_modules/mongoose/lib/query.js:4604:63)
+    at async <anonymous> (/var/www/kit_dinez/server/stock-service.ts:60:28)
+    at async ClientSession.withTransaction (/var/www/kit_dinez/node_modules/mongodb/src/sessions.ts:764:20)
+    at async AtomicStockService.processStockUpdates (/var/www/kit_dinez/server/stock-service.ts:58:7)
+    at async AtomicStockService.processOrderWithStockManagement (/var/www/kit_dinez/server/stock-service.ts:106:5)
+    at async <anonymous> (/var/www/kit_dinez/server/routes.ts:492:21) {
+  errorLabelSet: Set(0) {},
+  errorResponse: {
+    ok: 0,
+    errmsg: 'Transaction numbers are only allowed on a replica set member or mongos',
+    code: 20,
+    codeName: 'IllegalOperation'
+  },
+  ok: 0,
+  code: 20,
+  codeName: 'IllegalOperation'

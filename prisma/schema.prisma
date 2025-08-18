@@ -1,0 +1,40 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  Int      @id @default(autoincrement())
+  email               String   @unique
+  name                String
+  phoneNumber         String?  @map("phone_number")
+  role                String   // "student" or "staff"
+  
+  // For students
+  registerNumber      String?  @unique @map("register_number")
+  department          String?
+  joiningYear         Int?     @map("joining_year")
+  passingOutYear      Int?     @map("passing_out_year")
+  currentStudyYear    Int?     @map("current_study_year")
+  isPassed            Boolean? @default(false) @map("is_passed")
+  
+  // For staff
+  staffId             String?  @unique @map("staff_id")
+  
+  // Profile completion status
+  isProfileComplete   Boolean? @default(false) @map("is_profile_complete")
+  
+  createdAt           DateTime @default(now()) @map("created_at")
+  
+  @@map("users")
+}
+
+// All other models have been migrated to MongoDB
+// Only User model remains in PostgreSQL for authentication

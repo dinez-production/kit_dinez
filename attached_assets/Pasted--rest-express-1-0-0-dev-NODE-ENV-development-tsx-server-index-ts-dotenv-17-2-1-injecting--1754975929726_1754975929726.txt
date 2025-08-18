@@ -1,0 +1,68 @@
+
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+[dotenv@17.2.1] injecting env (0) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+🔌 Attempting to connect to atlas MongoDB...
+🔍 Performing startup health check...
+✅ Connected to MongoDB Atlas cloud database
+🌐 Environment: Production/Cloud
+📊 MongoDB version: 8.0.12
+✅ PostgreSQL connection successful
+✅ MongoDB connection successful
+📊 MongoDB version: 8.0.12
+✅ MongoDB version is fully supported and optimized
+📋 Advanced features available: Change Streams, Transactions, etc.
+✅ Startup health check passed
+🚀 Starting database schema validation...
+🔄 Starting database schema validation...
+🔍 Validating PostgreSQL schema...
+⚠️ Users table missing - will be created by Prisma on first use
+⚠️ PostgreSQL validation issue: PrismaClientKnownRequestError: 
+Invalid `this.prisma.user.findMany()` invocation in
+/home/runner/workspace/server/migrations/simple-schema-check.ts:91:30
+
+  88 }
+  89 
+  90 // Ensure we have the latest schema by running a simple query
+→ 91 await this.prisma.user.findMany(
+The table `public.users` does not exist in the current database.
+    at ri.handleRequestError (/home/runner/workspace/node_modules/@prisma/client/src/runtime/RequestHandler.ts:228:13)
+    at ri.handleAndLogRequestError (/home/runner/workspace/node_modules/@prisma/client/src/runtime/RequestHandler.ts:174:12)
+    at ri.request (/home/runner/workspace/node_modules/@prisma/client/src/runtime/RequestHandler.ts:143:12)
+    at async l (/home/runner/workspace/node_modules/@prisma/client/src/runtime/getPrismaClient.ts:862:24)
+    at async SimpleSchemaValidator.validatePostgreSQLSchema (/home/runner/workspace/server/migrations/simple-schema-check.ts:91:7)
+    at async SimpleSchemaValidator.validateAndMigrateAll (/home/runner/workspace/server/migrations/simple-schema-check.ts:38:24)
+    at async runStartupSchemaCheck (/home/runner/workspace/server/migrations/simple-schema-check.ts:256:20)
+    at async performStartupSchemaCheck (/home/runner/workspace/server/startup-schema-check.ts:17:21)
+    at async <anonymous> (/home/runner/workspace/server/index.ts:50:3) {
+  code: 'P2021',
+  meta: { modelName: 'User', table: 'public.users' },
+  clientVersion: '6.13.0'
+}
+❌ PostgreSQL validation failed: 
+Invalid `this.prisma.user.findMany()` invocation in
+/home/runner/workspace/server/migrations/simple-schema-check.ts:91:30
+
+  88 }
+  89 
+  90 // Ensure we have the latest schema by running a simple query
+→ 91 await this.prisma.user.findMany(
+The table `public.users` does not exist in the current database.
+🔍 Validating MongoDB schema...
+✅ Collection 'categories' exists
+✅ Collection 'menuitems' exists
+✅ Collection 'orders' exists
+✅ Collection 'orderitems' exists
+✅ Collection 'notifications' exists
+✅ Collection 'loginissues' exists
+✅ Collection 'quickorders' exists
+✅ Collection 'payments' exists
+✅ Collection 'complaints' exists
+🔄 Adding missing fields to existing documents...
+✅ Missing field addition completed
+✅ Schema validation completed
+✅ Database schema validation completed successfully
+✅ Schema validation completed successfully in 1524ms
+Re-optimizing dependencies because lockfile has changed
+5:18:21 AM [express] serving on port 5000
