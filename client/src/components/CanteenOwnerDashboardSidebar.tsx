@@ -1022,7 +1022,7 @@ export default function CanteenOwnerDashboardSidebar() {
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      className="h-5 w-5 p-0 rounded-full bg-primary hover:bg-primary/90 text-white border-primary"
+                                      className="h-8 w-full px-2 py-1 bg-primary hover:bg-primary/90 text-white border-primary font-medium text-xs"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setCart([...cart, { 
@@ -1033,7 +1033,8 @@ export default function CanteenOwnerDashboardSidebar() {
                                         }]);
                                       }}
                                     >
-                                      <Plus className="w-2.5 h-2.5" />
+                                      <Plus className="w-3 h-3 mr-1" />
+                                      Add
                                     </Button>
                                   )}
                                 </div>
@@ -1142,7 +1143,7 @@ export default function CanteenOwnerDashboardSidebar() {
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      className="h-5 w-5 p-0 rounded-full bg-orange-500 hover:bg-orange-600 text-white border-orange-500"
+                                      className="h-8 w-full px-2 py-1 bg-orange-500 hover:bg-orange-600 text-white border-orange-500 font-medium text-xs"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setCart([...cart, { 
@@ -1153,7 +1154,8 @@ export default function CanteenOwnerDashboardSidebar() {
                                         }]);
                                       }}
                                     >
-                                      <Plus className="w-2.5 h-2.5" />
+                                      <Plus className="w-3 h-3 mr-1" />
+                                      Add
                                     </Button>
                                   )}
                                 </div>
@@ -1237,7 +1239,7 @@ export default function CanteenOwnerDashboardSidebar() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-5 w-5 p-0 rounded-full bg-purple-500 hover:bg-purple-600 text-white border-purple-500"
+                                    className="h-8 w-full px-2 py-1 bg-purple-500 hover:bg-purple-600 text-white border-purple-500 font-medium text-xs"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setCart([...cart, { 
@@ -1248,7 +1250,8 @@ export default function CanteenOwnerDashboardSidebar() {
                                       }]);
                                     }}
                                   >
-                                    <Plus className="w-2.5 h-2.5" />
+                                    <Plus className="w-3 h-3 mr-1" />
+                                    Add
                                   </Button>
                                 )}
                               </div>
