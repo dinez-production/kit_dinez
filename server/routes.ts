@@ -339,20 +339,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/users/:id", async (req, res) => {
     try {
-      const user = await storage.updateUser(parseInt(req.params.id), req.body);
+      const userId = parseInt(req.params.id);
+      console.log(`🔄 Updating user ${userId} with data:`, JSON.stringify(req.body, null, 2));
+      
+      const user = await storage.updateUser(userId, req.body);
+      console.log(`✅ User ${userId} updated successfully:`, JSON.stringify(user, null, 2));
+      
       res.json(user);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
+    } catch (error: any) {
+      console.error("❌ Error updating user:", error);
+      res.status(500).json({ message: "Internal server error", error: error?.message || String(error) });
     }
   });
 
   app.delete("/api/users/:id", async (req, res) => {
     try {
       const userId = parseInt(req.params.id);
+      console.log(`🗑️ Attempting to delete user ${userId}`);
+      
+      // Check if user exists first
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        console.log(`❌ User ${userId} not found for deletion`);
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      console.log(`📋 Deleting user: ${existingUser.name} (${existingUser.email})`);
       await storage.deleteUser(userId);
+      console.log(`✅ User ${userId} deleted successfully from database`);
+      
       res.json({ message: "User deleted successfully" });
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
+    } catch (error: any) {
+      console.error("❌ Error deleting user:", error);
+      res.status(500).json({ message: "Internal server error", error: error?.message || String(error) });
     }
   });
 
