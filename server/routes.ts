@@ -365,6 +365,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User details endpoints for admin panel
+  app.get("/api/users/:id/orders", async (req, res) => {
+    try {
+      const orders = await storage.getUserOrders(parseInt(req.params.id));
+      res.json(orders);
+    } catch (error) {
+      console.error("Error fetching user orders:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/users/:id/payments", async (req, res) => {
+    try {
+      const payments = await storage.getUserPayments(parseInt(req.params.id));
+      res.json(payments);
+    } catch (error) {
+      console.error("Error fetching user payments:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/users/:id/complaints", async (req, res) => {
+    try {
+      const complaints = await storage.getComplaintsByUser(parseInt(req.params.id));
+      res.json(complaints);
+    } catch (error) {
+      console.error("Error fetching user complaints:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/users/:id/block", async (req, res) => {
+    try {
+      const user = await storage.blockUser(parseInt(req.params.id));
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json({ message: "User blocked successfully", user });
+    } catch (error) {
+      console.error("Error blocking user:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/users/:id/unblock", async (req, res) => {
+    try {
+      const user = await storage.unblockUser(parseInt(req.params.id));
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json({ message: "User unblocked successfully", user });
+    } catch (error) {
+      console.error("Error unblocking user:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Categories endpoints
   app.get("/api/categories", async (req, res) => {
     try {

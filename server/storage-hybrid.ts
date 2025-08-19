@@ -587,6 +587,56 @@ export class HybridStorage implements IStorage {
     const complaints = await Complaint.find({ userId }).sort({ createdAt: -1 });
     return mongoToPlain(complaints);
   }
+
+  // Additional user-specific methods for admin panel
+  async getUserOrders(userId: number): Promise<any[]> {
+    const orders = await Order.find({ customerId: userId }).sort({ createdAt: -1 });
+    return mongoToPlain(orders);
+  }
+
+  async getUserPayments(userId: number): Promise<any[]> {
+    // Get orders for the user first, then get payments for those orders
+    const userOrders = await Order.find({ customerId: userId }, { _id: 1 });
+    const orderIds = userOrders.map(order => order._id);
+    const payments = await Payment.find({ orderId: { $in: orderIds } }).sort({ createdAt: -1 });
+    return mongoToPlain(payments);
+  }
+
+  async updateUserRole(id: number, role: string): Promise<User | null> {
+    const db = getPostgresDb();
+    return await db.user.update({
+      where: { id },
+      data: { role }
+    });
+  }
+
+  async blockUser(id: number): Promise<User | null> {
+    // For now, we'll use a role-based approach for blocking
+    const db = getPostgresDb();
+    const user = await db.user.findUnique({ where: { id } });
+    if (!user) return null;
+    
+    return await db.user.update({
+      where: { id },
+      data: { role: 'blocked_' + user.role } // Prefix role with 'blocked_'
+    });
+  }
+
+  async unblockUser(id: number): Promise<User | null> {
+    const db = getPostgresDb();
+    const user = await db.user.findUnique({ where: { id } });
+    if (!user) return null;
+    
+    // Remove 'blocked_' prefix if it exists
+    const unblocked_role = user.role?.startsWith('blocked_') 
+      ? user.role.replace('blocked_', '')
+      : user.role;
+      
+    return await db.user.update({
+      where: { id },
+      data: { role: unblocked_role }
+    });
+  }
 }
 
 export const storage = new HybridStorage();

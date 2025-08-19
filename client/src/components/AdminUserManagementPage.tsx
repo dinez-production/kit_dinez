@@ -15,7 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { 
   ArrowLeft, Search, Filter, Plus, Edit, Trash2, Mail, Phone, 
   MapPin, Star, Ban, Shield, Users, UserCheck, UserX, 
-  MessageSquare, CreditCard, Gift, AlertTriangle, School, Briefcase, RefreshCcw, Download, BarChart3, User
+  MessageSquare, CreditCard, Gift, AlertTriangle, School, Briefcase, RefreshCcw, Download, BarChart3, User,
+  Calendar, ShoppingBag, Receipt, Settings
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getDepartmentFullName, getStudyYearDisplay } from "@shared/utils";
@@ -31,6 +32,7 @@ export default function AdminUserManagementPage() {
   // Dialog states
   const [deleteDialog, setDeleteDialog] = useState<{open: boolean, user: any | null}>({open: false, user: null});
   const [editDialog, setEditDialog] = useState<{open: boolean, user: any | null}>({open: false, user: null});
+  const [userDetailsDialog, setUserDetailsDialog] = useState<{open: boolean, user: any | null}>({open: false, user: null});
   const [editFormData, setEditFormData] = useState({
     name: '',
     email: '',
@@ -84,6 +86,37 @@ export default function AdminUserManagementPage() {
   useEffect(() => {
     setComplaints(complaintsData);
   }, [complaintsData]);
+
+  // User-specific data queries for details popup
+  const { data: userOrders = [] } = useQuery<any[]>({
+    queryKey: ['/api/users', userDetailsDialog.user?.id, 'orders'],
+    queryFn: async () => {
+      const response = await fetch(`/api/users/${userDetailsDialog.user.id}/orders`);
+      if (!response.ok) throw new Error('Failed to fetch user orders');
+      return response.json();
+    },
+    enabled: !!userDetailsDialog.user?.id,
+  });
+
+  const { data: userPayments = [] } = useQuery<any[]>({
+    queryKey: ['/api/users', userDetailsDialog.user?.id, 'payments'],
+    queryFn: async () => {
+      const response = await fetch(`/api/users/${userDetailsDialog.user.id}/payments`);
+      if (!response.ok) throw new Error('Failed to fetch user payments');
+      return response.json();
+    },
+    enabled: !!userDetailsDialog.user?.id,
+  });
+
+  const { data: userComplaints = [] } = useQuery<any[]>({
+    queryKey: ['/api/users', userDetailsDialog.user?.id, 'complaints'],
+    queryFn: async () => {
+      const response = await fetch(`/api/users/${userDetailsDialog.user.id}/complaints`);
+      if (!response.ok) throw new Error('Failed to fetch user complaints');
+      return response.json();
+    },
+    enabled: !!userDetailsDialog.user?.id,
+  });
 
   // Combined loading state
   const isDataLoading = isLoading || analyticsLoading || ordersLoading || complaintsLoading;
@@ -239,6 +272,55 @@ export default function AdminUserManagementPage() {
       toast({
         title: "Deletion Failed",
         description: "Please try again or contact support",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Block/Unblock user functions
+  const handleBlockUser = async (userId: number, userName: string) => {
+    try {
+      const response = await fetch(`/api/users/${userId}/block`, {
+        method: 'PUT',
+      });
+      
+      if (response.ok) {
+        await queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+        toast({
+          title: "Success",
+          description: `${userName} has been blocked successfully.`,
+        });
+      } else {
+        throw new Error('Failed to block user');
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to block user. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUnblockUser = async (userId: number, userName: string) => {
+    try {
+      const response = await fetch(`/api/users/${userId}/unblock`, {
+        method: 'PUT',
+      });
+      
+      if (response.ok) {
+        await queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+        toast({
+          title: "Success",
+          description: `${userName} has been unblocked successfully.`,
+        });
+      } else {
+        throw new Error('Failed to unblock user');
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to unblock user. Please try again.",
         variant: "destructive",
       });
     }
@@ -498,7 +580,12 @@ export default function AdminUserManagementPage() {
                 <CardContent>
                   <div className="space-y-4">
                     {filteredUsers.map((user) => (
-                      <div key={user.id} className="border rounded-lg p-4">
+                      <div 
+                        key={user.id} 
+                        className="border rounded-lg p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => setUserDetailsDialog({open: true, user})}
+                        data-testid={`user-card-${user.id}`}
+                      >
                         <div className="flex items-start justify-between">
                           <div className="flex items-start space-x-4">
                             <Avatar className="w-12 h-12">
@@ -1606,6 +1693,378 @@ export default function AdminUserManagementPage() {
                 </Button>
               </div>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Comprehensive User Details Dialog */}
+        <Dialog 
+          open={userDetailsDialog.open} 
+          onOpenChange={(open) => setUserDetailsDialog({open, user: open ? userDetailsDialog.user : null})}
+        >
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center space-x-3">
+                <Avatar className="w-10 h-10">
+                  <AvatarImage src={userDetailsDialog.user?.avatar} alt={userDetailsDialog.user?.name} />
+                  <AvatarFallback>
+                    {userDetailsDialog.user?.name?.split(' ').map((n: string) => n[0]).join('') || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <div className="font-semibold text-lg">{userDetailsDialog.user?.name}</div>
+                  <div className="text-sm text-muted-foreground">{userDetailsDialog.user?.email}</div>
+                </div>
+                <div className="flex-1" />
+                <Badge 
+                  variant={userDetailsDialog.user?.role?.startsWith('blocked_') ? 'destructive' : 'default'}
+                  className="ml-auto"
+                >
+                  {userDetailsDialog.user?.role?.startsWith('blocked_') 
+                    ? `Blocked (${userDetailsDialog.user.role.replace('blocked_', '')})`
+                    : userDetailsDialog.user?.role || 'student'
+                  }
+                </Badge>
+              </DialogTitle>
+            </DialogHeader>
+
+            {userDetailsDialog.user && (
+              <div className="space-y-6">
+                {/* User Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <User className="w-5 h-5" />
+                      <span>User Information</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium">Email</Label>
+                      <div className="flex items-center space-x-2">
+                        <Mail className="w-4 h-4 text-muted-foreground" />
+                        <span>{userDetailsDialog.user.email}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium">Phone</Label>
+                      <div className="flex items-center space-x-2">
+                        <Phone className="w-4 h-4 text-muted-foreground" />
+                        <span>{userDetailsDialog.user.phoneNumber || 'Not provided'}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium">Join Date</Label>
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <span>{new Date(userDetailsDialog.user.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium">User ID</Label>
+                      <div className="flex items-center space-x-2">
+                        <Shield className="w-4 h-4 text-muted-foreground" />
+                        <span>#{userDetailsDialog.user.id}</span>
+                      </div>
+                    </div>
+                    {userDetailsDialog.user.registerNumber && (
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium">Register Number</Label>
+                        <div className="flex items-center space-x-2">
+                          <School className="w-4 h-4 text-muted-foreground" />
+                          <span>{userDetailsDialog.user.registerNumber}</span>
+                        </div>
+                      </div>
+                    )}
+                    {userDetailsDialog.user.staffId && (
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium">Staff ID</Label>
+                        <div className="flex items-center space-x-2">
+                          <Briefcase className="w-4 h-4 text-muted-foreground" />
+                          <span>{userDetailsDialog.user.staffId}</span>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Tabs for different sections */}
+                <Tabs defaultValue="orders" className="w-full">
+                  <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="orders" className="flex items-center space-x-2">
+                      <ShoppingBag className="w-4 h-4" />
+                      <span>Orders ({userOrders.length})</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="payments" className="flex items-center space-x-2">
+                      <Receipt className="w-4 h-4" />
+                      <span>Payments ({userPayments.length})</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="complaints" className="flex items-center space-x-2">
+                      <MessageSquare className="w-4 h-4" />
+                      <span>Complaints ({userComplaints.length})</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="actions" className="flex items-center space-x-2">
+                      <Settings className="w-4 h-4" />
+                      <span>Actions</span>
+                    </TabsTrigger>
+                  </TabsList>
+
+                  {/* Orders Tab */}
+                  <TabsContent value="orders" className="space-y-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Order History</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {userOrders.length === 0 ? (
+                          <div className="text-center py-6 text-muted-foreground">
+                            <ShoppingBag className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                            <p>No orders found</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3 max-h-60 overflow-y-auto">
+                            {userOrders.map((order: any, index: number) => (
+                              <div key={order.id || index} className="border rounded-lg p-3 space-y-2">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <div className="font-medium">#{order.orderNumber}</div>
+                                    <div className="text-sm text-muted-foreground">
+                                      {new Date(order.createdAt).toLocaleDateString()}
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <Badge variant={order.status === 'delivered' ? 'default' : 'secondary'}>
+                                      {order.status}
+                                    </Badge>
+                                    <div className="text-sm font-medium mt-1">₹{order.amount}</div>
+                                  </div>
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {JSON.parse(order.items || '[]').map((item: any, i: number) => 
+                                    item.name
+                                  ).join(', ')}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  {/* Payments Tab */}
+                  <TabsContent value="payments" className="space-y-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Payment History</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {userPayments.length === 0 ? (
+                          <div className="text-center py-6 text-muted-foreground">
+                            <Receipt className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                            <p>No payments found</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3 max-h-60 overflow-y-auto">
+                            {userPayments.map((payment: any, index: number) => (
+                              <div key={payment.id || index} className="border rounded-lg p-3 space-y-2">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <div className="font-medium">₹{payment.amount}</div>
+                                    <div className="text-sm text-muted-foreground">
+                                      {new Date(payment.createdAt).toLocaleDateString()}
+                                    </div>
+                                  </div>
+                                  <Badge 
+                                    variant={payment.status === 'success' ? 'default' : 
+                                            payment.status === 'failed' ? 'destructive' : 'secondary'}
+                                  >
+                                    {payment.status}
+                                  </Badge>
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  Transaction ID: {payment.merchantTransactionId}
+                                </div>
+                                {payment.paymentMethod && (
+                                  <div className="text-xs text-muted-foreground">
+                                    Method: {payment.paymentMethod}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  {/* Complaints Tab */}
+                  <TabsContent value="complaints" className="space-y-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Complaints & Issues</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {userComplaints.length === 0 ? (
+                          <div className="text-center py-6 text-muted-foreground">
+                            <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                            <p>No complaints found</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3 max-h-60 overflow-y-auto">
+                            {userComplaints.map((complaint: any, index: number) => (
+                              <div key={complaint.id || index} className="border rounded-lg p-3 space-y-2">
+                                <div className="flex justify-between items-start">
+                                  <div className="flex-1">
+                                    <div className="font-medium">{complaint.subject}</div>
+                                    <div className="text-sm text-muted-foreground mt-1">
+                                      {complaint.description}
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col items-end space-y-1">
+                                    <Badge 
+                                      variant={complaint.status === 'Resolved' ? 'default' : 
+                                              complaint.status === 'Open' ? 'destructive' : 'secondary'}
+                                    >
+                                      {complaint.status}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      {complaint.priority}
+                                    </Badge>
+                                  </div>
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  Created: {new Date(complaint.createdAt).toLocaleDateString()}
+                                </div>
+                                {complaint.adminNotes && (
+                                  <div className="text-xs bg-muted rounded p-2">
+                                    <span className="font-medium">Admin Notes: </span>
+                                    {complaint.adminNotes}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  {/* Actions Tab */}
+                  <TabsContent value="actions" className="space-y-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Administrative Actions</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          {/* Block/Unblock User */}
+                          {userDetailsDialog.user.role?.startsWith('blocked_') ? (
+                            <Button 
+                              onClick={() => {
+                                handleUnblockUser(userDetailsDialog.user.id, userDetailsDialog.user.name);
+                                setUserDetailsDialog({open: false, user: null});
+                              }}
+                              className="w-full"
+                              variant="default"
+                            >
+                              <UserCheck className="w-4 h-4 mr-2" />
+                              Unblock User
+                            </Button>
+                          ) : (
+                            <Button 
+                              onClick={() => {
+                                handleBlockUser(userDetailsDialog.user.id, userDetailsDialog.user.name);
+                                setUserDetailsDialog({open: false, user: null});
+                              }}
+                              className="w-full"
+                              variant="destructive"
+                            >
+                              <Ban className="w-4 h-4 mr-2" />
+                              Block User
+                            </Button>
+                          )}
+                          
+                          {/* Edit User */}
+                          <Button 
+                            onClick={() => {
+                              setEditFormData({
+                                name: userDetailsDialog.user.name || '',
+                                email: userDetailsDialog.user.email || '',
+                                phoneNumber: userDetailsDialog.user.phoneNumber || '',
+                                role: userDetailsDialog.user.role || '',
+                                registerNumber: userDetailsDialog.user.registerNumber || '',
+                                department: userDetailsDialog.user.department || '',
+                                joiningYear: userDetailsDialog.user.joiningYear || '',
+                                passingOutYear: userDetailsDialog.user.passingOutYear || '',
+                                currentStudyYear: userDetailsDialog.user.currentStudyYear || '',
+                                staffId: userDetailsDialog.user.staffId || ''
+                              });
+                              setEditDialog({open: true, user: userDetailsDialog.user});
+                              setUserDetailsDialog({open: false, user: null});
+                            }}
+                            className="w-full"
+                            variant="outline"
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit User
+                          </Button>
+                          
+                          {/* Send Email */}
+                          <Button 
+                            onClick={() => {
+                              // Future implementation for sending email
+                              toast({
+                                title: "Feature Coming Soon",
+                                description: "Email functionality will be available soon.",
+                              });
+                            }}
+                            className="w-full"
+                            variant="outline"
+                          >
+                            <Mail className="w-4 h-4 mr-2" />
+                            Send Email
+                          </Button>
+                          
+                          {/* Reset Password */}
+                          <Button 
+                            onClick={() => {
+                              // Future implementation for password reset
+                              toast({
+                                title: "Feature Coming Soon",
+                                description: "Password reset functionality will be available soon.",
+                              });
+                            }}
+                            className="w-full"
+                            variant="outline"
+                          >
+                            <Shield className="w-4 h-4 mr-2" />
+                            Reset Password
+                          </Button>
+                        </div>
+                        
+                        {/* User Statistics */}
+                        <div className="grid grid-cols-3 gap-4 pt-4 border-t">
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-primary">{userOrders.length}</div>
+                            <div className="text-sm text-muted-foreground">Total Orders</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-green-600">
+                              ₹{userOrders.reduce((total, order) => total + (order.amount || 0), 0)}
+                            </div>
+                            <div className="text-sm text-muted-foreground">Total Spent</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-orange-600">{userComplaints.length}</div>
+                            <div className="text-sm text-muted-foreground">Complaints</div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>
