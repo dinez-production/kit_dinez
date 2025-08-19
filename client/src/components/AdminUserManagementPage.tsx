@@ -179,6 +179,8 @@ export default function AdminUserManagementPage() {
 
   const handleUserUpdate = async (userId: number, userData: any, userName: string) => {
     try {
+      console.log('🔄 Starting user update for:', { userId, userName, newRole: userData.role });
+      
       // Prepare the update data
       const updateData: any = {
         name: userData.name,
@@ -212,6 +214,8 @@ export default function AdminUserManagementPage() {
         updateData.staffId = null;
       }
       
+      console.log('📋 Sending update request:', updateData);
+      
       const response = await fetch(`/api/users/${userId}`, {
         method: 'PUT',
         headers: {
@@ -220,17 +224,26 @@ export default function AdminUserManagementPage() {
         body: JSON.stringify(updateData),
       });
       
+      console.log('📨 Response status:', response.status);
+      
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('❌ Update failed with error:', errorData);
         throw new Error(errorData.message || 'Failed to update user');
       }
+      
+      const updatedUser = await response.json();
+      console.log('✅ User updated successfully:', updatedUser);
       
       toast({
         title: "User Updated",
         description: `${userName}'s details have been updated successfully`,
       });
       setEditDialog({open: false, user: null});
-      await refetch(); // Refresh data
+      
+      // Force cache invalidation and refetch
+      await queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      await refetch(); // Also explicitly refetch
     } catch (error: any) {
       toast({
         title: "Update Failed",
@@ -256,18 +269,30 @@ export default function AdminUserManagementPage() {
 
   const handleDeleteUser = async (userId: number, userName: string) => {
     try {
+      console.log('🗑️ Starting user deletion for:', { userId, userName });
+      
       const response = await fetch(`/api/users/${userId}`, { method: 'DELETE' });
       
+      console.log('📨 Delete response status:', response.status);
+      
       if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ Delete failed with error:', errorData);
         throw new Error('Failed to delete user');
       }
+      
+      const result = await response.json();
+      console.log('✅ User deleted successfully:', result);
       
       toast({
         title: "User Deleted",
         description: `${userName} has been deleted successfully`,
       });
       setDeleteDialog({open: false, user: null});
-      await refetch(); // Refresh data
+      
+      // Force cache invalidation and refetch
+      await queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      await refetch(); // Also explicitly refetch
     } catch (error) {
       toast({
         title: "Deletion Failed",

@@ -100,8 +100,16 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<InsertUser>): Promise<User>;
   updateUserEmail(id: number, email: string): Promise<User | undefined>;
+  updateUserRole(id: number, role: string): Promise<User | null>;
+  blockUser(id: number): Promise<User | null>;
+  unblockUser(id: number): Promise<User | null>;
   deleteUser(id: number): Promise<void>;
   deleteAllUsers(): Promise<void>;
+  
+  // User-specific data methods for admin panel
+  getUserOrders(userId: number): Promise<any[]>;
+  getUserPayments(userId: number): Promise<any[]>;
+  getComplaintsByUser(userId: number): Promise<any[]>;
   
   // Categories (MongoDB)
   getCategories(): Promise<any[]>;
