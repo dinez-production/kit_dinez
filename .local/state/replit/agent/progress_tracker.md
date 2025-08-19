@@ -7,3 +7,4 @@
 [x] 7. Fixed Cart button in Store Mode - added cart dialog to store mode layout so it shows immediately when clicked
 [x] 8. Enhanced Add to Cart buttons - made them larger, full-width with "Add" text for easier clicking
 [x] 9. Improved search UX - hide Quick Orders and Trending when searching, show only relevant results at top
+[x] 10. Fixed Mark Ready button in active orders - enhanced cache invalidation to refresh UI immediately after status update

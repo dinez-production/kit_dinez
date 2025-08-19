@@ -472,7 +472,11 @@ export default function CanteenOwnerDashboardSidebar() {
       });
     },
     onSuccess: (_, variables) => {
+      // Invalidate all order-related queries to ensure UI updates
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders/active/paginated"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders/paginated"] });
+      
       if (variables.status === "delivered") {
         toast.success("Order marked as delivered!");
         setTimeout(() => {
@@ -482,6 +486,8 @@ export default function CanteenOwnerDashboardSidebar() {
           setScannedOrder(null);
           setShowOrderDetails(false);
         }, 1500); // Clear after 1.5 seconds to show success
+      } else if (variables.status === "ready") {
+        toast.success("Order marked as ready!");
       }
     },
     onError: () => {
