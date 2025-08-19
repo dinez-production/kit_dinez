@@ -244,11 +244,6 @@ export default function AdminUserManagementPage() {
     }
   };
 
-  // Debug: Log unique roles in the data
-  const uniqueRoles = [...new Set(users.map(u => u.role || 'no-role'))];
-  console.log('Available roles in data:', uniqueRoles);
-  console.log('Current filter:', filterRole);
-
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
@@ -262,11 +257,11 @@ export default function AdminUserManagementPage() {
       // Handle different role name variations
       if (filterRoleLower === 'canteen-owner') {
         matchesRole = userRole === 'canteen-owner' || userRole === 'canteen_owner' || userRole === 'canteenowner';
+      } else if (filterRoleLower === 'admin') {
+        matchesRole = userRole === 'admin' || userRole === 'super admin' || userRole === 'super_admin' || userRole === 'superadmin';
       } else {
         matchesRole = userRole === filterRoleLower;
       }
-      
-      console.log(`Checking user: ${user.name}, role: "${userRole}", filter: "${filterRoleLower}", matches: ${matchesRole}`);
     }
     
     return matchesSearch && matchesRole;
@@ -289,7 +284,10 @@ export default function AdminUserManagementPage() {
     students: users.filter(u => u.role === 'student').length,
     canteenOwner: users.filter(u => u.role === 'canteen-owner').length,
     staff: users.filter(u => u.role === 'staff').length,
-    admins: users.filter(u => u.role === 'admin' || u.role === 'super_admin').length,
+    admins: users.filter(u => {
+      const role = (u.role || '').toLowerCase();
+      return role === 'admin' || role === 'super admin' || role === 'super_admin' || role === 'superadmin';
+    }).length,
   };
 
   return (
