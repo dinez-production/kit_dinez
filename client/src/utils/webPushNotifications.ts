@@ -351,24 +351,45 @@ class WebPushNotificationManager {
         throw new Error('Notification permission not granted');
       }
 
-      // Create a local notification with Android-optimized settings
-      const notification = new Notification('🔔 Android Test Notification', {
-        body: 'This notification should appear as a banner on Android devices!',
+      // Use service worker to show notification for better Android compatibility
+      const registration = await navigator.serviceWorker.ready;
+      await registration.showNotification('🔔 Android Banner Test', {
+        body: 'This notification uses service worker for maximum Android compatibility!',
         icon: '/icon-192.png',
         badge: '/icon-192.png',
-        tag: 'android-test',
+        tag: 'android-banner-test',
         requireInteraction: true,
         silent: false,
+        renotify: true,
+        data: {
+          type: 'android_test',
+          timestamp: Date.now(),
+        },
       } as NotificationOptions);
 
-      // Auto-close after 5 seconds
-      setTimeout(() => notification.close(), 5000);
-
-      console.log('✅ Local test notification displayed with Android optimization');
+      console.log('✅ Android-optimized service worker notification displayed');
       return true;
     } catch (error) {
-      console.error('❌ Failed to show local test notification:', error);
-      return false;
+      console.error('❌ Failed to show Android-optimized notification:', error);
+      
+      // Fallback to direct notification API
+      try {
+        const notification = new Notification('🔔 Android Fallback Test', {
+          body: 'Fallback notification - check your notification settings!',
+          icon: '/icon-192.png',
+          badge: '/icon-192.png',
+          tag: 'android-fallback',
+          requireInteraction: true,
+          silent: false,
+        } as NotificationOptions);
+
+        setTimeout(() => notification.close(), 8000);
+        console.log('✅ Fallback notification displayed');
+        return true;
+      } catch (fallbackError) {
+        console.error('❌ Fallback notification also failed:', fallbackError);
+        return false;
+      }
     }
   }
 

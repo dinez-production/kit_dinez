@@ -172,25 +172,22 @@ self.addEventListener('push', event => {
     notificationData.urgency = 'high';
   }
 
-  // Enhanced Android notification options for banner display
+  // Maximum Android heads-up notification settings
   const androidNotificationOptions = {
     body: notificationData.body,
     icon: notificationData.icon,
     badge: notificationData.badge,
     data: notificationData.data,
     actions: notificationData.actions,
-    requireInteraction: notificationData.requireInteraction,
-    silent: notificationData.silent,
+    // Force heads-up display on Android
+    requireInteraction: true,
+    silent: false,
     tag: notificationData.tag,
     timestamp: notificationData.timestamp,
-    vibrate: notificationData.vibrate || [200, 100, 200],
-    // Critical Android settings for heads-up notifications
-    urgency: 'high',
-    priority: 'high',
-    importance: 'high',
-    // Additional Android-specific options
+    vibrate: [300, 200, 300, 200, 300],
+    // Maximum priority settings for Android heads-up
     renotify: true,
-    sticky: notificationData.data?.type === 'order_update' && notificationData.data?.status === 'ready',
+    sticky: true,
     // Enhanced visual settings
     image: notificationData.image,
     dir: 'ltr',

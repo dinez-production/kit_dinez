@@ -247,18 +247,37 @@ export class WebPushService {
     payload: NotificationPayload
   ): Promise<void> {
     try {
-      const notificationPayload = JSON.stringify({
+      // Force Android heads-up notification settings
+      const androidOptimizedPayload = {
         ...payload,
         timestamp: payload.timestamp || Date.now(),
-      });
+        // Maximum priority for Android heads-up notifications
+        requireInteraction: true,
+        renotify: true,
+        sticky: true,
+        vibrate: payload.vibrate || [300, 200, 300, 200, 300],
+        priority: 'high',
+        urgency: 'high',
+      };
 
-      console.log('📤 Sending push notification:', {
+      const notificationPayload = JSON.stringify(androidOptimizedPayload);
+
+      console.log('📤 Sending Android-optimized push notification:', {
         endpoint: subscription.endpoint.substring(0, 50) + '...',
-        payload: payload.title
+        payload: payload.title,
+        androidOptimized: true
       });
 
-      await webPush.sendNotification(subscription, notificationPayload);
-      console.log('✅ Push notification sent successfully');
+      // Send with high priority headers for Android
+      const options = {
+        headers: {
+          'Urgency': 'high',
+          'Priority': 'high'
+        }
+      };
+
+      await webPush.sendNotification(subscription, notificationPayload, options);
+      console.log('✅ Android-optimized push notification sent successfully');
     } catch (error: any) {
       console.error('❌ Push notification failed:', {
         message: error?.message || error,

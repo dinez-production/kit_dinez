@@ -49,8 +49,8 @@ export default function NotificationsPage() {
       const success = await showLocalTestNotification();
       if (success) {
         toast({
-          title: "Local Test Sent",
-          description: "Check if the notification appears as a banner on your Android device.",
+          title: "Android Test Sent",
+          description: "Check if the notification appears as a banner. If not, check device settings.",
         });
       }
     } catch (error: any) {
@@ -58,6 +58,59 @@ export default function NotificationsPage() {
         title: "Test Failed",
         description: error?.message || "Failed to show local test notification",
         variant: "destructive",
+      });
+    }
+  };
+
+  // Handle Android diagnostic check
+  const handleAndroidDiagnostic = () => {
+    const isAndroid = /android/i.test(navigator.userAgent);
+    const isChrome = /chrome/i.test(navigator.userAgent);
+    const isFirefox = /firefox/i.test(navigator.userAgent);
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches;
+    
+    let diagnosticMessage = "Android Notification Diagnostic:\n\n";
+    diagnosticMessage += `Device: ${isAndroid ? '✓ Android' : '✗ Not Android'}\n`;
+    diagnosticMessage += `Browser: ${isChrome ? '✓ Chrome' : isFirefox ? '✓ Firefox' : '? Other browser'}\n`;
+    diagnosticMessage += `PWA Mode: ${isPWA ? '✓ Installed as PWA' : '✗ Browser mode'}\n`;
+    diagnosticMessage += `Permission: ${permission}\n\n`;
+    
+    if (isAndroid && !isPWA) {
+      diagnosticMessage += "SOLUTION: Install as PWA for banner notifications!\n";
+      diagnosticMessage += "1. Open browser menu (3 dots)\n";
+      diagnosticMessage += "2. Select 'Add to Home Screen'\n";
+      diagnosticMessage += "3. Open the app from your home screen\n";
+      diagnosticMessage += "4. Test notifications again\n\n";
+    }
+    
+    if (isAndroid) {
+      diagnosticMessage += "Additional Android Settings:\n";
+      diagnosticMessage += "• Settings > Apps > [This App] > Notifications\n";
+      diagnosticMessage += "• Enable 'Show as pop-up' or 'Alert style'\n";
+      diagnosticMessage += "• Set importance to 'High'\n";
+      diagnosticMessage += "• Disable 'Do Not Disturb' or add exception\n";
+    }
+    
+    toast({
+      title: "Android Diagnostic",
+      description: isPWA ? "PWA installed - check notification settings" : "Install as PWA for better notifications",
+    });
+    
+    console.log(diagnosticMessage);
+  };
+
+  // Handle PWA install prompt
+  const handleInstallPWA = () => {
+    // Check if PWA install prompt is available
+    if ('beforeinstallprompt' in window) {
+      toast({
+        title: "Install App",
+        description: "Look for 'Add to Home Screen' in your browser menu (3 dots)",
+      });
+    } else {
+      toast({
+        title: "Install Instructions",
+        description: "Open browser menu → Add to Home Screen → Install App",
       });
     }
   };
@@ -348,6 +401,30 @@ export default function NotificationsPage() {
                   <Smartphone className="w-4 h-4 mr-2" />
                   Android Banner Test
                 </Button>
+
+                {/android/i.test(navigator.userAgent) && (
+                  <>
+                    <Button 
+                      onClick={handleAndroidDiagnostic} 
+                      variant="outline" 
+                      className="w-full"
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      Android Diagnostic
+                    </Button>
+                    
+                    {!window.matchMedia('(display-mode: standalone)').matches && (
+                      <Button 
+                        onClick={handleInstallPWA} 
+                        variant="default" 
+                        className="w-full bg-green-600 hover:bg-green-700"
+                      >
+                        <Smartphone className="w-4 h-4 mr-2" />
+                        Install as App (Recommended)
+                      </Button>
+                    )}
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -368,10 +445,11 @@ export default function NotificationsPage() {
                       If notifications only appear in your notification tray (not as banners):
                     </p>
                     <ul className="list-disc list-inside space-y-1 ml-2">
-                      <li>Check if "Do Not Disturb" mode is enabled</li>
-                      <li>Verify notification importance is set to "High" for this app</li>
-                      <li>Ensure "Show as banner" is enabled in notification settings</li>
-                      <li>Try the "Android Banner Test" button above</li>
+                      <li><strong>Install as PWA:</strong> Add app to Home Screen for better notification support</li>
+                      <li><strong>Check Do Not Disturb:</strong> Disable DND mode or allow this app</li>
+                      <li><strong>Notification Importance:</strong> Set to "High" in Android Settings &gt; Apps</li>
+                      <li><strong>Banner Style:</strong> Enable "Show as pop-up" or "Alert style"</li>
+                      <li><strong>App Battery:</strong> Disable battery optimization for this app</li>
                     </ul>
                     <div className="mt-3 pt-2 border-t border-orange-200 dark:border-orange-700">
                       <Button 
