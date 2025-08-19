@@ -27,6 +27,11 @@ export default function AdminUserManagementPage() {
   const [activeTab, setActiveTab] = useState("all-users");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("all");
+  
+  // Dialog states
+  const [deleteDialog, setDeleteDialog] = useState<{open: boolean, user: any | null}>({open: false, user: null});
+  const [editDialog, setEditDialog] = useState<{open: boolean, user: any | null}>({open: false, user: null});
+  const [newEmail, setNewEmail] = useState("");
 
   // Fetch real users from database with real-time updates
   const { data: users = [], isLoading, refetch, error: usersError } = useQuery<any[]>({
@@ -147,11 +152,35 @@ export default function AdminUserManagementPage() {
         title: "Email Updated",
         description: `${userName}'s email has been updated to ${newEmail}`,
       });
+      setEditDialog({open: false, user: null});
       await refetch(); // Refresh data
     } catch (error: any) {
       toast({
         title: "Email Update Failed",
         description: error.message || "Please try again or contact support",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteUser = async (userId: number, userName: string) => {
+    try {
+      const response = await fetch(`/api/users/${userId}`, { method: 'DELETE' });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete user');
+      }
+      
+      toast({
+        title: "User Deleted",
+        description: `${userName} has been deleted successfully`,
+      });
+      setDeleteDialog({open: false, user: null});
+      await refetch(); // Refresh data
+    } catch (error) {
+      toast({
+        title: "Deletion Failed",
+        description: "Please try again or contact support",
         variant: "destructive",
       });
     }
@@ -469,10 +498,8 @@ export default function AdminUserManagementPage() {
                           </div>
                           <div className="flex flex-col space-y-1">
                             <Button variant="ghost" size="sm" onClick={() => {
-                              const newEmail = prompt(`Enter new email for ${user.name}:`, user.email);
-                              if (newEmail && newEmail !== user.email) {
-                                handleEmailUpdate(user.id, newEmail, user.name);
-                              }
+                              setEditDialog({open: true, user});
+                              setNewEmail(user.email);
                             }}>
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -485,28 +512,8 @@ export default function AdminUserManagementPage() {
                                 <UserCheck className="w-4 h-4" />
                               </Button>
                             )}
-                            <Button variant="ghost" size="sm" className="text-destructive" onClick={async () => {
-                              if (window.confirm(`Are you sure you want to delete ${user.name}? This action cannot be undone.`)) {
-                                try {
-                                  const response = await fetch(`/api/users/${user.id}`, { method: 'DELETE' });
-                                  
-                                  if (!response.ok) {
-                                    throw new Error('Failed to delete user');
-                                  }
-                                  
-                                  toast({
-                                    title: "User Deleted",
-                                    description: `${user.name} has been deleted successfully`,
-                                  });
-                                  await refetch(); // Refresh data
-                                } catch (error) {
-                                  toast({
-                                    title: "Deletion Failed",
-                                    description: "Please try again or contact support",
-                                    variant: "destructive",
-                                  });
-                                }
-                              }
+                            <Button variant="ghost" size="sm" className="text-destructive" onClick={() => {
+                              setDeleteDialog({open: true, user});
                             }}>
                               <Trash2 className="w-4 h-4" />
                             </Button>
@@ -1270,12 +1277,10 @@ export default function AdminUserManagementPage() {
                     <Button 
                       variant="outline" 
                       onClick={() => {
-                        if (window.confirm('Are you sure you want to clean inactive users?')) {
-                          toast({
-                            title: "Cleanup Complete",
-                            description: "Inactive users have been cleaned up",
-                          });
-                        }
+                        toast({
+                          title: "Cleanup Complete",
+                          description: "Inactive users have been cleaned up",
+                        });
                       }}
                       data-testid="button-clean-inactive-users"
                     >
@@ -1299,6 +1304,118 @@ export default function AdminUserManagementPage() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Delete User Dialog */}
+        <Dialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({open, user: null})}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete User</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-muted-foreground">
+                Are you sure you want to delete <strong>{deleteDialog.user?.name}</strong>? 
+                This action cannot be undone and will permanently remove all user data.
+              </p>
+              <div className="bg-red-50 dark:bg-red-950 p-3 rounded-lg">
+                <div className="flex items-start space-x-2">
+                  <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-red-800 dark:text-red-200">Warning</p>
+                    <p className="text-sm text-red-700 dark:text-red-300">
+                      This will delete all orders, payments, and associated data for this user.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setDeleteDialog({open: false, user: null})}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={() => handleDeleteUser(deleteDialog.user?.id, deleteDialog.user?.name)}
+                >
+                  Delete User
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit User Email Dialog */}
+        <Dialog open={editDialog.open} onOpenChange={(open) => setEditDialog({open, user: null})}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit User Email</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="user-name">User Name</Label>
+                <Input 
+                  id="user-name" 
+                  value={editDialog.user?.name || ''} 
+                  disabled 
+                  className="bg-gray-50 dark:bg-gray-900"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="current-email">Current Email</Label>
+                <Input 
+                  id="current-email" 
+                  value={editDialog.user?.email || ''} 
+                  disabled 
+                  className="bg-gray-50 dark:bg-gray-900"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-email">New Email Address</Label>
+                <Input 
+                  id="new-email" 
+                  type="email" 
+                  value={newEmail} 
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="Enter new email address"
+                  className="focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
+                <div className="flex items-start space-x-2">
+                  <Mail className="w-5 h-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Email Update</p>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      The user will need to verify their new email address.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setEditDialog({open: false, user: null});
+                    setNewEmail('');
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={() => {
+                    if (newEmail && newEmail !== editDialog.user?.email) {
+                      handleEmailUpdate(editDialog.user?.id, newEmail, editDialog.user?.name);
+                    }
+                  }}
+                  disabled={!newEmail || newEmail === editDialog.user?.email}
+                >
+                  Update Email
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
