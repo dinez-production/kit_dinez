@@ -572,13 +572,9 @@ export default function AdminUserManagementPage() {
                             }}>
                               <Edit className="w-4 h-4" />
                             </Button>
-                            {user.status === "Active" ? (
+                            {user.status === "Active" && (
                               <Button variant="ghost" size="sm" onClick={() => handleUserAction(user.id, "suspend")}>
                                 <Ban className="w-4 h-4" />
-                              </Button>
-                            ) : (
-                              <Button variant="ghost" size="sm" onClick={() => handleUserAction(user.id, "activate")}>
-                                <UserCheck className="w-4 h-4" />
                               </Button>
                             )}
                             <Button variant="ghost" size="sm" className="text-destructive" onClick={() => {
