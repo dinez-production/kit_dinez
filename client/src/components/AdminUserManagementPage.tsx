@@ -100,8 +100,19 @@ export default function AdminUserManagementPage() {
 
   const handleUserAction = async (userId: number, action: string) => {
     try {
-      // TODO: Implement actual user status update via API
-      // const response = await fetch(`/api/users/${userId}/${action}`, { method: 'PATCH' });
+      const statusToUpdate = action === 'suspend' ? 'Suspended' : 'Active';
+      
+      const response = await fetch(`/api/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: statusToUpdate }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update user status');
+      }
       
       toast({
         title: "Action Completed",
@@ -112,6 +123,36 @@ export default function AdminUserManagementPage() {
       toast({
         title: "Action Failed",
         description: "Please try again or contact support",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEmailUpdate = async (userId: number, newEmail: string, userName: string) => {
+    try {
+      const response = await fetch(`/api/users/${userId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: newEmail }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update email');
+      }
+      
+      toast({
+        title: "Email Updated",
+        description: `${userName}'s email has been updated to ${newEmail}`,
+      });
+      await refetch(); // Refresh data
+    } catch (error: any) {
+      toast({
+        title: "Email Update Failed",
+        description: error.message || "Please try again or contact support",
+        variant: "destructive",
       });
     }
   };
@@ -428,10 +469,10 @@ export default function AdminUserManagementPage() {
                           </div>
                           <div className="flex flex-col space-y-1">
                             <Button variant="ghost" size="sm" onClick={() => {
-                              toast({
-                                title: "Edit User",
-                                description: `Opening edit form for ${user.name}`,
-                              });
+                              const newEmail = prompt(`Enter new email for ${user.name}:`, user.email);
+                              if (newEmail && newEmail !== user.email) {
+                                handleEmailUpdate(user.id, newEmail, user.name);
+                              }
                             }}>
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -447,8 +488,11 @@ export default function AdminUserManagementPage() {
                             <Button variant="ghost" size="sm" className="text-destructive" onClick={async () => {
                               if (window.confirm(`Are you sure you want to delete ${user.name}? This action cannot be undone.`)) {
                                 try {
-                                  // TODO: Implement actual user deletion via API
-                                  // const response = await fetch(`/api/users/${user.id}`, { method: 'DELETE' });
+                                  const response = await fetch(`/api/users/${user.id}`, { method: 'DELETE' });
+                                  
+                                  if (!response.ok) {
+                                    throw new Error('Failed to delete user');
+                                  }
                                   
                                   toast({
                                     title: "User Deleted",
@@ -459,6 +503,7 @@ export default function AdminUserManagementPage() {
                                   toast({
                                     title: "Deletion Failed",
                                     description: "Please try again or contact support",
+                                    variant: "destructive",
                                   });
                                 }
                               }

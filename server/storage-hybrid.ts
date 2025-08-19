@@ -100,6 +100,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<InsertUser>): Promise<User>;
   updateUserEmail(id: number, email: string): Promise<User | undefined>;
+  deleteUser(id: number): Promise<void>;
   deleteAllUsers(): Promise<void>;
   
   // Categories (MongoDB)
@@ -247,6 +248,13 @@ export class HybridStorage implements IStorage {
     } catch (error) {
       return undefined;
     }
+  }
+
+  async deleteUser(id: number): Promise<void> {
+    const db = getPostgresDb();
+    await db.user.delete({
+      where: { id }
+    });
   }
 
   async deleteAllUsers(): Promise<void> {
