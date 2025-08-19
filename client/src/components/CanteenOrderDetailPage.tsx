@@ -15,9 +15,15 @@ import {
   CheckCircle,
   XCircle,
   ChefHat,
-  Loader2
+  Loader2,
+  Mail,
+  School,
+  BadgeCheck,
+  GraduationCap,
+  Building,
+  Calendar
 } from "lucide-react";
-import type { Order } from "@shared/schema";
+import type { Order, User as UserType } from "@shared/schema";
 import { formatOrderIdDisplay } from "@shared/utils";
 
 export default function CanteenOrderDetailPage() {
@@ -56,6 +62,20 @@ export default function CanteenOrderDetailPage() {
       return order;
     },
     enabled: !!orderId,
+  });
+
+  // Fetch complete user details based on customerId from order
+  const { data: customerDetails, isLoading: isLoadingCustomer } = useQuery<UserType>({
+    queryKey: ['/api/users', orderDetails?.customerId],
+    queryFn: async () => {
+      if (!orderDetails?.customerId) return null;
+      const response = await fetch(`/api/users/${orderDetails.customerId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch customer details');
+      }
+      return response.json();
+    },
+    enabled: !!orderDetails?.customerId,
   });
 
   // Parse order items from JSON string
@@ -261,16 +281,119 @@ export default function CanteenOrderDetailPage() {
               Customer Details
             </h2>
             
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <User className="w-4 h-4 text-muted-foreground" />
-                <span className="font-medium">{orderDetails.customerName || 'N/A'}</span>
+            {isLoadingCustomer ? (
+              <div className="flex items-center space-x-2 py-4">
+                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Loading customer details...</span>
               </div>
-              <div className="flex items-center space-x-2">
-                <Phone className="w-4 h-4 text-muted-foreground" />
-                <span>N/A</span>
+            ) : customerDetails ? (
+              <div className="space-y-4">
+                {/* Basic Info */}
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    <div>
+                      <span className="font-medium">{customerDetails.name}</span>
+                      <Badge variant="outline" className="ml-2 text-xs">
+                        {customerDetails.role.charAt(0).toUpperCase() + customerDetails.role.slice(1)}
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-3">
+                    <Mail className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm">{customerDetails.email}</span>
+                  </div>
+                  
+                  {customerDetails.phoneNumber && (
+                    <div className="flex items-center space-x-3">
+                      <Phone className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm">{customerDetails.phoneNumber}</span>
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+                
+                {/* Role-specific details */}
+                {customerDetails.role === 'student' && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-medium text-muted-foreground flex items-center">
+                      <GraduationCap className="w-4 h-4 mr-2" />
+                      Student Information
+                    </h3>
+                    
+                    {customerDetails.registerNumber && (
+                      <div className="flex items-center space-x-3">
+                        <BadgeCheck className="w-4 h-4 text-muted-foreground" />
+                        <div>
+                          <span className="text-sm font-medium">Register Number:</span>
+                          <span className="text-sm ml-2">{customerDetails.registerNumber}</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {customerDetails.department && (
+                      <div className="flex items-center space-x-3">
+                        <School className="w-4 h-4 text-muted-foreground" />
+                        <div>
+                          <span className="text-sm font-medium">Department:</span>
+                          <span className="text-sm ml-2">{customerDetails.department}</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {customerDetails.currentStudyYear && (
+                      <div className="flex items-center space-x-3">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <div>
+                          <span className="text-sm font-medium">Current Year:</span>
+                          <span className="text-sm ml-2">{customerDetails.currentStudyYear}{customerDetails.currentStudyYear === 1 ? 'st' : customerDetails.currentStudyYear === 2 ? 'nd' : customerDetails.currentStudyYear === 3 ? 'rd' : 'th'} Year</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {customerDetails.joiningYear && (
+                      <div className="flex items-center space-x-3">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <div>
+                          <span className="text-sm font-medium">Joined:</span>
+                          <span className="text-sm ml-2">{customerDetails.joiningYear}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {customerDetails.role === 'staff' && customerDetails.staffId && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-medium text-muted-foreground flex items-center">
+                      <Building className="w-4 h-4 mr-2" />
+                      Staff Information
+                    </h3>
+                    
+                    <div className="flex items-center space-x-3">
+                      <BadgeCheck className="w-4 h-4 text-muted-foreground" />
+                      <div>
+                        <span className="text-sm font-medium">Staff ID:</span>
+                        <span className="text-sm ml-2">{customerDetails.staffId}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center space-x-3">
+                  <User className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-medium">{orderDetails.customerName || 'N/A'}</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <Phone className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Customer details not available</span>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
