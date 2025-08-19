@@ -72,7 +72,7 @@ export default function TermsConditionsPage() {
           <CardContent className="p-6">
             <h2 className="text-xl font-bold mb-4">Terms of Service</h2>
             <p className="text-muted-foreground leading-relaxed mb-4">
-              Welcome to KIT-Canteen operated by Dinez! By using our mobile application and services, you agree to be bound by these Terms and Conditions. 
+              Welcome to KIT-Dinez Operated by CUMINS SEEDS CATERING SERVICES! By using our mobile application and services, you agree to be bound by these Terms and Conditions. 
               Please read them carefully before using our service.
             </p>
             <div className="p-3 bg-accent/50 rounded-lg">
