@@ -11,6 +11,7 @@ export default function TermsConditionsPage() {
       icon: Users,
       title: "User Accounts",
       content: [
+        "ONCE YOU PLACE THE ORDER THE ORDER WILL BE READY WITHIN 30 MINS YOU HAVE TO COLLECT IT FROM THE COUNTER ONCE YOU RECEIVE THE NOTIFICATION AND ONCE YOU HAVE RECEIVED IT WE DO NOT OFFER ANY CANCELLATION ,RETURN OR REFUND FOR THE SAME"
         "You must be a current student, faculty, or staff member of KIT College to use this service",
         "You are responsible for maintaining the confidentiality of your account credentials",
         "You must provide accurate and up-to-date information when creating your account",
@@ -71,7 +72,7 @@ export default function TermsConditionsPage() {
           <CardContent className="p-6">
             <h2 className="text-xl font-bold mb-4">Terms of Service</h2>
             <p className="text-muted-foreground leading-relaxed mb-4">
-              Welcome to KIT-Canteen! By using our mobile application and services, you agree to be bound by these Terms and Conditions. 
+              Welcome to KIT-Canteen operated by Dinez! By using our mobile application and services, you agree to be bound by these Terms and Conditions. 
               Please read them carefully before using our service.
             </p>
             <div className="p-3 bg-accent/50 rounded-lg">
