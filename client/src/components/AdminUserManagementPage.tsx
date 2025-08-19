@@ -31,7 +31,18 @@ export default function AdminUserManagementPage() {
   // Dialog states
   const [deleteDialog, setDeleteDialog] = useState<{open: boolean, user: any | null}>({open: false, user: null});
   const [editDialog, setEditDialog] = useState<{open: boolean, user: any | null}>({open: false, user: null});
-  const [newEmail, setNewEmail] = useState("");
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    email: '',
+    phoneNumber: '',
+    role: '',
+    registerNumber: '',
+    department: '',
+    joiningYear: '',
+    passingOutYear: '',
+    currentStudyYear: '',
+    staffId: ''
+  });
 
   // Fetch real users from database with real-time updates
   const { data: users = [], isLoading, refetch, error: usersError } = useQuery<any[]>({
@@ -133,34 +144,81 @@ export default function AdminUserManagementPage() {
     }
   };
 
-  const handleEmailUpdate = async (userId: number, newEmail: string, userName: string) => {
+  const handleUserUpdate = async (userId: number, userData: any, userName: string) => {
     try {
+      // Prepare the update data
+      const updateData: any = {
+        name: userData.name,
+        email: userData.email,
+        phoneNumber: userData.phoneNumber || null,
+        role: userData.role,
+      };
+
+      // Add role-specific fields
+      if (userData.role === 'student') {
+        updateData.registerNumber = userData.registerNumber || null;
+        updateData.department = userData.department || null;
+        updateData.joiningYear = userData.joiningYear ? parseInt(userData.joiningYear) : null;
+        updateData.passingOutYear = userData.passingOutYear ? parseInt(userData.passingOutYear) : null;
+        updateData.currentStudyYear = userData.currentStudyYear ? parseInt(userData.currentStudyYear) : null;
+        updateData.staffId = null; // Clear staff fields
+      } else if (userData.role === 'staff') {
+        updateData.staffId = userData.staffId || null;
+        updateData.registerNumber = null; // Clear student fields
+        updateData.department = null;
+        updateData.joiningYear = null;
+        updateData.passingOutYear = null;
+        updateData.currentStudyYear = null;
+      } else {
+        // For admin and canteen-owner, clear both student and staff specific fields
+        updateData.registerNumber = null;
+        updateData.department = null;
+        updateData.joiningYear = null;
+        updateData.passingOutYear = null;
+        updateData.currentStudyYear = null;
+        updateData.staffId = null;
+      }
+      
       const response = await fetch(`/api/users/${userId}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email: newEmail }),
+        body: JSON.stringify(updateData),
       });
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update email');
+        throw new Error(errorData.message || 'Failed to update user');
       }
       
       toast({
-        title: "Email Updated",
-        description: `${userName}'s email has been updated to ${newEmail}`,
+        title: "User Updated",
+        description: `${userName}'s details have been updated successfully`,
       });
       setEditDialog({open: false, user: null});
       await refetch(); // Refresh data
     } catch (error: any) {
       toast({
-        title: "Email Update Failed",
+        title: "Update Failed",
         description: error.message || "Please try again or contact support",
         variant: "destructive",
       });
     }
+  };
+
+  const canChangeRole = (currentRole: string, newRole: string) => {
+    // Staff cannot change to student and vice versa
+    if ((currentRole === 'staff' && newRole === 'student') || 
+        (currentRole === 'student' && newRole === 'staff')) {
+      return false;
+    }
+    return true;
+  };
+
+  const getAvailableRoles = (currentRole: string) => {
+    const allRoles = ['admin', 'canteen-owner', 'student', 'staff'];
+    return allRoles.filter(role => canChangeRole(currentRole, role));
   };
 
   const handleDeleteUser = async (userId: number, userName: string) => {
@@ -499,7 +557,18 @@ export default function AdminUserManagementPage() {
                           <div className="flex flex-col space-y-1">
                             <Button variant="ghost" size="sm" onClick={() => {
                               setEditDialog({open: true, user});
-                              setNewEmail(user.email);
+                              setEditFormData({
+                                name: user.name || '',
+                                email: user.email || '',
+                                phoneNumber: user.phoneNumber || '',
+                                role: user.role || '',
+                                registerNumber: user.registerNumber || '',
+                                department: user.department || '',
+                                joiningYear: user.joiningYear?.toString() || '',
+                                passingOutYear: user.passingOutYear?.toString() || '',
+                                currentStudyYear: user.currentStudyYear?.toString() || '',
+                                staffId: user.staffId || ''
+                              });
                             }}>
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -1345,72 +1414,180 @@ export default function AdminUserManagementPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Edit User Email Dialog */}
+        {/* Edit User Details Dialog */}
         <Dialog open={editDialog.open} onOpenChange={(open) => setEditDialog({open, user: null})}>
-          <DialogContent>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Edit User Email</DialogTitle>
+              <DialogTitle>Edit User Details</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="user-name">User Name</Label>
-                <Input 
-                  id="user-name" 
-                  value={editDialog.user?.name || ''} 
-                  disabled 
-                  className="bg-gray-50 dark:bg-gray-900"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="current-email">Current Email</Label>
-                <Input 
-                  id="current-email" 
-                  value={editDialog.user?.email || ''} 
-                  disabled 
-                  className="bg-gray-50 dark:bg-gray-900"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="new-email">New Email Address</Label>
-                <Input 
-                  id="new-email" 
-                  type="email" 
-                  value={newEmail} 
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="Enter new email address"
-                  className="focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
-                <div className="flex items-start space-x-2">
-                  <Mail className="w-5 h-5 text-blue-600 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Email Update</p>
-                    <p className="text-sm text-blue-700 dark:text-blue-300">
-                      The user will need to verify their new email address.
-                    </p>
-                  </div>
+              {/* Basic Information */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">Full Name</Label>
+                  <Input 
+                    id="edit-name" 
+                    value={editFormData.name} 
+                    onChange={(e) => setEditFormData({...editFormData, name: e.target.value})}
+                    placeholder="Enter full name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email Address</Label>
+                  <Input 
+                    id="edit-email" 
+                    type="email"
+                    value={editFormData.email} 
+                    onChange={(e) => setEditFormData({...editFormData, email: e.target.value})}
+                    placeholder="Enter email address"
+                  />
                 </div>
               </div>
-              <div className="flex justify-end space-x-2">
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Phone Number</Label>
+                  <Input 
+                    id="edit-phone" 
+                    value={editFormData.phoneNumber} 
+                    onChange={(e) => setEditFormData({...editFormData, phoneNumber: e.target.value})}
+                    placeholder="Enter phone number"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-role">Role</Label>
+                  <Select 
+                    value={editFormData.role} 
+                    onValueChange={(value) => setEditFormData({...editFormData, role: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getAvailableRoles(editDialog.user?.role || '').map(role => (
+                        <SelectItem key={role} value={role}>
+                          {role.charAt(0).toUpperCase() + role.slice(1).replace('-', ' ')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Role-specific Information */}
+              {editFormData.role === 'student' && (
+                <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                  <h4 className="font-medium text-blue-800 dark:text-blue-200">Student Information</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-register">Register Number</Label>
+                      <Input 
+                        id="edit-register" 
+                        value={editFormData.registerNumber} 
+                        onChange={(e) => setEditFormData({...editFormData, registerNumber: e.target.value})}
+                        placeholder="Enter register number"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-department">Department</Label>
+                      <Input 
+                        id="edit-department" 
+                        value={editFormData.department} 
+                        onChange={(e) => setEditFormData({...editFormData, department: e.target.value})}
+                        placeholder="Enter department"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-joining-year">Joining Year</Label>
+                      <Input 
+                        id="edit-joining-year" 
+                        type="number"
+                        value={editFormData.joiningYear} 
+                        onChange={(e) => setEditFormData({...editFormData, joiningYear: e.target.value})}
+                        placeholder="2020"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-passing-year">Passing Year</Label>
+                      <Input 
+                        id="edit-passing-year" 
+                        type="number"
+                        value={editFormData.passingOutYear} 
+                        onChange={(e) => setEditFormData({...editFormData, passingOutYear: e.target.value})}
+                        placeholder="2024"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-current-year">Current Study Year</Label>
+                      <Input 
+                        id="edit-current-year" 
+                        type="number"
+                        value={editFormData.currentStudyYear} 
+                        onChange={(e) => setEditFormData({...editFormData, currentStudyYear: e.target.value})}
+                        placeholder="3"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {editFormData.role === 'staff' && (
+                <div className="space-y-4 p-4 bg-green-50 dark:bg-green-950 rounded-lg">
+                  <h4 className="font-medium text-green-800 dark:text-green-200">Staff Information</h4>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-staff-id">Staff ID</Label>
+                    <Input 
+                      id="edit-staff-id" 
+                      value={editFormData.staffId} 
+                      onChange={(e) => setEditFormData({...editFormData, staffId: e.target.value})}
+                      placeholder="Enter staff ID"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Role Change Warning */}
+              {editFormData.role !== editDialog.user?.role && (
+                <div className="bg-yellow-50 dark:bg-yellow-950 p-3 rounded-lg">
+                  <div className="flex items-start space-x-2">
+                    <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Role Change Warning</p>
+                      <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                        Changing role from <strong>{editDialog.user?.role}</strong> to <strong>{editFormData.role}</strong> will 
+                        {editFormData.role === 'student' || editFormData.role === 'staff' ? ' require additional information' : ' clear role-specific data'}.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-2 pt-4">
                 <Button 
                   variant="outline" 
                   onClick={() => {
                     setEditDialog({open: false, user: null});
-                    setNewEmail('');
+                    setEditFormData({
+                      name: '', email: '', phoneNumber: '', role: '',
+                      registerNumber: '', department: '', joiningYear: '',
+                      passingOutYear: '', currentStudyYear: '', staffId: ''
+                    });
                   }}
                 >
                   Cancel
                 </Button>
                 <Button 
                   onClick={() => {
-                    if (newEmail && newEmail !== editDialog.user?.email) {
-                      handleEmailUpdate(editDialog.user?.id, newEmail, editDialog.user?.name);
+                    if (editFormData.name && editFormData.email && editFormData.role) {
+                      handleUserUpdate(editDialog.user?.id, editFormData, editDialog.user?.name);
                     }
                   }}
-                  disabled={!newEmail || newEmail === editDialog.user?.email}
+                  disabled={!editFormData.name || !editFormData.email || !editFormData.role}
                 >
-                  Update Email
+                  Update User
                 </Button>
               </div>
             </div>
