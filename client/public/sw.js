@@ -132,6 +132,10 @@ self.addEventListener('push', event => {
     silent: false,
     tag: 'default',
     timestamp: Date.now(),
+    // Android-specific settings for heads-up notifications
+    priority: 'high',
+    urgency: 'high',
+    vibrate: [200, 100, 200],
   };
 
   // Parse notification data from server
@@ -163,23 +167,41 @@ self.addEventListener('push', event => {
       }
     ];
     notificationData.requireInteraction = true;
+    // High priority for order updates to ensure heads-up display
+    notificationData.priority = 'high';
+    notificationData.urgency = 'high';
   }
+
+  // Enhanced Android notification options for banner display
+  const androidNotificationOptions = {
+    body: notificationData.body,
+    icon: notificationData.icon,
+    badge: notificationData.badge,
+    data: notificationData.data,
+    actions: notificationData.actions,
+    requireInteraction: notificationData.requireInteraction,
+    silent: notificationData.silent,
+    tag: notificationData.tag,
+    timestamp: notificationData.timestamp,
+    vibrate: notificationData.vibrate || [200, 100, 200],
+    // Critical Android settings for heads-up notifications
+    urgency: 'high',
+    priority: 'high',
+    importance: 'high',
+    // Additional Android-specific options
+    renotify: true,
+    sticky: notificationData.data?.type === 'order_update' && notificationData.data?.status === 'ready',
+    // Enhanced visual settings
+    image: notificationData.image,
+    dir: 'ltr',
+    lang: 'en',
+  };
 
   // Show notification and send to in-app notification panel
   event.waitUntil(
     Promise.all([
-      // Show browser notification
-      self.registration.showNotification(notificationData.title, {
-        body: notificationData.body,
-        icon: notificationData.icon,
-        badge: notificationData.badge,
-        data: notificationData.data,
-        actions: notificationData.actions,
-        requireInteraction: notificationData.requireInteraction,
-        silent: notificationData.silent,
-        tag: notificationData.tag,
-        timestamp: notificationData.timestamp,
-      }),
+      // Show browser notification with enhanced Android options
+      self.registration.showNotification(notificationData.title, androidNotificationOptions),
       // Send to all clients for in-app notification panel
       self.clients.matchAll().then(clients => {
         clients.forEach(client => {

@@ -26,6 +26,12 @@ interface NotificationPayload {
   silent?: boolean;
   timestamp?: number;
   url?: string;
+  // Android-specific properties for heads-up notifications
+  priority?: 'min' | 'low' | 'normal' | 'high' | 'max';
+  urgency?: 'very-low' | 'low' | 'normal' | 'high';
+  vibrate?: number[];
+  renotify?: boolean;
+  sticky?: boolean;
 }
 
 interface StoredSubscription {
@@ -332,6 +338,12 @@ export class WebPushService {
       url: `/orders/${orderNumber}`,
       tag: `order_${orderNumber}`,
       requireInteraction: status === 'ready',
+      // Android-specific settings for heads-up notifications
+      priority: status === 'ready' ? 'high' : 'normal',
+      urgency: status === 'ready' ? 'high' : 'normal',
+      vibrate: [200, 100, 200],
+      renotify: true,
+      sticky: status === 'ready',
     });
   }
 
@@ -355,6 +367,11 @@ export class WebPushService {
       },
       url: `/orders/${orderNumber}`,
       tag: `payment_${orderNumber}`,
+      // Android-specific settings for heads-up notifications
+      priority: 'high',
+      urgency: 'high',
+      vibrate: [200, 100, 200],
+      renotify: true,
     });
   }
 
@@ -380,6 +397,12 @@ export class WebPushService {
       url: `/admin/orders/${orderNumber}`,
       tag: `new_order_${orderNumber}`,
       requireInteraction: true,
+      // Android-specific settings for heads-up notifications
+      priority: 'high',
+      urgency: 'high',
+      vibrate: [300, 150, 300],
+      renotify: true,
+      sticky: true,
     });
   }
 

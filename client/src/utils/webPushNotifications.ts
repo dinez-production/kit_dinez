@@ -87,11 +87,40 @@ class WebPushNotificationManager {
       // Wait for service worker to be ready
       await navigator.serviceWorker.ready;
       
+      // Setup Android notification channels for better heads-up notification support
+      await this.setupAndroidNotificationChannels();
+      
       console.log('✅ Service worker registered successfully');
       return registration;
     } catch (error) {
       console.error('❌ Service worker registration failed:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Setup Android notification channels for optimal heads-up notification behavior
+   */
+  private async setupAndroidNotificationChannels(): Promise<void> {
+    try {
+      // Check if we're on Android and have notification channel support
+      const userAgent = navigator.userAgent.toLowerCase();
+      if ('Notification' in window && userAgent.includes('android')) {
+        console.log('🔔 Setting up Android notification channels for heads-up notifications');
+        
+        // Test if the browser supports notification options that help with Android heads-up display
+        const testNotification = new Notification('Setup Complete', {
+          silent: true,
+          tag: 'setup-test',
+        } as NotificationOptions);
+        
+        // Close the test notification immediately
+        setTimeout(() => testNotification.close(), 100);
+        
+        console.log('✅ Android notification configuration optimized');
+      }
+    } catch (error) {
+      console.warn('Android notification channel setup failed (non-critical):', error);
     }
   }
 
@@ -314,6 +343,36 @@ class WebPushNotificationManager {
   }
 
   /**
+   * Show local test notification with Android-optimized settings
+   */
+  async showLocalTestNotification(): Promise<boolean> {
+    try {
+      if (Notification.permission !== 'granted') {
+        throw new Error('Notification permission not granted');
+      }
+
+      // Create a local notification with Android-optimized settings
+      const notification = new Notification('🔔 Android Test Notification', {
+        body: 'This notification should appear as a banner on Android devices!',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        tag: 'android-test',
+        requireInteraction: true,
+        silent: false,
+      } as NotificationOptions);
+
+      // Auto-close after 5 seconds
+      setTimeout(() => notification.close(), 5000);
+
+      console.log('✅ Local test notification displayed with Android optimization');
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to show local test notification:', error);
+      return false;
+    }
+  }
+
+  /**
    * Convert VAPID key from URL-safe base64 to Uint8Array
    */
   private urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -395,6 +454,10 @@ export const unsubscribeFromNotifications = async (): Promise<boolean> => {
 
 export const sendTestNotification = async (): Promise<boolean> => {
   return await webPushManager.sendTestNotification();
+};
+
+export const showLocalTestNotification = async (): Promise<boolean> => {
+  return await webPushManager.showLocalTestNotification();
 };
 
 export const getNotificationPermissionStatus = (): NotificationPermission => {

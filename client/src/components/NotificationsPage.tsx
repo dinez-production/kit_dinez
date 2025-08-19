@@ -4,13 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Bell, Smartphone, Mail, Clock, BellOff, Loader2, TestTube, AlertCircle } from "lucide-react";
+import { ArrowLeft, Bell, Smartphone, Mail, Clock, BellOff, Loader2, TestTube, AlertCircle, Settings, Info } from "lucide-react";
 import { useWebPushNotifications } from "@/hooks/useWebPushNotifications";
 import { useAuth } from "@/hooks/useAuth";
+import { showLocalTestNotification } from "@/utils/webPushNotifications";
+import { useToast } from "@/hooks/use-toast";
 
 export default function NotificationsPage() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [notifications, setNotifications] = useState({
     orderUpdates: true,
     promotions: false,
@@ -38,6 +41,25 @@ export default function NotificationsPage() {
 
   const updateNotification = (key: keyof typeof notifications) => {
     setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  // Handle local test notification for Android troubleshooting
+  const handleLocalTestNotification = async () => {
+    try {
+      const success = await showLocalTestNotification();
+      if (success) {
+        toast({
+          title: "Local Test Sent",
+          description: "Check if the notification appears as a banner on your Android device.",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Test Failed",
+        description: error?.message || "Failed to show local test notification",
+        variant: "destructive",
+      });
+    }
   };
 
   const getStatusBadge = () => {
@@ -294,15 +316,15 @@ export default function NotificationsPage() {
           </CardContent>
         </Card>
 
-        {/* Additional Test Notification Section for other types */}
+        {/* Enhanced Test Notification Section with Android Support */}
         {isSubscribed && (
           <Card className="shadow-card">
             <CardContent className="p-4">
               <h3 className="font-semibold mb-3">Test Notifications</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Send test notifications to make sure everything is working properly
+                Test different types of notifications to ensure they work properly on your device
               </p>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <Button 
                   onClick={sendTestNotification} 
                   disabled={isLoading || !isSubscribed}
@@ -314,8 +336,62 @@ export default function NotificationsPage() {
                   ) : (
                     <TestTube className="w-4 h-4 mr-2" />
                   )}
-                  Send Push Notification Test
+                  Send Server Push Test
                 </Button>
+                
+                <Button 
+                  onClick={handleLocalTestNotification} 
+                  disabled={permission !== 'granted'}
+                  variant="outline" 
+                  className="w-full"
+                >
+                  <Smartphone className="w-4 h-4 mr-2" />
+                  Android Banner Test
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Android Troubleshooting Section */}
+        {isSubscribed && /android/i.test(navigator.userAgent) && (
+          <Card className="shadow-card border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/20">
+            <CardContent className="p-4">
+              <div className="flex items-start space-x-3">
+                <Info className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-orange-800 dark:text-orange-200 mb-2">
+                    Android Notification Tips
+                  </h3>
+                  <div className="text-sm text-orange-700 dark:text-orange-300 space-y-2">
+                    <p>
+                      If notifications only appear in your notification tray (not as banners):
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 ml-2">
+                      <li>Check if "Do Not Disturb" mode is enabled</li>
+                      <li>Verify notification importance is set to "High" for this app</li>
+                      <li>Ensure "Show as banner" is enabled in notification settings</li>
+                      <li>Try the "Android Banner Test" button above</li>
+                    </ul>
+                    <div className="mt-3 pt-2 border-t border-orange-200 dark:border-orange-700">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-orange-800 border-orange-300 hover:bg-orange-100 dark:text-orange-200 dark:border-orange-600 dark:hover:bg-orange-800"
+                        onClick={() => {
+                          // Open Android notification settings if possible
+                          toast({
+                            title: "Notification Settings",
+                            description: "Go to Android Settings > Apps > [Your Browser] > Notifications to adjust banner settings.",
+                          });
+                        }}
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        View Settings Guide
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>

@@ -116,8 +116,8 @@ router.post('/send-test', async (req, res) => {
     }
 
     await webPushService.sendToUser(userId.toString(), {
-      title: title || 'Test Notification',
-      body: message || 'This is a test notification from your canteen app!',
+      title: title || '🔔 Android Test Notification',
+      body: message || 'This notification should appear as a banner on Android devices!',
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       data: {
@@ -125,6 +125,12 @@ router.post('/send-test', async (req, res) => {
         timestamp: Date.now(),
       },
       tag: 'test_notification',
+      // Android-specific settings for heads-up notifications
+      priority: 'high',
+      urgency: 'high',
+      vibrate: [200, 100, 200, 100, 200],
+      requireInteraction: true,
+      renotify: true,
     });
 
     res.json({ 
