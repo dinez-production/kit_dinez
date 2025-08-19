@@ -65,22 +65,15 @@ export default function CanteenOrderDetailPage() {
   });
 
   // Fetch complete user details based on customerId from order
-  const { data: customerDetails, isLoading: isLoadingCustomer, error: customerError } = useQuery<UserType>({
+  const { data: customerDetails, isLoading: isLoadingCustomer } = useQuery<UserType>({
     queryKey: ['/api/users', orderDetails?.customerId],
     queryFn: async () => {
-      console.log('Fetching customer details for ID:', orderDetails?.customerId);
-      if (!orderDetails?.customerId) {
-        console.log('No customerId found in order');
-        return null;
-      }
+      if (!orderDetails?.customerId) return null;
       const response = await fetch(`/api/users/${orderDetails.customerId}`);
-      console.log('Customer API response status:', response.status);
       if (!response.ok) {
-        throw new Error(`Failed to fetch customer details: ${response.status}`);
+        throw new Error('Failed to fetch customer details');
       }
-      const userData = await response.json();
-      console.log('Fetched customer data:', userData);
-      return userData;
+      return response.json();
     },
     enabled: !!orderDetails?.customerId,
   });
@@ -287,15 +280,6 @@ export default function CanteenOrderDetailPage() {
               <User className="w-5 h-5 mr-2" />
               Customer Details
             </h2>
-            
-            {/* Debug info */}
-            <div className="mb-4 p-2 bg-gray-100 text-xs rounded">
-              <div>Order customerId: {orderDetails?.customerId}</div>
-              <div>Customer query enabled: {String(!!orderDetails?.customerId)}</div>
-              <div>Customer loading: {String(isLoadingCustomer)}</div>
-              <div>Customer error: {customerError?.message || 'None'}</div>
-              <div>Customer data exists: {String(!!customerDetails)}</div>
-            </div>
             
             {isLoadingCustomer ? (
               <div className="flex items-center space-x-2 py-4">
