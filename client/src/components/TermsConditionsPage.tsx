@@ -11,7 +11,7 @@ export default function TermsConditionsPage() {
       icon: Users,
       title: "User Accounts",
       content: [
-        "ONCE YOU PLACE THE ORDER THE ORDER WILL BE READY WITHIN 30 MINS YOU HAVE TO COLLECT IT FROM THE COUNTER ONCE YOU RECEIVE THE NOTIFICATION AND ONCE YOU HAVE RECEIVED IT WE DO NOT OFFER ANY CANCELLATION ,RETURN OR REFUND FOR THE SAME"
+        "ONCE YOU PLACE THE ORDER THE ORDER WILL BE READY WITHIN 30 MINS YOU HAVE TO COLLECT IT FROM THE COUNTER ONCE YOU RECEIVE THE NOTIFICATION AND ONCE YOU HAVE RECEIVED IT WE DO NOT OFFER ANY CANCELLATION ,RETURN OR REFUND FOR THE SAME",
         "You must be a current student, faculty, or staff member of KIT College to use this service",
         "You are responsible for maintaining the confidentiality of your account credentials",
         "You must provide accurate and up-to-date information when creating your account",
