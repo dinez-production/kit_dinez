@@ -8,3 +8,5 @@
 [x] 8. Enhanced Add to Cart buttons - made them larger, full-width with "Add" text for easier clicking
 [x] 9. Improved search UX - hide Quick Orders and Trending when searching, show only relevant results at top
 [x] 10. Fixed Mark Ready button in active orders - enhanced cache invalidation to refresh UI immediately after status update
+[x] 11. Updated course/department options in registration page to match institution's available programs (B.Tech, M.E./M.Tech, MBA, MCA)
+[x] 12. Limited passing out years to only 4 years from current year instead of 10 years

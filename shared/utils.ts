@@ -105,32 +105,29 @@ export function validateStaffId(staffId: string): { isValid: boolean; error?: st
 
 // Department mapping for better display
 export const DEPARTMENTS = {
+  // B.Tech Programs
+  'AERO': 'Aeronautical Engineering',
+  'AGRI': 'Agricultural Engineering',
+  'AIDS': 'Artificial Intelligence and Data Science',
+  'BIO': 'Biotechnology',
   'CSE': 'Computer Science and Engineering',
-  'CS': 'Computer Science',
+  'AIML': 'Computer Science and Engineering (Artificial Intelligence and Machine Learning)',
+  'CSBS': 'Computer Science and Business Systems',
   'ECE': 'Electronics and Communication Engineering',
   'EEE': 'Electrical and Electronics Engineering',
+  'VLSI': 'Electronics Engineering (VLSI Design and Technology)',
   'MECH': 'Mechanical Engineering',
-  'CIVIL': 'Civil Engineering',
-  'IT': 'Information Technology',
-  'BME': 'Biomedical Engineering',
-  'CHEM': 'Chemical Engineering',
-  'AERO': 'Aeronautical Engineering',
-  'AUTO': 'Automobile Engineering',
-  'PROD': 'Production Engineering',
-  'TEXT': 'Textile Technology',
-  'FT': 'Fashion Technology',
-  'AGRI': 'Agricultural Engineering',
-  'FOOD': 'Food Technology',
-  'BIO': 'Biotechnology',
+  
+  // M.E./M.Tech Programs
+  'MCSE': 'Computer Science and Engineering (M.E./M.Tech)',
+  'EDSN': 'Engineering Design (M.E./M.Tech)',
+  'PWS': 'Power System (M.E./M.Tech)',
+  'AE': 'Applied Electronics (M.E./M.Tech)',
+  'MVLSI': 'VLSI Design (M.E./M.Tech)',
+  
+  // Other Programs
   'MBA': 'Master of Business Administration',
   'MCA': 'Master of Computer Applications',
-  'MSC': 'Master of Science',
-  'BAD': 'Bachelor of Architecture and Design',
-  'AI': 'Artificial Intelligence and Data Science',
-  'AIDS': 'Artificial Intelligence and Data Science',
-  'DS': 'Data Science',
-  'BUS': 'Business Studies',
-  'BS': 'Business Studies',
 } as const;
 
 // Get department full name

@@ -301,7 +301,7 @@ export default function ProfileSetupScreen({ userEmail, userName, onComplete, on
   };
 
   const currentYear = new Date().getFullYear();
-  const passingOutYears = Array.from({ length: 10 }, (_, i) => currentYear + i);
+  const passingOutYears = Array.from({ length: 4 }, (_, i) => currentYear + i);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 to-background p-4">
