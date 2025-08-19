@@ -244,10 +244,31 @@ export default function AdminUserManagementPage() {
     }
   };
 
+  // Debug: Log unique roles in the data
+  const uniqueRoles = [...new Set(users.map(u => u.role || 'no-role'))];
+  console.log('Available roles in data:', uniqueRoles);
+  console.log('Current filter:', filterRole);
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = filterRole === "all" || user.role.toLowerCase() === filterRole;
+    
+    // Handle role filtering with proper matching
+    let matchesRole = true;
+    if (filterRole !== "all") {
+      const userRole = (user.role || '').toLowerCase();
+      const filterRoleLower = filterRole.toLowerCase();
+      
+      // Handle different role name variations
+      if (filterRoleLower === 'canteen-owner') {
+        matchesRole = userRole === 'canteen-owner' || userRole === 'canteen_owner' || userRole === 'canteenowner';
+      } else {
+        matchesRole = userRole === filterRoleLower;
+      }
+      
+      console.log(`Checking user: ${user.name}, role: "${userRole}", filter: "${filterRoleLower}", matches: ${matchesRole}`);
+    }
+    
     return matchesSearch && matchesRole;
   });
 
