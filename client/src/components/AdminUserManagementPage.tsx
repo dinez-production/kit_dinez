@@ -266,7 +266,7 @@ export default function AdminUserManagementPage() {
     totalOrders: analyticsData?.totalOrders || 0,
     // User role breakdown
     students: users.filter(u => u.role === 'student').length,
-    faculty: users.filter(u => u.role === 'faculty').length,
+    canteenOwner: users.filter(u => u.role === 'canteen-owner').length,
     staff: users.filter(u => u.role === 'staff').length,
     admins: users.filter(u => u.role === 'admin' || u.role === 'super_admin').length,
   };
@@ -395,7 +395,7 @@ export default function AdminUserManagementPage() {
                       <SelectContent>
                         <SelectItem value="all">All Roles</SelectItem>
                         <SelectItem value="student">Student</SelectItem>
-                        <SelectItem value="faculty">Faculty</SelectItem>
+                        <SelectItem value="canteen-owner">Canteen Owner</SelectItem>
                         <SelectItem value="staff">Staff</SelectItem>
                         <SelectItem value="admin">Admin</SelectItem>
                       </SelectContent>
@@ -433,7 +433,7 @@ export default function AdminUserManagementPage() {
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="student">Student</SelectItem>
-                                  <SelectItem value="faculty">Faculty</SelectItem>
+                                  <SelectItem value="canteen-owner">Canteen Owner</SelectItem>
                                   <SelectItem value="staff">Staff</SelectItem>
                                 </SelectContent>
                               </Select>
@@ -614,7 +614,7 @@ export default function AdminUserManagementPage() {
                   <Button 
                     variant="outline"
                     onClick={() => {
-                      const csvContent = `Role,Count,Percentage\nStudents,${stats.students},${Math.round((stats.students/stats.totalUsers)*100)}%\nFaculty,${stats.faculty},${Math.round((stats.faculty/stats.totalUsers)*100)}%\nStaff,${stats.staff},${Math.round((stats.staff/stats.totalUsers)*100)}%\nAdmins,${stats.admins},${Math.round((stats.admins/stats.totalUsers)*100)}%`;
+                      const csvContent = `Role,Count,Percentage\nStudents,${stats.students},${Math.round((stats.students/stats.totalUsers)*100)}%\nCanteen Owner,${stats.canteenOwner},${Math.round((stats.canteenOwner/stats.totalUsers)*100)}%\nStaff,${stats.staff},${Math.round((stats.staff/stats.totalUsers)*100)}%\nAdmins,${stats.admins},${Math.round((stats.admins/stats.totalUsers)*100)}%`;
                       const blob = new Blob([csvContent], { type: 'text/csv' });
                       const url = URL.createObjectURL(blob);
                       const link = document.createElement('a');
@@ -655,17 +655,17 @@ export default function AdminUserManagementPage() {
                   </CardContent>
                 </Card>
                 <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => {
-                  setFilterRole("faculty");
+                  setFilterRole("canteen-owner");
                   setActiveTab("all-users");
                   toast({
                     title: "Filter Applied",
-                    description: "Showing faculty users only",
+                    description: "Showing canteen owner users only",
                   });
                 }}>
                   <CardContent className="p-4">
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-green-600">{stats.faculty}</div>
-                      <div className="text-sm text-muted-foreground">Faculty</div>
+                      <div className="text-2xl font-bold text-green-600">{stats.canteenOwner}</div>
+                      <div className="text-sm text-muted-foreground">Canteen Owner</div>
                       <div className="text-xs text-green-500 mt-1">Click to filter</div>
                     </div>
                   </CardContent>
@@ -773,7 +773,7 @@ export default function AdminUserManagementPage() {
                         variant="ghost" 
                         size="sm"
                         onClick={() => {
-                          const behaviorData = `User Behavior Report - ${new Date().toLocaleDateString()}\n\nMost Active Role: ${stats.students >= stats.faculty && stats.students >= stats.staff ? 'Students' : stats.faculty >= stats.staff ? 'Faculty' : 'Staff'}\nActive Users: ${stats.activeUsers}\nNew This Month: ${stats.newUsersThisMonth}\nUser Engagement: ${Math.round((stats.activeUsers / stats.totalUsers) * 100) || 0}%\nTotal Revenue: ₹${stats.totalRevenue.toLocaleString()}\nRevenue per User: ₹${Math.round(stats.totalRevenue / stats.totalUsers) || 0}`;
+                          const behaviorData = `User Behavior Report - ${new Date().toLocaleDateString()}\n\nMost Active Role: ${stats.students >= stats.canteenOwner && stats.students >= stats.staff ? 'Students' : stats.canteenOwner >= stats.staff ? 'Canteen Owner' : 'Staff'}\nActive Users: ${stats.activeUsers}\nNew This Month: ${stats.newUsersThisMonth}\nUser Engagement: ${Math.round((stats.activeUsers / stats.totalUsers) * 100) || 0}%\nTotal Revenue: ₹${stats.totalRevenue.toLocaleString()}\nRevenue per User: ₹${Math.round(stats.totalRevenue / stats.totalUsers) || 0}`;
                           const blob = new Blob([behaviorData], { type: 'text/plain' });
                           const url = URL.createObjectURL(blob);
                           const link = document.createElement('a');
@@ -798,8 +798,8 @@ export default function AdminUserManagementPage() {
                       <div className="flex justify-between items-center">
                         <span>Most Active Role</span>
                         <Badge variant="default" className="font-bold">
-                          {stats.students >= stats.faculty && stats.students >= stats.staff ? 'Students' :
-                           stats.faculty >= stats.staff ? 'Faculty' : 'Staff'}
+                          {stats.students >= stats.canteenOwner && stats.students >= stats.staff ? 'Students' :
+                           stats.canteenOwner >= stats.staff ? 'Canteen Owner' : 'Staff'}
                         </Badge>
                       </div>
                       <div className="flex justify-between">
@@ -847,7 +847,7 @@ export default function AdminUserManagementPage() {
                         variant="ghost" 
                         size="sm"
                         onClick={() => {
-                          const insightsData = `User Management Insights - ${new Date().toLocaleDateString()}\n\n=== USER BREAKDOWN ===\nTotal Users: ${stats.totalUsers}\nStudents: ${stats.students} (${Math.round((stats.students/stats.totalUsers)*100)}%)\nFaculty: ${stats.faculty} (${Math.round((stats.faculty/stats.totalUsers)*100)}%)\nStaff: ${stats.staff} (${Math.round((stats.staff/stats.totalUsers)*100)}%)\nAdmins: ${stats.admins} (${Math.round((stats.admins/stats.totalUsers)*100)}%)\n\n=== ENGAGEMENT METRICS ===\nActive Users: ${stats.activeUsers}\nEngagement Rate: ${Math.round((stats.activeUsers / stats.totalUsers) * 100)}%\nNew Users This Month: ${stats.newUsersThisMonth}\n\n=== REVENUE INSIGHTS ===\nTotal Revenue: ₹${stats.totalRevenue.toLocaleString()}\nRevenue per User: ₹${Math.round(stats.totalRevenue / stats.totalUsers) || 0}\nAverage Order Value: ₹${stats.avgOrderValue}\nTotal Orders: ${stats.totalOrders}\n\nGenerated by Canteen Management System`;
+                          const insightsData = `User Management Insights - ${new Date().toLocaleDateString()}\n\n=== USER BREAKDOWN ===\nTotal Users: ${stats.totalUsers}\nStudents: ${stats.students} (${Math.round((stats.students/stats.totalUsers)*100)}%)\nCanteen Owner: ${stats.canteenOwner} (${Math.round((stats.canteenOwner/stats.totalUsers)*100)}%)\nStaff: ${stats.staff} (${Math.round((stats.staff/stats.totalUsers)*100)}%)\nAdmins: ${stats.admins} (${Math.round((stats.admins/stats.totalUsers)*100)}%)\n\n=== ENGAGEMENT METRICS ===\nActive Users: ${stats.activeUsers}\nEngagement Rate: ${Math.round((stats.activeUsers / stats.totalUsers) * 100)}%\nNew Users This Month: ${stats.newUsersThisMonth}\n\n=== REVENUE INSIGHTS ===\nTotal Revenue: ₹${stats.totalRevenue.toLocaleString()}\nRevenue per User: ₹${Math.round(stats.totalRevenue / stats.totalUsers) || 0}\nAverage Order Value: ₹${stats.avgOrderValue}\nTotal Orders: ${stats.totalOrders}\n\nGenerated by Canteen Management System`;
                           const blob = new Blob([insightsData], { type: 'text/plain' });
                           const url = URL.createObjectURL(blob);
                           const link = document.createElement('a');
@@ -874,7 +874,7 @@ export default function AdminUserManagementPage() {
                     <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
                       <h4 className="font-medium text-blue-800 dark:text-blue-200">User Distribution</h4>
                       <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
-                        {stats.students > 0 ? `${Math.round((stats.students/stats.totalUsers)*100)}%` : '0%'} Students, {stats.faculty > 0 ? `${Math.round((stats.faculty/stats.totalUsers)*100)}%` : '0%'} Faculty
+                        {stats.students > 0 ? `${Math.round((stats.students/stats.totalUsers)*100)}%` : '0%'} Students, {stats.canteenOwner > 0 ? `${Math.round((stats.canteenOwner/stats.totalUsers)*100)}%` : '0%'} Canteen Owner
                       </p>
                       <Button 
                         variant="ghost" 
