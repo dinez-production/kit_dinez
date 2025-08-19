@@ -1807,6 +1807,167 @@ export default function CanteenOwnerDashboardSidebar() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Cart Dialog - Store Mode */}
+        {showCartDialog && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center">
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 bg-black/50" 
+              onClick={() => setShowCartDialog(false)}
+            />
+            
+            {/* Modal Content */}
+            <div className="relative bg-white rounded-lg shadow-lg max-w-lg w-[90%] max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold flex items-center">
+                    <Receipt className="w-5 h-5 mr-2" />
+                    Order Summary - {cart.length} Dish{cart.length !== 1 ? 'es' : ''}
+                  </h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowCartDialog(false)}
+                    className="h-8 w-8 p-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                
+                <div className="space-y-4">
+                  {cart.length === 0 ? (
+                    <div className="text-center py-8">
+                      <ShoppingCart className="w-12 h-12 mx-auto mb-3 opacity-40" />
+                      <h3 className="font-medium text-lg mb-1">No dishes selected</h3>
+                      <p className="text-sm text-muted-foreground">Add items from the menu to start your order</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Dish List */}
+                      <div className="max-h-80 overflow-auto space-y-3">
+                        <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Selected Dishes</h4>
+                        {cart.map((item, index) => (
+                          <div key={index} className="bg-gray-50 rounded-lg p-4 border">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <h5 className="font-semibold text-base mb-1">{item.name}</h5>
+                                <p className="text-sm text-muted-foreground mb-2">₹{item.price} per item</p>
+                                
+                                {/* Quantity Controls */}
+                                <div className="flex items-center space-x-3">
+                                  <span className="text-sm font-medium">Quantity:</span>
+                                  <div className="flex items-center space-x-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 w-7 p-0"
+                                      onClick={() => {
+                                        if (item.quantity > 1) {
+                                          setCart(cart.map((cartItem, i) => 
+                                            i === index 
+                                              ? { ...cartItem, quantity: cartItem.quantity - 1 }
+                                              : cartItem
+                                          ));
+                                        } else {
+                                          setCart(cart.filter((_, i) => i !== index));
+                                        }
+                                      }}
+                                    >
+                                      <Minus className="w-3 h-3" />
+                                    </Button>
+                                    <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 w-7 p-0"
+                                      onClick={() => {
+                                        setCart(cart.map((cartItem, i) => 
+                                          i === index 
+                                            ? { ...cartItem, quantity: cartItem.quantity + 1 }
+                                            : cartItem
+                                        ));
+                                      }}
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                    </Button>
+                                    <Button
+                                      variant="destructive"
+                                      size="sm"
+                                      className="h-7 w-7 p-0 ml-2"
+                                      onClick={() => setCart(cart.filter((_, i) => i !== index))}
+                                      title="Remove item"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Item Total */}
+                              <div className="text-right">
+                                <div className="text-lg font-bold text-primary">₹{item.price * item.quantity}</div>
+                                <div className="text-xs text-muted-foreground">{item.quantity} × ₹{item.price}</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Order Summary & Action */}
+                      <div className="border-t pt-4 space-y-4 bg-gray-50 -mx-6 px-6 -mb-6 pb-6 rounded-b-lg">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-lg">
+                            <span className="font-semibold">Total Amount:</span>
+                            <span className="font-bold text-xl text-primary">₹{getTotalAmount()}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Payment Mode:</span>
+                            <Badge variant="secondary" className="font-medium">
+                              {paymentMode === 'cash' ? 'Cash Payment' : 'Online Payment'}
+                            </Badge>
+                          </div>
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        <div className="flex space-x-3">
+                          <Button 
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => setCart([])}
+                            disabled={isPlacingOrder || placeOfflineOrderMutation.isPending}
+                          >
+                            Clear All
+                          </Button>
+                          <Button 
+                            className="flex-2 bg-green-600 hover:bg-green-700 text-white font-semibold" 
+                            onClick={() => {
+                              handlePlaceOfflineOrder();
+                              setShowCartDialog(false);
+                            }}
+                            disabled={isPlacingOrder || placeOfflineOrderMutation.isPending}
+                          >
+                            {isPlacingOrder || placeOfflineOrderMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Processing Order...
+                              </>
+                            ) : (
+                              <>
+                                <Receipt className="w-4 h-4 mr-2" />
+                                Place Order - ₹{getTotalAmount()}
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
