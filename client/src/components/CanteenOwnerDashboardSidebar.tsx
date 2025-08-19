@@ -3801,7 +3801,6 @@ export default function CanteenOwnerDashboardSidebar() {
       </Dialog>
 
       {/* Cart Dialog - Alternative Modal Implementation */}
-      {console.log("Rendering cart dialog, showCartDialog:", showCartDialog)}
       {showCartDialog && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center">
           {/* Backdrop */}
