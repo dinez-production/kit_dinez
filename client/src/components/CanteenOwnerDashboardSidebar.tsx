@@ -951,9 +951,10 @@ export default function CanteenOwnerDashboardSidebar() {
                       </div>
                 
                 <div className="flex-1 overflow-auto">
-                  {/* Quick Orders Section */}
-                  <div className="p-2 border-b">
-                    <h4 className="text-xs font-semibold mb-2 text-muted-foreground">QUICK ORDERS</h4>
+                  {/* Quick Orders Section - Hidden when searching */}
+                  {!offlineSearchQuery && (
+                    <div className="p-2 border-b">
+                      <h4 className="text-xs font-semibold mb-2 text-muted-foreground">QUICK ORDERS</h4>
                     <div className="grid grid-cols-4 gap-2">
                       {quickOrders
                         .filter((qo: any) => qo.isActive && qo.menuItem && qo.menuItem.available && qo.menuItem.stock > 0)
@@ -1042,12 +1043,14 @@ export default function CanteenOwnerDashboardSidebar() {
                             </Card>
                           );
                         })}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* Trending Orders Section */}
-                  <div className="p-2 border-b">
-                    <h4 className="text-xs font-semibold mb-2 text-muted-foreground">TRENDING ORDERS</h4>
+                  {/* Trending Orders Section - Hidden when searching */}
+                  {!offlineSearchQuery && (
+                    <div className="p-2 border-b">
+                      <h4 className="text-xs font-semibold mb-2 text-muted-foreground">TRENDING ORDERS</h4>
                     <div className="grid grid-cols-4 gap-2">
                       {(() => {
                         // Calculate trending items based on recent order frequency
@@ -1164,13 +1167,16 @@ export default function CanteenOwnerDashboardSidebar() {
                           );
                         });
                       })()}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* All Other Items Section */}
+                  {/* Search Results / All Items Section */}
                   <div className="p-2">
-                    <h4 className="text-xs font-semibold mb-2 text-muted-foreground">ALL ITEMS</h4>
-                    <div className="grid grid-cols-4 gap-2 max-h-48 overflow-auto">
+                    <h4 className="text-xs font-semibold mb-2 text-muted-foreground">
+                      {offlineSearchQuery ? `SEARCH RESULTS FOR "${offlineSearchQuery.toUpperCase()}"` : 'ALL ITEMS'}
+                    </h4>
+                    <div className={`grid grid-cols-4 gap-2 ${!offlineSearchQuery ? 'max-h-48' : 'max-h-80'} overflow-auto`}>
                       {menuItems.filter(item => {
                         const matchesSearch = offlineSearchQuery === "" || 
                           item.name.toLowerCase().includes(offlineSearchQuery.toLowerCase());
