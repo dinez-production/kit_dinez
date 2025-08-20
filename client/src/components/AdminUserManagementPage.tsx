@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Pagination } from "@/components/ui/pagination";
 import { 
   ArrowLeft, Search, Filter, Plus, Edit, Trash2, Mail, Phone, 
   MapPin, Star, Ban, Shield, Users, UserCheck, UserX, 
@@ -30,6 +31,10 @@ export default function AdminUserManagementPage() {
   const [filterRole, setFilterRole] = useState("all");
   const [filterDepartment, setFilterDepartment] = useState("all");
   const [filterYear, setFilterYear] = useState("all");
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
   
   // Dialog states
   const [deleteDialog, setDeleteDialog] = useState<{open: boolean, user: any | null}>({open: false, user: null});
@@ -444,6 +449,25 @@ export default function AdminUserManagementPage() {
     return matchesSearch && matchesRole && matchesDepartment && matchesYear;
   });
 
+  // Reset current page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterRole, filterDepartment, filterYear]);
+
+  // Calculate pagination
+  const totalUsers = filteredUsers.length;
+  const totalPages = Math.ceil(totalUsers / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+
+  // Pagination handlers
+  const goToPage = (page: number) => setCurrentPage(page);
+  const goToNextPage = () => setCurrentPage(Math.min(currentPage + 1, totalPages));
+  const goToPreviousPage = () => setCurrentPage(Math.max(currentPage - 1, 1));
+  const goToFirstPage = () => setCurrentPage(1);
+  const goToLastPage = () => setCurrentPage(totalPages);
+
   // Calculate real statistics from live data
   const stats = {
     totalUsers: users.length,
@@ -709,11 +733,11 @@ export default function AdminUserManagementPage() {
               {/* Users List */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Users ({filteredUsers.length})</CardTitle>
+                  <CardTitle>Users ({totalUsers})</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {filteredUsers.map((user) => (
+                    {paginatedUsers.map((user) => (
                       <div 
                         key={user.id} 
                         className="border rounded-lg p-4 cursor-pointer hover:bg-muted/50 transition-colors"
@@ -831,7 +855,36 @@ export default function AdminUserManagementPage() {
                         </div>
                       </div>
                     ))}
+
+                    {paginatedUsers.length === 0 && filteredUsers.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        No users found matching your criteria.
+                      </div>
+                    )}
+
+                    {paginatedUsers.length === 0 && filteredUsers.length > 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        No users on this page. Try going back to previous pages.
+                      </div>
+                    )}
                   </div>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      onPageChange={goToPage}
+                      onNextPage={goToNextPage}
+                      onPreviousPage={goToPreviousPage}
+                      onFirstPage={goToFirstPage}
+                      onLastPage={goToLastPage}
+                      hasNextPage={currentPage < totalPages}
+                      hasPreviousPage={currentPage > 1}
+                      totalCount={totalUsers}
+                      pageSize={itemsPerPage}
+                    />
+                  )}
                 </CardContent>
               </Card>
             </div>

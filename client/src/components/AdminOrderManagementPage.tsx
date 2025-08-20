@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Pagination } from "@/components/ui/pagination";
 import { useToast } from "@/hooks/use-toast";
+import { usePaginatedOrders } from "@/hooks/usePaginatedOrders";
 import type { Order } from "@shared/schema";
 import { formatOrderIdDisplay } from "@shared/utils";
 import { 
@@ -33,8 +35,26 @@ export default function AdminOrderManagementPage() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const { toast } = useToast();
 
-  // Fetch real orders from database using React Query
-  const { data: orders = [], isLoading: ordersLoading, refetch: refetchOrders, error: ordersError } = useQuery<Order[]>({
+  // Use paginated orders hook
+  const {
+    orders,
+    totalCount,
+    totalPages,
+    currentPage,
+    isLoading: ordersLoading,
+    error: ordersError,
+    refetch: refetchOrders,
+    goToPage,
+    goToNextPage,
+    goToPreviousPage,
+    goToFirstPage,
+    goToLastPage,
+    hasNextPage,
+    hasPreviousPage
+  } = usePaginatedOrders(1, 15);
+
+  // Fetch all orders for client-side filtering (status counts)
+  const { data: allOrders = [] } = useQuery<Order[]>({
     queryKey: ['/api/orders'],
     queryFn: async () => {
       const response = await fetch('/api/orders');
@@ -44,8 +64,6 @@ export default function AdminOrderManagementPage() {
       return response.json();
     },
     staleTime: 1000 * 60, // 1 minute
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
   });
 
   // Fetch menu items for detailed order view
@@ -162,50 +180,24 @@ export default function AdminOrderManagementPage() {
     });
   };
 
-  // Enhanced filtering with multiple search fields
-  const filteredOrders = orders
-    .filter(order => {
-      const matchesSearch = searchTerm === "" || 
-        order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.id.toString().includes(searchTerm) ||
-        (order.barcode && order.barcode.toLowerCase().includes(searchTerm.toLowerCase()));
-      const matchesStatus = selectedStatus === "all" || order.status === selectedStatus;
-      return matchesSearch && matchesStatus;
-    })
-    // FIFO sorting: active orders (preparing, ready) by creation time ASC, completed orders at the end
-    .sort((a, b) => {
-      // Priority sorting: preparing first, then ready, then completed
-      const statusPriority = {
-        'preparing': 1,
-        'ready': 2,
-        'completed': 3,
-        'cancelled': 3,
-        'pending': 0
-      };
-      
-      const aPriority = statusPriority[a.status as keyof typeof statusPriority] || 4;
-      const bPriority = statusPriority[b.status as keyof typeof statusPriority] || 4;
-      
-      if (aPriority !== bPriority) {
-        return aPriority - bPriority;
-      }
-      
-      // Within same status, sort by creation time (FIFO - oldest first for active orders)
-      if (aPriority <= 2) { // preparing or ready orders
-        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-      } else { // completed orders - newest first
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      }
-    });
+  // Client-side filtering for currently displayed orders
+  const filteredOrders = orders.filter(order => {
+    const matchesSearch = searchTerm === "" || 
+      order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.id.toString().includes(searchTerm) ||
+      (order.barcode && order.barcode.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesStatus = selectedStatus === "all" || order.status === selectedStatus;
+    return matchesSearch && matchesStatus;
+  });
 
   const statusCounts = {
-    all: orders.length,
-    pending: orders.filter(o => o.status === "pending").length,
-    preparing: orders.filter(o => o.status === "preparing").length,
-    ready: orders.filter(o => o.status === "ready").length,
-    completed: orders.filter(o => o.status === "completed").length,
-    cancelled: orders.filter(o => o.status === "cancelled").length
+    all: allOrders.length,
+    pending: allOrders.filter(o => o.status === "pending").length,
+    preparing: allOrders.filter(o => o.status === "preparing").length,
+    ready: allOrders.filter(o => o.status === "ready").length,
+    completed: allOrders.filter(o => o.status === "completed").length,
+    cancelled: allOrders.filter(o => o.status === "cancelled").length
   };
 
   return (
@@ -263,7 +255,7 @@ export default function AdminOrderManagementPage() {
         <TabsContent value={selectedStatus} className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Orders ({filteredOrders.length})</CardTitle>
+              <CardTitle>Orders ({totalCount} total, {filteredOrders.length} displayed)</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -383,6 +375,23 @@ export default function AdminOrderManagementPage() {
                   </div>
                 )}
               </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={goToPage}
+                  onNextPage={goToNextPage}
+                  onPreviousPage={goToPreviousPage}
+                  onFirstPage={goToFirstPage}
+                  onLastPage={goToLastPage}
+                  hasNextPage={hasNextPage}
+                  hasPreviousPage={hasPreviousPage}
+                  totalCount={totalCount}
+                  pageSize={15}
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
