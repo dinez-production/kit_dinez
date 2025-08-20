@@ -15,7 +15,6 @@ import {
   MessageSquare,
   Shield,
   Database,
-  Globe,
   Star,
   Clock,
   DollarSign,
@@ -50,7 +49,6 @@ const managementItems = [
 
 const contentItems = [
   { title: "Content Management", url: "/admin/content-management", icon: FileText },
-  { title: "Home Content Editor", url: "/admin/home-content", icon: Globe },
   { title: "Feedback Management", url: "/admin/feedback-management", icon: MessageSquare },
   { title: "Review Management", url: "/admin/review-management", icon: Star },
 ];
