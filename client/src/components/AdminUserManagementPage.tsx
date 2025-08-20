@@ -686,7 +686,8 @@ export default function AdminUserManagementPage() {
                             </div>
                           </div>
                           <div className="flex flex-col space-y-1">
-                            <Button variant="ghost" size="sm" onClick={() => {
+                            <Button variant="ghost" size="sm" onClick={(e) => {
+                              e.stopPropagation(); // Prevent card click
                               setEditDialog({open: true, user});
                               setEditFormData({
                                 name: user.name || '',
@@ -704,11 +705,15 @@ export default function AdminUserManagementPage() {
                               <Edit className="w-4 h-4" />
                             </Button>
                             {user.status === "Active" && (
-                              <Button variant="ghost" size="sm" onClick={() => handleUserAction(user.id, "suspend")}>
+                              <Button variant="ghost" size="sm" onClick={(e) => {
+                                e.stopPropagation(); // Prevent card click
+                                handleUserAction(user.id, "suspend");
+                              }}>
                                 <Ban className="w-4 h-4" />
                               </Button>
                             )}
-                            <Button variant="ghost" size="sm" className="text-destructive" onClick={() => {
+                            <Button variant="ghost" size="sm" className="text-destructive" onClick={(e) => {
+                              e.stopPropagation(); // Prevent card click
                               setDeleteDialog({open: true, user});
                             }}>
                               <Trash2 className="w-4 h-4" />
