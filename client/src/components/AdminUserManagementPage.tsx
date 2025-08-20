@@ -19,7 +19,7 @@ import {
   Calendar, ShoppingBag, Receipt, Settings
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { getDepartmentFullName, getStudyYearDisplay } from "@shared/utils";
+import { getDepartmentFullName, getStudyYearDisplay, DEPARTMENTS } from "@shared/utils";
 
 export default function AdminUserManagementPage() {
   const [, setLocation] = useLocation();
@@ -28,6 +28,8 @@ export default function AdminUserManagementPage() {
   const [activeTab, setActiveTab] = useState("all-users");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("all");
+  const [filterDepartment, setFilterDepartment] = useState("all");
+  const [filterYear, setFilterYear] = useState("all");
   
   // Dialog states
   const [deleteDialog, setDeleteDialog] = useState<{open: boolean, user: any | null}>({open: false, user: null});
@@ -371,7 +373,28 @@ export default function AdminUserManagementPage() {
       }
     }
     
-    return matchesSearch && matchesRole;
+    // Handle department filtering (only for students)
+    let matchesDepartment = true;
+    if (filterDepartment !== "all" && user.role === 'student') {
+      matchesDepartment = user.department === filterDepartment;
+    }
+    
+    // Handle year filtering (only for students)
+    let matchesYear = true;
+    if (filterYear !== "all" && user.role === 'student') {
+      const currentYear = new Date().getFullYear();
+      if (filterYear === "1st") {
+        matchesYear = user.passingOutYear === (currentYear + 4) || user.currentStudyYear === 1;
+      } else if (filterYear === "2nd") {
+        matchesYear = user.passingOutYear === (currentYear + 3) || user.currentStudyYear === 2;
+      } else if (filterYear === "3rd") {
+        matchesYear = user.passingOutYear === (currentYear + 2) || user.currentStudyYear === 3;
+      } else if (filterYear === "4th") {
+        matchesYear = user.passingOutYear === (currentYear + 1) || user.currentStudyYear === 4;
+      }
+    }
+    
+    return matchesSearch && matchesRole && matchesDepartment && matchesYear;
   });
 
   // Calculate real statistics from live data
@@ -502,30 +525,68 @@ export default function AdminUserManagementPage() {
               {/* Search and Filters */}
               <Card>
                 <CardContent className="p-4">
-                  <div className="flex flex-col md:flex-row gap-4">
-                    <div className="flex-1">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                        <Input
-                          placeholder="Search users by name or email..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="pl-10"
-                        />
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-col md:flex-row gap-4">
+                      <div className="flex-1">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                          <Input
+                            placeholder="Search users by name or email..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10"
+                            data-testid="input-search-users"
+                          />
+                        </div>
                       </div>
+                      <Select value={filterRole} onValueChange={setFilterRole}>
+                        <SelectTrigger className="w-40" data-testid="select-filter-role">
+                          <SelectValue placeholder="Filter by role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Roles</SelectItem>
+                          <SelectItem value="student">Student</SelectItem>
+                          <SelectItem value="canteen_owner">Canteen Owner</SelectItem>
+                          <SelectItem value="staff">Staff</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <Select value={filterRole} onValueChange={setFilterRole}>
-                      <SelectTrigger className="w-40">
-                        <SelectValue placeholder="Filter by role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Roles</SelectItem>
-                        <SelectItem value="student">Student</SelectItem>
-                        <SelectItem value="canteen_owner">Canteen Owner</SelectItem>
-                        <SelectItem value="staff">Staff</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    
+                    {/* Student-specific filters */}
+                    {(filterRole === "student" || filterRole === "all") && (
+                      <div className="flex flex-col md:flex-row gap-4 pt-2 border-t">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <School className="w-4 h-4" />
+                          <span>Student Filters:</span>
+                        </div>
+                        <Select value={filterDepartment} onValueChange={setFilterDepartment}>
+                          <SelectTrigger className="w-48" data-testid="select-filter-department">
+                            <SelectValue placeholder="Filter by department" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Departments</SelectItem>
+                            {Object.entries(DEPARTMENTS).map(([code, fullName]) => (
+                              <SelectItem key={code} value={code}>
+                                {code} - {fullName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={filterYear} onValueChange={setFilterYear}>
+                          <SelectTrigger className="w-36" data-testid="select-filter-year">
+                            <SelectValue placeholder="Filter by year" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Years</SelectItem>
+                            <SelectItem value="1st">1st Year</SelectItem>
+                            <SelectItem value="2nd">2nd Year</SelectItem>
+                            <SelectItem value="3rd">3rd Year</SelectItem>
+                            <SelectItem value="4th">4th Year</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     <Dialog>
                       <DialogTrigger asChild>
                         <Button variant="food">
