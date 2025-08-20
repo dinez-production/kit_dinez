@@ -231,9 +231,8 @@ export default function AdminContentManagementPage() {
         item.id === selectedItem.id ? { ...item, ...editForm } : item
       ));
     } else if (itemType === "media") {
-      setMediaData(prev => prev.map(item => 
-        item.id === selectedItem.id ? { ...item, ...editForm } : item
-      ));
+      // Media editing handled via API mutations
+      console.log("Media editing:", editForm);
     } else if (itemType === "banners") {
       setBannersData(prev => prev.map(item => 
         item.id === selectedItem.id ? { ...item, ...editForm } : item
@@ -248,8 +247,8 @@ export default function AdminContentManagementPage() {
   };
 
   const handleConfirmDelete = () => {
-    if (itemType === "media" && selectedItem?._id) {
-      deleteMediaMutation.mutate(selectedItem._id);
+    if (itemType === "media" && selectedItem?.id) {
+      deleteMediaMutation.mutate(selectedItem.id);
     } else if (itemType === "pages") {
       setPagesData(prev => prev.filter(item => item.id !== selectedItem.id));
       toast({
@@ -326,8 +325,7 @@ export default function AdminContentManagementPage() {
 
   const renderMedia = () => {
     const filteredMedia = mediaData.filter((item: MediaBanner) =>
-      item.originalFileName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.title && item.title.toLowerCase().includes(searchTerm.toLowerCase()))
+      (item.originalName || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     if (mediaLoading) {
@@ -382,20 +380,20 @@ export default function AdminContentManagementPage() {
         )}
 
         {filteredMedia.map((item: MediaBanner) => (
-          <div key={item._id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+          <div key={item.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
             <div className="flex items-start justify-between">
               <div className="flex items-start space-x-4 flex-1">
                 {/* Media Preview */}
                 <div className="w-20 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
                   {item.mimeType.startsWith('image/') ? (
                     <img 
-                      src={`/api/media-banners/${item._id}/file`} 
-                      alt={item.originalFileName}
+                      src={`/api/media-banners/${item.id}/file`} 
+                      alt={item.originalName || 'Media'}
                       className="w-full h-full object-cover"
                     />
                   ) : (
                     <video 
-                      src={`/api/media-banners/${item._id}/file`}
+                      src={`/api/media-banners/${item.id}/file`}
                       className="w-full h-full object-cover"
                       muted
                     />
@@ -411,7 +409,7 @@ export default function AdminContentManagementPage() {
                       <Video className="h-4 w-4 text-primary" />
                     )}
                     <h4 className="font-medium text-foreground truncate">
-                      {item.title || item.originalFileName}
+                      {item.originalName || 'Untitled Media'}
                     </h4>
                     <Badge 
                       className={item.isActive ? 
@@ -425,12 +423,12 @@ export default function AdminContentManagementPage() {
                   
                   <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                     <span>Type: {item.mimeType.split('/')[0]}</span>
-                    <span>Size: {(item.fileSize / (1024 * 1024)).toFixed(2)} MB</span>
+                    <span>Size: {(item.size / (1024 * 1024)).toFixed(2)} MB</span>
                     <span>Order: #{item.displayOrder}</span>
                   </div>
                   
                   <div className="text-xs text-muted-foreground mt-1">
-                    Uploaded: {new Date(item.uploadedAt).toLocaleDateString()}
+                    Uploaded: {new Date(item.createdAt).toLocaleDateString()}
                   </div>
                 </div>
               </div>
@@ -440,7 +438,7 @@ export default function AdminContentManagementPage() {
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  onClick={() => toggleMediaMutation.mutate(item._id)}
+                  onClick={() => toggleMediaMutation.mutate(item.id)}
                   disabled={toggleMediaMutation.isPending}
                   title={item.isActive ? "Deactivate" : "Activate"}
                   className="h-8 w-8 p-0"
