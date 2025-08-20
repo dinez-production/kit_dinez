@@ -70,9 +70,20 @@ export default function AdminUserManagementPage() {
   });
 
   // Fetch orders for user behavior analytics
-  const { data: ordersData, isLoading: ordersLoading, refetch: refetchOrders } = useQuery({
+  const { data: ordersData = [], isLoading: ordersLoading, refetch: refetchOrders } = useQuery<any[]>({
     queryKey: ['/api/orders'],
     queryFn: () => fetch('/api/orders').then(res => res.json()),
+    refetchInterval: 60000,
+  });
+
+  // Fetch all payments data for spending analysis
+  const { data: paymentsData = [], isLoading: paymentsLoading, refetch: refetchPayments } = useQuery<any[]>({
+    queryKey: ['/api/payments'],
+    queryFn: async () => {
+      const response = await fetch('/api/payments');
+      if (!response.ok) return [];
+      return response.json();
+    },
     refetchInterval: 60000,
   });
 
@@ -121,7 +132,43 @@ export default function AdminUserManagementPage() {
   });
 
   // Combined loading state
-  const isDataLoading = isLoading || analyticsLoading || ordersLoading || complaintsLoading;
+  const isDataLoading = isLoading || analyticsLoading || ordersLoading || paymentsLoading || complaintsLoading;
+
+  // Calculate real user spending data
+  const userSpendingData = users.map(user => {
+    const userOrders = ordersData.filter(order => order.userId === user.id);
+    const userPayments = paymentsData.filter(payment => payment.userId === user.id && payment.status === 'success');
+    const totalSpending = userOrders.reduce((sum, order) => sum + (order.amount || 0), 0);
+    const orderCount = userOrders.length;
+    const avgOrderValue = orderCount > 0 ? totalSpending / orderCount : 0;
+    
+    return {
+      ...user,
+      totalSpending,
+      orderCount,
+      avgOrderValue,
+      userOrders,
+      userPayments
+    };
+  });
+
+  // Calculate real revenue by user type
+  const calculateRealRevenueByType = () => {
+    const studentSpending = userSpendingData.filter(u => u.role === 'student').reduce((sum, u) => sum + u.totalSpending, 0);
+    const staffSpending = userSpendingData.filter(u => u.role === 'staff').reduce((sum, u) => sum + u.totalSpending, 0);
+    const canteenOwnerSpending = userSpendingData.filter(u => u.role === 'canteen_owner' || u.role === 'canteen-owner').reduce((sum, u) => sum + u.totalSpending, 0);
+    const adminSpending = userSpendingData.filter(u => u.role === 'admin').reduce((sum, u) => sum + u.totalSpending, 0);
+    
+    return {
+      studentRevenue: studentSpending,
+      staffRevenue: staffSpending,
+      canteenOwnerRevenue: canteenOwnerSpending,
+      adminRevenue: adminSpending,
+      totalCalculatedRevenue: studentSpending + staffSpending + canteenOwnerSpending + adminSpending
+    };
+  };
+
+  const realRevenue = calculateRealRevenueByType();
 
   // Refresh all data function
   const refreshAllData = async () => {
@@ -407,9 +454,9 @@ export default function AdminUserManagementPage() {
       const now = new Date();
       return createdDate.getMonth() === now.getMonth() && createdDate.getFullYear() === now.getFullYear();
     }).length,
-    totalRevenue: analyticsData?.totalRevenue || 0,
-    avgOrderValue: analyticsData?.averageOrderValue || 0,
-    totalOrders: analyticsData?.totalOrders || 0,
+    totalRevenue: analyticsData?.totalRevenue || realRevenue.totalCalculatedRevenue,
+    avgOrderValue: analyticsData?.averageOrderValue || (ordersData.length > 0 ? realRevenue.totalCalculatedRevenue / ordersData.length : 0),
+    totalOrders: analyticsData?.totalOrders || ordersData.length,
     // User role breakdown
     students: users.filter(u => u.role === 'student').length,
     canteenOwner: users.filter(u => u.role === 'canteen_owner' || u.role === 'canteen-owner').length,
@@ -1048,7 +1095,7 @@ export default function AdminUserManagementPage() {
                         variant="outline" 
                         size="sm"
                         onClick={() => {
-                          const revenueData = `Revenue Analysis by User Type - ${new Date().toLocaleDateString()}\n\nStudents: ₹${Math.round(stats.totalRevenue * 0.7).toLocaleString()} (70%)\nStaff: ₹${Math.round(stats.totalRevenue * 0.2).toLocaleString()} (20%)\nCanteen Owners: ₹${Math.round(stats.totalRevenue * 0.1).toLocaleString()} (10%)\n\nTotal Revenue: ₹${stats.totalRevenue.toLocaleString()}\nAverage per Student: ₹${Math.round((stats.totalRevenue * 0.7) / Math.max(stats.students, 1))}\nAverage per Staff: ₹${Math.round((stats.totalRevenue * 0.2) / Math.max(stats.staff, 1))}\nAverage per Canteen Owner: ₹${Math.round((stats.totalRevenue * 0.1) / Math.max(stats.canteenOwner, 1))}`;
+                          const revenueData = `Revenue Analysis by User Type - ${new Date().toLocaleDateString()}\n\nStudents: ₹${realRevenue.studentRevenue.toLocaleString()} (${Math.round((realRevenue.studentRevenue / Math.max(realRevenue.totalCalculatedRevenue, 1)) * 100)}%)\nStaff: ₹${realRevenue.staffRevenue.toLocaleString()} (${Math.round((realRevenue.staffRevenue / Math.max(realRevenue.totalCalculatedRevenue, 1)) * 100)}%)\nCanteen Owners: ₹${realRevenue.canteenOwnerRevenue.toLocaleString()} (${Math.round((realRevenue.canteenOwnerRevenue / Math.max(realRevenue.totalCalculatedRevenue, 1)) * 100)}%)\nAdmins: ₹${realRevenue.adminRevenue.toLocaleString()} (${Math.round((realRevenue.adminRevenue / Math.max(realRevenue.totalCalculatedRevenue, 1)) * 100)}%)\n\nTotal Revenue: ₹${realRevenue.totalCalculatedRevenue.toLocaleString()}\nAverage per Student: ₹${Math.round(realRevenue.studentRevenue / Math.max(stats.students, 1))}\nAverage per Staff: ₹${Math.round(realRevenue.staffRevenue / Math.max(stats.staff, 1))}\nAverage per Canteen Owner: ₹${Math.round(realRevenue.canteenOwnerRevenue / Math.max(stats.canteenOwner, 1))}`;
                           const blob = new Blob([revenueData], { type: 'text/plain' });
                           const url = URL.createObjectURL(blob);
                           const link = document.createElement('a');
@@ -1080,18 +1127,18 @@ export default function AdminUserManagementPage() {
                         <div className="space-y-2">
                           <div className="flex justify-between">
                             <span className="text-sm text-muted-foreground">Total Revenue</span>
-                            <span className="font-bold text-blue-600">₹{Math.round(stats.totalRevenue * 0.7).toLocaleString()}</span>
+                            <span className="font-bold text-blue-600">₹{realRevenue.studentRevenue.toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-sm text-muted-foreground">Avg per Student</span>
-                            <span className="font-medium text-blue-600">₹{Math.round((stats.totalRevenue * 0.7) / Math.max(stats.students, 1))}</span>
+                            <span className="font-medium text-blue-600">₹{Math.round(realRevenue.studentRevenue / Math.max(stats.students, 1))}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-sm text-muted-foreground">Revenue Share</span>
-                            <span className="font-bold text-blue-600">70%</span>
+                            <span className="font-bold text-blue-600">{Math.round((realRevenue.studentRevenue / Math.max(realRevenue.totalCalculatedRevenue, 1)) * 100)}%</span>
                           </div>
                           <div className="mt-2 bg-blue-200 dark:bg-blue-800 rounded-full h-2">
-                            <div className="bg-blue-600 h-2 rounded-full" style={{width: '70%'}}></div>
+                            <div className="bg-blue-600 h-2 rounded-full" style={{width: `${Math.round((realRevenue.studentRevenue / Math.max(realRevenue.totalCalculatedRevenue, 1)) * 100)}%`}}></div>
                           </div>
                         </div>
                       </div>
@@ -1108,18 +1155,18 @@ export default function AdminUserManagementPage() {
                         <div className="space-y-2">
                           <div className="flex justify-between">
                             <span className="text-sm text-muted-foreground">Total Revenue</span>
-                            <span className="font-bold text-green-600">₹{Math.round(stats.totalRevenue * 0.2).toLocaleString()}</span>
+                            <span className="font-bold text-green-600">₹{realRevenue.staffRevenue.toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-sm text-muted-foreground">Avg per Staff</span>
-                            <span className="font-medium text-green-600">₹{Math.round((stats.totalRevenue * 0.2) / Math.max(stats.staff, 1))}</span>
+                            <span className="font-medium text-green-600">₹{Math.round(realRevenue.staffRevenue / Math.max(stats.staff, 1))}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-sm text-muted-foreground">Revenue Share</span>
-                            <span className="font-bold text-green-600">20%</span>
+                            <span className="font-bold text-green-600">{Math.round((realRevenue.staffRevenue / Math.max(realRevenue.totalCalculatedRevenue, 1)) * 100)}%</span>
                           </div>
                           <div className="mt-2 bg-green-200 dark:bg-green-800 rounded-full h-2">
-                            <div className="bg-green-600 h-2 rounded-full" style={{width: '20%'}}></div>
+                            <div className="bg-green-600 h-2 rounded-full" style={{width: `${Math.round((realRevenue.staffRevenue / Math.max(realRevenue.totalCalculatedRevenue, 1)) * 100)}%`}}></div>
                           </div>
                         </div>
                       </div>
@@ -1136,18 +1183,18 @@ export default function AdminUserManagementPage() {
                         <div className="space-y-2">
                           <div className="flex justify-between">
                             <span className="text-sm text-muted-foreground">Total Revenue</span>
-                            <span className="font-bold text-purple-600">₹{Math.round(stats.totalRevenue * 0.1).toLocaleString()}</span>
+                            <span className="font-bold text-purple-600">₹{realRevenue.canteenOwnerRevenue.toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-sm text-muted-foreground">Avg per Owner</span>
-                            <span className="font-medium text-purple-600">₹{Math.round((stats.totalRevenue * 0.1) / Math.max(stats.canteenOwner, 1))}</span>
+                            <span className="font-medium text-purple-600">₹{Math.round(realRevenue.canteenOwnerRevenue / Math.max(stats.canteenOwner, 1))}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-sm text-muted-foreground">Revenue Share</span>
-                            <span className="font-bold text-purple-600">10%</span>
+                            <span className="font-bold text-purple-600">{Math.round((realRevenue.canteenOwnerRevenue / Math.max(realRevenue.totalCalculatedRevenue, 1)) * 100)}%</span>
                           </div>
                           <div className="mt-2 bg-purple-200 dark:bg-purple-800 rounded-full h-2">
-                            <div className="bg-purple-600 h-2 rounded-full" style={{width: '10%'}}></div>
+                            <div className="bg-purple-600 h-2 rounded-full" style={{width: `${Math.round((realRevenue.canteenOwnerRevenue / Math.max(realRevenue.totalCalculatedRevenue, 1)) * 100)}%`}}></div>
                           </div>
                         </div>
                       </div>
@@ -1164,9 +1211,9 @@ export default function AdminUserManagementPage() {
                         variant="outline" 
                         size="sm"
                         onClick={() => {
-                          const topStudents = users.filter(u => u.role === 'student').slice(0, 5);
-                          const topStaff = users.filter(u => u.role === 'staff').slice(0, 3);
-                          const spendingData = `Spending Patterns Analysis - ${new Date().toLocaleDateString()}\n\n=== TOP STUDENT SPENDERS ===\n${topStudents.map((user, i) => `${i+1}. ${user.name} - Estimated: ₹${Math.round(2000 + Math.random() * 8000)} (${user.department || 'N/A'})`).join('\n')}\n\n=== TOP STAFF SPENDERS ===\n${topStaff.map((user, i) => `${i+1}. ${user.name} - Estimated: ₹${Math.round(3000 + Math.random() * 12000)}`).join('\n')}\n\nNote: Spending amounts are estimated based on user activity and order patterns.`;
+                          const topStudents = userSpendingData.filter(u => u.role === 'student').sort((a, b) => b.totalSpending - a.totalSpending).slice(0, 5);
+                          const topStaff = userSpendingData.filter(u => u.role === 'staff' || u.role === 'admin').sort((a, b) => b.totalSpending - a.totalSpending).slice(0, 5);
+                          const spendingData = `Spending Patterns Analysis - ${new Date().toLocaleDateString()}\n\n=== TOP STUDENT SPENDERS (Real Data) ===\n${topStudents.map((user, i) => `${i+1}. ${user.name} - ₹${user.totalSpending.toLocaleString()} (${user.orderCount} orders) - ${user.department || 'N/A'}`).join('\n')}\n\n=== TOP STAFF/ADMIN SPENDERS (Real Data) ===\n${topStaff.map((user, i) => `${i+1}. ${user.name} - ₹${user.totalSpending.toLocaleString()} (${user.orderCount} orders) - ${user.role}`).join('\n')}\n\nNote: Spending amounts are calculated from actual order data and payments.`;
                           const blob = new Blob([spendingData], { type: 'text/plain' });
                           const url = URL.createObjectURL(blob);
                           const link = document.createElement('a');
@@ -1193,8 +1240,7 @@ export default function AdminUserManagementPage() {
                           <span>Top Student Spenders</span>
                         </h4>
                         <div className="space-y-3">
-                          {users.filter(u => u.role === 'student').slice(0, 5).map((user, index) => {
-                            const estimatedSpending = Math.round(2000 + Math.random() * 8000);
+                          {userSpendingData.filter(u => u.role === 'student').sort((a, b) => b.totalSpending - a.totalSpending).slice(0, 5).map((user, index) => {
                             return (
                               <div key={user.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
                                 <div className="flex items-center space-x-3">
@@ -1211,8 +1257,8 @@ export default function AdminUserManagementPage() {
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <div className="font-bold text-green-600">₹{estimatedSpending.toLocaleString()}</div>
-                                  <div className="text-xs text-muted-foreground">Estimated</div>
+                                  <div className="font-bold text-green-600">₹{user.totalSpending.toLocaleString()}</div>
+                                  <div className="text-xs text-muted-foreground">{user.orderCount} orders</div>
                                 </div>
                               </div>
                             );
@@ -1227,8 +1273,7 @@ export default function AdminUserManagementPage() {
                           <span>Top Staff & Admin Spenders</span>
                         </h4>
                         <div className="space-y-3">
-                          {users.filter(u => u.role === 'staff' || u.role === 'admin').slice(0, 5).map((user, index) => {
-                            const estimatedSpending = Math.round(3000 + Math.random() * 12000);
+                          {userSpendingData.filter(u => u.role === 'staff' || u.role === 'admin').sort((a, b) => b.totalSpending - a.totalSpending).slice(0, 5).map((user, index) => {
                             return (
                               <div key={user.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
                                 <div className="flex items-center space-x-3">
@@ -1244,8 +1289,8 @@ export default function AdminUserManagementPage() {
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <div className="font-bold text-green-600">₹{estimatedSpending.toLocaleString()}</div>
-                                  <div className="text-xs text-muted-foreground">Estimated</div>
+                                  <div className="font-bold text-green-600">₹{user.totalSpending.toLocaleString()}</div>
+                                  <div className="text-xs text-muted-foreground">{user.orderCount} orders</div>
                                 </div>
                               </div>
                             );
@@ -1259,22 +1304,39 @@ export default function AdminUserManagementPage() {
                       <div className="p-4 bg-red-50 dark:bg-red-950 rounded-lg">
                         <h5 className="font-medium text-red-800 dark:text-red-200 mb-2">Highest Spender</h5>
                         <div className="text-sm">
-                          <div className="font-bold">{users.length > 0 ? users[0]?.name : 'N/A'}</div>
-                          <div className="text-red-600">₹{Math.round(8000 + Math.random() * 4000).toLocaleString()}</div>
+                          <div className="font-bold">{(() => {
+                            const topSpender = userSpendingData.sort((a, b) => b.totalSpending - a.totalSpending)[0];
+                            return topSpender?.name || 'N/A';
+                          })()}</div>
+                          <div className="text-red-600">₹{(() => {
+                            const topSpender = userSpendingData.sort((a, b) => b.totalSpending - a.totalSpending)[0];
+                            return (topSpender?.totalSpending || 0).toLocaleString();
+                          })()}</div>
                         </div>
                       </div>
                       <div className="p-4 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
                         <h5 className="font-medium text-yellow-800 dark:text-yellow-200 mb-2">Average Spending</h5>
                         <div className="text-sm">
                           <div className="font-bold">All Users</div>
-                          <div className="text-yellow-600">₹{Math.round(stats.totalRevenue / Math.max(stats.totalUsers, 1)).toLocaleString()}</div>
+                          <div className="text-yellow-600">₹{(() => {
+                            const totalSpending = userSpendingData.reduce((sum, user) => sum + user.totalSpending, 0);
+                            return Math.round(totalSpending / Math.max(userSpendingData.length, 1)).toLocaleString();
+                          })()}</div>
                         </div>
                       </div>
                       <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
                         <h5 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Lowest Spender</h5>
                         <div className="text-sm">
-                          <div className="font-bold">{users.length > 10 ? users[users.length - 1]?.name : 'N/A'}</div>
-                          <div className="text-blue-600">₹{Math.round(200 + Math.random() * 800).toLocaleString()}</div>
+                          <div className="font-bold">{(() => {
+                            const sortedSpenders = userSpendingData.sort((a, b) => a.totalSpending - b.totalSpending);
+                            const lowestSpender = sortedSpenders.find(user => user.totalSpending > 0);
+                            return lowestSpender?.name || 'N/A';
+                          })()}</div>
+                          <div className="text-blue-600">₹{(() => {
+                            const sortedSpenders = userSpendingData.sort((a, b) => a.totalSpending - b.totalSpending);
+                            const lowestSpender = sortedSpenders.find(user => user.totalSpending > 0);
+                            return (lowestSpender?.totalSpending || 0).toLocaleString();
+                          })()}</div>
                         </div>
                       </div>
                     </div>
@@ -1304,9 +1366,11 @@ export default function AdminUserManagementPage() {
                             }
                           });
                           const reportData = Object.entries(deptData).map(([dept, count]) => {
-                            const deptRevenue = Math.round((count / students.length) * stats.totalRevenue * 0.7);
-                            const avgPerStudent = Math.round(deptRevenue / count);
-                            return `${dept} (${getDepartmentFullName(dept)})\n- Students: ${count} (${Math.round((count / students.length) * 100)}%)\n- Revenue: ₹${deptRevenue.toLocaleString()}\n- Avg per Student: ₹${avgPerStudent.toLocaleString()}\n- Orders: ~${Math.round(count * 2.5)} estimated\n`;
+                            const deptStudents = userSpendingData.filter(u => u.role === 'student' && u.department === dept);
+                            const deptRevenue = deptStudents.reduce((sum, student) => sum + student.totalSpending, 0);
+                            const avgPerStudent = count > 0 ? Math.round(deptRevenue / count) : 0;
+                            const totalOrders = deptStudents.reduce((sum, student) => sum + student.orderCount, 0);
+                            return `${dept} (${getDepartmentFullName(dept)})\n- Students: ${count} (${Math.round((count / students.length) * 100)}%)\n- Revenue: ₹${deptRevenue.toLocaleString()}\n- Avg per Student: ₹${avgPerStudent.toLocaleString()}\n- Total Orders: ${totalOrders} (real data)\n`;
                           }).join('\n');
                           
                           const blob = new Blob([`Department Business Analysis - ${new Date().toLocaleDateString()}\n\n${reportData}`], { type: 'text/plain' });
@@ -1336,9 +1400,10 @@ export default function AdminUserManagementPage() {
                       }, {})).map(([dept, count]) => {
                         const studentCount = count as number;
                         const totalStudents = users.filter(u => u.role === 'student').length;
-                        const deptRevenue = Math.round((studentCount / totalStudents) * stats.totalRevenue * 0.7);
-                        const avgPerStudent = Math.round(deptRevenue / studentCount);
-                        const estimatedOrders = Math.round(studentCount * 2.5);
+                        const deptStudents = userSpendingData.filter(u => u.role === 'student' && u.department === dept);
+                        const deptRevenue = deptStudents.reduce((sum, student) => sum + student.totalSpending, 0);
+                        const avgPerStudent = studentCount > 0 ? Math.round(deptRevenue / studentCount) : 0;
+                        const actualOrders = deptStudents.reduce((sum, student) => sum + student.orderCount, 0);
                         
                         return (
                           <div 
@@ -1377,8 +1442,8 @@ export default function AdminUserManagementPage() {
                                   <div className="font-bold text-purple-600">{Math.round((studentCount / totalStudents) * 100)}%</div>
                                 </div>
                                 <div>
-                                  <div className="text-muted-foreground">~Orders</div>
-                                  <div className="font-bold text-orange-600">{estimatedOrders}</div>
+                                  <div className="text-muted-foreground">Orders</div>
+                                  <div className="font-bold text-orange-600">{actualOrders}</div>
                                 </div>
                               </div>
                               <div className="text-xs text-primary mt-2 text-center">Click to filter users</div>
