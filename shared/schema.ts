@@ -134,6 +134,24 @@ export type MediaBanner = {
   updatedAt: Date;
 };
 
+export type Coupon = {
+  id: string;
+  code: string;
+  description: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  minimumOrderAmount?: number;
+  maxDiscountAmount?: number;
+  usageLimit: number;
+  usedCount: number;
+  usedBy: number[];
+  isActive: boolean;
+  validFrom: Date;
+  validUntil: Date;
+  createdBy: number;
+  createdAt: Date;
+};
+
 // Insert types for MongoDB models
 export type InsertCategory = Omit<Category, 'id' | 'createdAt'>;
 export type InsertMenuItem = Omit<MenuItem, 'id' | 'createdAt'>;
@@ -145,6 +163,7 @@ export type InsertLoginIssue = Omit<LoginIssue, 'id' | 'createdAt'>;
 export type InsertQuickOrder = Omit<QuickOrder, 'id' | 'createdAt'>;
 export type InsertPayment = Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>;
 export type InsertComplaint = Omit<Complaint, 'id' | 'createdAt' | 'updatedAt'>;
+export type InsertCoupon = Omit<Coupon, 'id' | 'createdAt' | 'usedCount' | 'usedBy'>;
 
 // Keep validation schemas using Zod for form validation
 import { z } from "zod";

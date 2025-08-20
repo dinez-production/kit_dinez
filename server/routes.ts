@@ -10,7 +10,9 @@ import {
   insertLoginIssueSchema,
   insertQuickOrderSchema,
   insertPaymentSchema,
-  insertComplaintSchema
+  insertComplaintSchema,
+  type Coupon,
+  type InsertCoupon
 } from "@shared/schema";
 import { generateOrderNumber } from "@shared/utils";
 import { 
@@ -2485,6 +2487,176 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching suppliers:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // ===========================================
+  // COUPON MANAGEMENT ROUTES
+  // ===========================================
+
+  // Get all coupons (admin only)
+  app.get("/api/coupons", async (req, res) => {
+    try {
+      const coupons = await storage.getCoupons();
+      res.json(coupons);
+    } catch (error) {
+      console.error("Error fetching coupons:", error);
+      res.status(500).json({ message: "Failed to fetch coupons" });
+    }
+  });
+
+  // Get active coupons for users
+  app.get("/api/coupons/active", async (req, res) => {
+    try {
+      const activeCoupons = await storage.getActiveCoupons();
+      res.json(activeCoupons);
+    } catch (error) {
+      console.error("Error fetching active coupons:", error);
+      res.status(500).json({ message: "Failed to fetch active coupons" });
+    }
+  });
+
+  // Create new coupon (admin only)
+  app.post("/api/coupons", async (req, res) => {
+    try {
+      const couponData: InsertCoupon = req.body;
+      
+      // Validate required fields
+      if (!couponData.code || !couponData.description || !couponData.discountType || 
+          !couponData.discountValue || !couponData.usageLimit || !couponData.validFrom || 
+          !couponData.validUntil || !couponData.createdBy) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      // Validate discount value
+      if (couponData.discountType === 'percentage' && couponData.discountValue > 100) {
+        return res.status(400).json({ message: "Percentage discount cannot exceed 100%" });
+      }
+
+      if (couponData.discountValue <= 0) {
+        return res.status(400).json({ message: "Discount value must be greater than 0" });
+      }
+
+      // Validate dates
+      const validFrom = new Date(couponData.validFrom);
+      const validUntil = new Date(couponData.validUntil);
+      
+      if (validFrom >= validUntil) {
+        return res.status(400).json({ message: "Valid from date must be before valid until date" });
+      }
+
+      const coupon = await storage.createCoupon(couponData);
+      res.status(201).json(coupon);
+    } catch (error) {
+      console.error("Error creating coupon:", error);
+      if (error instanceof Error && error.message.includes('duplicate key')) {
+        res.status(400).json({ message: "Coupon code already exists" });
+      } else {
+        res.status(500).json({ message: "Failed to create coupon" });
+      }
+    }
+  });
+
+  // Validate coupon for user
+  app.post("/api/coupons/validate", async (req, res) => {
+    try {
+      const { code, userId, orderAmount } = req.body;
+      
+      if (!code || !orderAmount) {
+        return res.status(400).json({ 
+          valid: false, 
+          message: "Coupon code and order amount are required" 
+        });
+      }
+
+      const validation = await storage.validateCoupon(code, userId, orderAmount);
+      res.json(validation);
+    } catch (error) {
+      console.error("Error validating coupon:", error);
+      res.status(500).json({ 
+        valid: false, 
+        message: "Failed to validate coupon" 
+      });
+    }
+  });
+
+  // Apply coupon to order
+  app.post("/api/coupons/apply", async (req, res) => {
+    try {
+      const { code, userId, orderAmount } = req.body;
+      
+      if (!code || !userId || !orderAmount) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Coupon code, user ID, and order amount are required" 
+        });
+      }
+
+      const result = await storage.applyCoupon(code, userId, orderAmount);
+      res.json(result);
+    } catch (error) {
+      console.error("Error applying coupon:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to apply coupon" 
+      });
+    }
+  });
+
+  // Get coupon by ID
+  app.get("/api/coupons/:id", async (req, res) => {
+    try {
+      const coupon = await storage.getCoupon(req.params.id);
+      if (!coupon) {
+        return res.status(404).json({ message: "Coupon not found" });
+      }
+      res.json(coupon);
+    } catch (error) {
+      console.error("Error fetching coupon:", error);
+      res.status(500).json({ message: "Failed to fetch coupon" });
+    }
+  });
+
+  // Update coupon (admin only)
+  app.put("/api/coupons/:id", async (req, res) => {
+    try {
+      const updateData = req.body;
+      const coupon = await storage.updateCoupon(req.params.id, updateData);
+      if (!coupon) {
+        return res.status(404).json({ message: "Coupon not found" });
+      }
+      res.json(coupon);
+    } catch (error) {
+      console.error("Error updating coupon:", error);
+      res.status(500).json({ message: "Failed to update coupon" });
+    }
+  });
+
+  // Delete coupon (admin only)
+  app.delete("/api/coupons/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteCoupon(req.params.id);
+      if (!success) {
+        return res.status(404).json({ message: "Coupon not found" });
+      }
+      res.json({ message: "Coupon deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting coupon:", error);
+      res.status(500).json({ message: "Failed to delete coupon" });
+    }
+  });
+
+  // Toggle coupon status (admin only)
+  app.patch("/api/coupons/:id/toggle", async (req, res) => {
+    try {
+      const coupon = await storage.toggleCouponStatus(req.params.id);
+      if (!coupon) {
+        return res.status(404).json({ message: "Coupon not found" });
+      }
+      res.json(coupon);
+    } catch (error) {
+      console.error("Error toggling coupon status:", error);
+      res.status(500).json({ message: "Failed to toggle coupon status" });
     }
   });
 

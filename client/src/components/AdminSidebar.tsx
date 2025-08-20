@@ -18,7 +18,8 @@ import {
   Star,
   Clock,
   DollarSign,
-  AlertTriangle
+  AlertTriangle,
+  Ticket
 } from "lucide-react";
 
 import {
@@ -49,6 +50,7 @@ const managementItems = [
 
 const contentItems = [
   { title: "Content Management", url: "/admin/content-management", icon: FileText },
+  { title: "Coupon Management", url: "/admin/coupon-management", icon: Ticket },
   { title: "Feedback Management", url: "/admin/feedback-management", icon: MessageSquare },
   { title: "Review Management", url: "/admin/review-management", icon: Star },
 ];

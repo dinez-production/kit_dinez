@@ -292,3 +292,40 @@ MediaBannerSchema.pre('save', function(next) {
 });
 
 export const MediaBanner = mongoose.model<IMediaBanner>('MediaBanner', MediaBannerSchema);
+
+// Discount Coupon Model
+export interface ICoupon extends Document {
+  code: string;
+  description: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  minimumOrderAmount?: number;
+  maxDiscountAmount?: number;
+  usageLimit: number;
+  usedCount: number;
+  usedBy: number[]; // Array of user IDs who have used this coupon
+  isActive: boolean;
+  validFrom: Date;
+  validUntil: Date;
+  createdBy: number; // Admin user ID
+  createdAt: Date;
+}
+
+const CouponSchema = new Schema<ICoupon>({
+  code: { type: String, required: true, unique: true, uppercase: true },
+  description: { type: String, required: true },
+  discountType: { type: String, enum: ['percentage', 'fixed'], required: true },
+  discountValue: { type: Number, required: true },
+  minimumOrderAmount: { type: Number, default: 0 },
+  maxDiscountAmount: { type: Number },
+  usageLimit: { type: Number, required: true },
+  usedCount: { type: Number, default: 0 },
+  usedBy: { type: [Number], default: [] },
+  isActive: { type: Boolean, default: true },
+  validFrom: { type: Date, required: true },
+  validUntil: { type: Date, required: true },
+  createdBy: { type: Number, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+export const Coupon = mongoose.model<ICoupon>('Coupon', CouponSchema);
