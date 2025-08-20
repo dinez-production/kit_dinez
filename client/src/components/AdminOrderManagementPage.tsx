@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Order } from "@shared/schema";
 import { formatOrderIdDisplay } from "@shared/utils";
@@ -18,12 +19,18 @@ import {
   XCircle, 
   Clock,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  Package,
+  User,
+  Calendar,
+  MapPin
 } from "lucide-react";
 
 export default function AdminOrderManagementPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const { toast } = useToast();
 
   // Fetch real orders from database using React Query
@@ -40,6 +47,41 @@ export default function AdminOrderManagementPage() {
     refetchOnMount: true,
     refetchOnWindowFocus: true,
   });
+
+  // Fetch menu items for detailed order view
+  const { data: menuItems = [] } = useQuery({
+    queryKey: ['/api/menu'],
+    queryFn: async () => {
+      const response = await fetch('/api/menu');
+      if (!response.ok) return [];
+      return response.json();
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  // Parse order items from JSON string
+  const parseOrderItems = (itemsString: string) => {
+    try {
+      return JSON.parse(itemsString);
+    } catch {
+      return [];
+    }
+  };
+
+  // Get menu item details for order items
+  const getOrderItemDetails = (orderItemsString: string) => {
+    const orderItems = parseOrderItems(orderItemsString);
+    return orderItems.map((item: any) => {
+      const menuItem = menuItems.find((mi: any) => mi.id === item.menuItemId);
+      return {
+        ...item,
+        name: menuItem?.name || 'Unknown Item',
+        description: menuItem?.description || '',
+        image: menuItem?.image || '',
+        subtotal: (item.price || 0) * (item.quantity || 1)
+      };
+    });
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -104,11 +146,13 @@ export default function AdminOrderManagementPage() {
     });
   };
 
-  const handleViewOrder = (orderId: string) => {
-    toast({
-      title: "View Order",
-      description: `Opening details for order ${orderId}`,
-    });
+  const handleViewOrder = (order: Order) => {
+    setSelectedOrder(order);
+    setIsDetailModalOpen(true);
+  };
+
+  const handleCardClick = (order: Order) => {
+    handleViewOrder(order);
   };
 
   const handleFilter = () => {
@@ -225,8 +269,14 @@ export default function AdminOrderManagementPage() {
               <div className="space-y-4">
                 {filteredOrders.map((order) => {
                   const StatusIcon = getStatusIcon(order.status);
+                  const orderItems = getOrderItemDetails(order.items);
                   return (
-                    <div key={order.id} className="p-4 border rounded-lg space-y-3">
+                    <div 
+                      key={order.id} 
+                      className="p-4 border rounded-lg space-y-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => handleCardClick(order)}
+                      data-testid={`order-card-${order.id}`}
+                    >
                       {/* Order Header */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
@@ -254,10 +304,13 @@ export default function AdminOrderManagementPage() {
                             variant="outline" 
                             size="sm" 
                             className="flex items-center space-x-1"
-                            onClick={() => handleViewOrder(order.orderNumber)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewOrder(order);
+                            }}
                           >
                             <Eye className="w-3 h-3" />
-                            <span>View</span>
+                            <span>Details</span>
                           </Button>
                         </div>
                       </div>
@@ -271,7 +324,19 @@ export default function AdminOrderManagementPage() {
                         </div>
                         <div>
                           <p className="text-muted-foreground">Items</p>
-                          <p className="font-medium">{order.items}</p>
+                          <div className="space-y-1">
+                            {orderItems.slice(0, 2).map((item: any, idx: number) => (
+                              <div key={idx} className="font-medium text-sm">
+                                {item.quantity}x {item.name}
+                              </div>
+                            ))}
+                            {orderItems.length > 2 && (
+                              <p className="text-xs text-muted-foreground">+{orderItems.length - 2} more items</p>
+                            )}
+                            {orderItems.length === 0 && (
+                              <p className="font-medium text-sm text-muted-foreground">No items</p>
+                            )}
+                          </div>
                         </div>
                         <div>
                           <p className="text-muted-foreground">Total</p>
@@ -292,7 +357,7 @@ export default function AdminOrderManagementPage() {
                             <Button 
                               size="sm" 
                               variant="food"
-                              onClick={() => updateOrderStatus.mutate({ orderId: order.id, newStatus: "ready" })}
+                              onClick={() => updateOrderStatus.mutate({ orderId: parseInt(order.id), newStatus: "ready" })}
                             >
                               Mark as Ready
                             </Button>
@@ -301,7 +366,7 @@ export default function AdminOrderManagementPage() {
                             <Button 
                               size="sm" 
                               variant="food"
-                              onClick={() => updateOrderStatus.mutate({ orderId: order.id, newStatus: "completed" })}
+                              onClick={() => updateOrderStatus.mutate({ orderId: parseInt(order.id), newStatus: "completed" })}
                             >
                               Mark as Completed
                             </Button>
@@ -322,6 +387,219 @@ export default function AdminOrderManagementPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Order Details Modal */}
+      <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="order-details-modal">
+          {selectedOrder && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-3">
+                  <Package className="w-5 h-5 text-primary" />
+                  <span>Order Details</span>
+                  <Badge variant={getStatusColor(selectedOrder.status) as any} className="flex items-center space-x-1">
+                    {(() => {
+                      const StatusIcon = getStatusIcon(selectedOrder.status);
+                      return <StatusIcon className="w-3 h-3" />;
+                    })()}
+                    <span className="capitalize">{selectedOrder.status}</span>
+                  </Badge>
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-6">
+                {/* Order Overview */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center space-x-3">
+                        <Package className="w-8 h-8 text-primary" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Order Number</p>
+                          <p className="font-bold">
+                            {(() => {
+                              const formatted = formatOrderIdDisplay(selectedOrder.orderNumber);
+                              return (
+                                <>
+                                  {formatted.prefix}
+                                  <span className="bg-primary/20 text-primary font-bold px-1 rounded ml-1">
+                                    {formatted.highlighted}
+                                  </span>
+                                </>
+                              );
+                            })()}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center space-x-3">
+                        <User className="w-8 h-8 text-blue-600" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Customer</p>
+                          <p className="font-bold">{selectedOrder.customerName}</p>
+                          <p className="text-xs text-muted-foreground">ID: {selectedOrder.customerId}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center space-x-3">
+                        <Calendar className="w-8 h-8 text-green-600" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Order Time</p>
+                          <p className="font-bold">{new Date(selectedOrder.createdAt).toLocaleTimeString()}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(selectedOrder.createdAt).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center space-x-3">
+                        <MapPin className="w-8 h-8 text-orange-600" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Location</p>
+                          <p className="font-bold">Canteen</p>
+                          <p className="text-xs text-muted-foreground">{selectedOrder.estimatedTime} mins</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Order Items */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Package className="w-5 h-5" />
+                      <span>Order Items</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {getOrderItemDetails(selectedOrder.items).map((item: any, index: number) => (
+                        <div key={index} className="flex items-center justify-between p-4 border rounded-lg" data-testid={`order-item-${index}`}>
+                          <div className="flex items-center space-x-4">
+                            {item.image ? (
+                              <img 
+                                src={item.image} 
+                                alt={item.name}
+                                className="w-16 h-16 object-cover rounded-lg"
+                              />
+                            ) : (
+                              <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
+                                <Package className="w-8 h-8 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div>
+                              <h4 className="font-medium">{item.name}</h4>
+                              {item.description && (
+                                <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
+                              )}
+                              <p className="text-sm text-muted-foreground">₹{item.price} each</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">Qty: {item.quantity}</p>
+                            <p className="font-bold text-primary">₹{item.subtotal}</p>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {getOrderItemDetails(selectedOrder.items).length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          No items found in this order.
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Order Summary */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Order Summary</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span>₹{selectedOrder.amount}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Taxes & Fees:</span>
+                        <span>₹0.00</span>
+                      </div>
+                      <div className="border-t pt-3">
+                        <div className="flex justify-between font-bold text-lg">
+                          <span>Total:</span>
+                          <span className="text-primary">₹{selectedOrder.amount}</span>
+                        </div>
+                      </div>
+                      
+                      {selectedOrder.barcode && (
+                        <div className="mt-4 p-3 bg-muted rounded-lg">
+                          <p className="text-sm text-muted-foreground">Pickup Code:</p>
+                          <p className="font-mono font-bold text-lg">{selectedOrder.barcode}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Status: {selectedOrder.barcodeUsed ? 'Used' : 'Available'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Order Actions */}
+                {selectedOrder.status !== "completed" && selectedOrder.status !== "cancelled" && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Order Actions</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center space-x-3">
+                        {selectedOrder.status === "preparing" && (
+                          <Button 
+                            variant="default"
+                            onClick={() => {
+                              updateOrderStatus.mutate({ orderId: parseInt(selectedOrder.id), newStatus: "ready" });
+                              setIsDetailModalOpen(false);
+                            }}
+                            className="flex items-center space-x-2"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            <span>Mark as Ready</span>
+                          </Button>
+                        )}
+                        {selectedOrder.status === "ready" && (
+                          <Button 
+                            variant="default"
+                            onClick={() => {
+                              updateOrderStatus.mutate({ orderId: parseInt(selectedOrder.id), newStatus: "completed" });
+                              setIsDetailModalOpen(false);
+                            }}
+                            className="flex items-center space-x-2"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            <span>Mark as Completed</span>
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
