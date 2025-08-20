@@ -30,7 +30,16 @@ Authentication supports **Google OAuth** and guest access, with **role-based per
 **Push Notifications:** Native Web Push API with VAPID keys (web-push) - Replaced Firebase and OneSignal
 **Utilities & Helpers:** date-fns, clsx, class-variance-authority, zod, nanoid
 
-# Recent Changes (August 18, 2025)
+# Recent Changes (August 20, 2025)
+- **Critical Security Fix - Session Validation**: Fixed user deletion security issue where deleted users could still access the app until clearing browser cache
+  - **Problem Fixed**: When admin deleted a user, their session remained active in browser localStorage, allowing continued access
+  - **Database Validation**: Added `/api/users/:id/validate` endpoint to verify user existence in database
+  - **Enhanced Authentication**: Modified `useAuth` hook to validate localStorage sessions against database on app load
+  - **Automatic Cleanup**: Deleted user sessions are now automatically cleared when user no longer exists in database
+  - **Cross-tab Sync**: Session invalidation works across all browser tabs for better security
+  - **Graceful Fallback**: If database validation fails due to network issues, keeps session temporarily for user experience
+
+# Previous Changes (August 18, 2025)
 - **Project Migration**: Successfully migrated KIT-Canteen application from Replit Agent to standard Replit environment
   - **Dependency Fix**: Resolved tsx dependency issue for TypeScript execution
   - **Startup Validation**: All databases connected successfully (MongoDB Atlas and PostgreSQL)

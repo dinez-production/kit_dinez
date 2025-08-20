@@ -384,6 +384,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Session validation endpoint to check if user still exists in database
+  app.get("/api/users/:id/validate", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        console.log(`🚫 Session validation failed: User ${userId} no longer exists`);
+        return res.status(404).json({ message: "User not found", userExists: false });
+      }
+      
+      // User exists, return basic info for session validation
+      res.json({ 
+        userExists: true, 
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          phoneNumber: user.phoneNumber,
+          registerNumber: user.registerNumber,
+          department: user.department,
+          currentStudyYear: user.currentStudyYear,
+          isPassed: user.isPassed,
+          staffId: user.staffId
+        }
+      });
+    } catch (error) {
+      console.error("Error validating user session:", error);
+      res.status(500).json({ message: "Internal server error", userExists: false });
+    }
+  });
+
   // User details endpoints for admin panel
   app.get("/api/users/:id/orders", async (req, res) => {
     try {

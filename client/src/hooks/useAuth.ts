@@ -20,18 +20,43 @@ export function useAuth() {
 
   useEffect(() => {
     // Use PWA authentication utilities for consistent handling
-    const loadUserFromStorage = () => {
+    const loadUserFromStorage = async () => {
       const authState = getPWAAuthState();
       
       console.log("useAuth loadUserFromStorage - PWA State:", authState);
       
       if (authState.isAuthenticated && authState.user) {
-        console.log("Valid PWA session found, setting user:", authState.user);
-        setUser(authState.user);
+        console.log("Valid PWA session found, validating against database:", authState.user);
+        
+        // Validate user still exists in database
+        try {
+          const response = await fetch(`/api/users/${authState.user.id}/validate`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.userExists) {
+              console.log("✅ User validated against database:", data.user);
+              setUser(data.user);
+            } else {
+              console.log("❌ User no longer exists in database, clearing session");
+              clearPWAAuth();
+              setUser(null);
+            }
+          } else {
+            console.log("❌ User validation failed, clearing session");
+            clearPWAAuth();
+            setUser(null);
+          }
+        } catch (error) {
+          console.warn("⚠️ Database validation failed, keeping localStorage session:", error);
+          // In case of network error, keep the session but user will be re-validated on next API call
+          setUser(authState.user);
+        }
       } else {
         console.log("No valid PWA session, clearing user state");
         setUser(null);
       }
+      setIsLoading(false);
     };
 
     // Cross-tab synchronization for mobile PWA - sync login/logout across tabs
@@ -42,9 +67,8 @@ export function useAuth() {
       }
     };
 
-    // Initial load
+    // Initial load with database validation
     loadUserFromStorage();
-    setIsLoading(false);
 
     // Listen for storage changes to sync across tabs/windows
     window.addEventListener('storage', handleStorageChange);
