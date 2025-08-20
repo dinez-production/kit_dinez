@@ -553,9 +553,9 @@ export default function AdminUserManagementPage() {
                       </Select>
                     </div>
                     
-                    {/* Student-specific filters */}
+                    {/* Student-specific filters and Add User button */}
                     {(filterRole === "student" || filterRole === "all") && (
-                      <div className="flex flex-col md:flex-row gap-4 pt-2 border-t">
+                      <div className="flex flex-col md:flex-row gap-4 pt-2 border-t items-start md:items-center">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <School className="w-4 h-4" />
                           <span>Student Filters:</span>
@@ -585,75 +585,76 @@ export default function AdminUserManagementPage() {
                             <SelectItem value="4th">4th Year</SelectItem>
                           </SelectContent>
                         </Select>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="food" size="sm" className="ml-auto">
+                              <Plus className="w-4 h-4 mr-1" />
+                              Add User
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Add New User</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <Label>Name</Label>
+                                  <Input placeholder="Full name" />
+                                </div>
+                                <div>
+                                  <Label>Email</Label>
+                                  <Input placeholder="email@kit.ac.in" />
+                                </div>
+                                <div>
+                                  <Label>Phone</Label>
+                                  <Input placeholder="+91 XXXXXXXXXX" />
+                                </div>
+                                <div>
+                                  <Label>Role</Label>
+                                  <Select>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select role" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="student">Student</SelectItem>
+                                      <SelectItem value="canteen_owner">Canteen Owner</SelectItem>
+                                      <SelectItem value="staff">Staff</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              <div>
+                                <Label>Address</Label>
+                                <Textarea placeholder="Enter address" />
+                              </div>
+                              <Button variant="food" className="w-full" onClick={async () => {
+                                try {
+                                  // TODO: Implement actual user creation via API
+                                  // const response = await fetch('/api/users', {
+                                  //   method: 'POST',
+                                  //   headers: { 'Content-Type': 'application/json' },
+                                  //   body: JSON.stringify(newUserData)
+                                  // });
+                                  toast({
+                                    title: "User Added",
+                                    description: "New user has been created successfully",
+                                  });
+                                } catch (error) {
+                                  toast({
+                                    title: "Failed to Add User",
+                                    description: "Please try again or contact support",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}>
+                                Add User
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
                       </div>
                     )}
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="food">
-                          <Plus className="w-4 h-4 mr-2" />
-                          Add User
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Add New User</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label>Name</Label>
-                              <Input placeholder="Full name" />
-                            </div>
-                            <div>
-                              <Label>Email</Label>
-                              <Input placeholder="email@kit.ac.in" />
-                            </div>
-                            <div>
-                              <Label>Phone</Label>
-                              <Input placeholder="+91 XXXXXXXXXX" />
-                            </div>
-                            <div>
-                              <Label>Role</Label>
-                              <Select>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select role" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="student">Student</SelectItem>
-                                  <SelectItem value="canteen_owner">Canteen Owner</SelectItem>
-                                  <SelectItem value="staff">Staff</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                          <div>
-                            <Label>Address</Label>
-                            <Textarea placeholder="Enter address" />
-                          </div>
-                          <Button variant="food" className="w-full" onClick={async () => {
-                            try {
-                              // TODO: Implement actual user creation via API
-                              // const response = await fetch('/api/users', {
-                              //   method: 'POST',
-                              //   headers: { 'Content-Type': 'application/json' },
-                              //   body: JSON.stringify(formData)
-                              // });
-                              
-                              toast({
-                                title: "User Created",
-                                description: "New user has been created successfully",
-                              });
-                              await refetch(); // Refresh user list
-                            } catch (error) {
-                              toast({
-                                title: "Creation Failed",
-                                description: "Please check your inputs and try again",
-                              });
-                            }
-                          }}>Create User</Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
                   </div>
                 </CardContent>
               </Card>
