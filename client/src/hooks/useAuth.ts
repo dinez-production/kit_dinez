@@ -30,13 +30,22 @@ export function useAuth() {
       if (authState.isAuthenticated && authState.user) {
         console.log("Valid PWA session found, validating against database:", authState.user);
         
-        // Validate user still exists in database
+        // Validate user still exists in database and is not blocked
         try {
           const response = await fetch(`/api/users/${authState.user.id}/validate`);
           
           if (response.ok) {
             const data = await response.json();
             if (data.userExists) {
+              // Check if user is blocked
+              if (data.user.role && data.user.role.startsWith('blocked_')) {
+                console.log("❌ User is blocked, clearing session");
+                clearPWAAuth();
+                setUser(null);
+                // Redirect to login so blocked screen can be shown
+                window.location.href = '/login';
+                return;
+              }
               console.log("✅ User validated against database:", data.user);
               setUser(data.user);
             } else {

@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import ProfileSetupScreen from "./ProfileSetupScreen";
 import ForgotEmailScreen from "./ForgotEmailScreen";
 import LoginIssuesScreen from "./LoginIssuesScreen";
+import BlockedUserScreen from "./BlockedUserScreen";
 
 export default function LoginScreen() {
   const [, setLocation] = useLocation();
@@ -19,6 +20,12 @@ export default function LoginScreen() {
   const [needsProfileSetup, setNeedsProfileSetup] = useState<{
     email: string;
     name: string;
+  } | null>(null);
+  const [blockedUser, setBlockedUser] = useState<{
+    id: string | number;
+    name: string;
+    email: string;
+    role: string;
   } | null>(null);
 
   // Handle Google OAuth redirect result
@@ -45,8 +52,24 @@ export default function LoginScreen() {
       const userResponse = await fetch(`/api/users/by-email/${user.email}`);
       
       if (userResponse.ok) {
-        // User exists, check if profile is complete
+        // User exists, check if they are blocked
         const userData = await userResponse.json();
+        
+        // Check if user is blocked (role starts with 'blocked_')
+        if (userData.role && userData.role.startsWith('blocked_')) {
+          toast({ 
+            title: "Account Blocked", 
+            description: "Your account has been blocked by administrators",
+            variant: "destructive" 
+          });
+          setBlockedUser({
+            id: userData.id,
+            name: userData.name,
+            email: userData.email,
+            role: userData.role,
+          });
+          return;
+        }
         
         if (userData.isProfileComplete) {
           // Profile is complete, login normally
@@ -210,6 +233,19 @@ export default function LoginScreen() {
       setIsLoading(false);
     }
   };
+
+  // Show blocked user screen
+  if (blockedUser) {
+    return (
+      <BlockedUserScreen 
+        user={blockedUser} 
+        onRetryLogin={() => {
+          setBlockedUser(null);
+          // Allow user to try logging in again
+        }}
+      />
+    );
+  }
 
   // Show forgot email screen if requested
   if (showForgotEmail) {
