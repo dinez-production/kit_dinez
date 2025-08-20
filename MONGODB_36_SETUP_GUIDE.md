@@ -1,4 +1,4 @@
-# MongoDB 3.6+ Setup Guide for DINEZ App
+# MongoDB 3.6+ Setup Guide for KIT Canteen App
 
 This guide provides comprehensive instructions for setting up MongoDB 3.6+ with automatic configuration for local or online databases.
 

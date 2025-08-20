@@ -143,16 +143,11 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          {/* DINEZ Logo */}
-          <div className="w-16 h-16 mx-auto mb-4 rounded-xl overflow-hidden shadow-lg">
-            <img 
-              src="/logo.png" 
-              alt="DINEZ" 
-              className="w-full h-full object-cover"
-            />
+          <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
+            <ChefHat className="w-8 h-8 text-white" />
           </div>
           <CardTitle className="text-2xl font-bold">
-            {isLogin ? "Welcome Back to DINEZ" : "Join DINEZ"}
+            {isLogin ? "Welcome Back" : "Join KIT Canteen"}
           </CardTitle>
           <p className="text-muted-foreground">
             {isLogin 

@@ -72,7 +72,7 @@ export default function FeedbackPage() {
             <MessageSquare className="w-12 h-12 text-primary mx-auto mb-3" />
             <h2 className="text-lg font-semibold mb-2">We Value Your Opinion</h2>
             <p className="text-muted-foreground text-sm">
-              Help us improve by sharing your experience with DINEZ
+              Help us improve by sharing your experience with KIT Canteen
             </p>
           </CardContent>
         </Card>

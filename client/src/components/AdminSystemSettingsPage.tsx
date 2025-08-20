@@ -31,7 +31,7 @@ export default function AdminSystemSettingsPage() {
   });
 
   const [generalSettings, setGeneralSettings] = useState({
-    canteenName: "DINEZ College Canteen",
+    canteenName: "KIT College Canteen",
     operatingHours: "9:00 AM - 9:00 PM",
     deliveryCharges: 20,
     taxRate: 5,

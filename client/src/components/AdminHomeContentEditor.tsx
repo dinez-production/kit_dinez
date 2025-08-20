@@ -71,7 +71,7 @@ export default function AdminHomeContentEditor() {
 
   // Hero Banner State
   const [heroBanner, setHeroBanner] = useState<HeroBanner>({
-    title: "Welcome to DINEZ!",
+    title: "Welcome to KIT Canteen!",
     subtitle: "Delicious meals, quick delivery",
     buttonText: "Explore Menu",
     emoji: "🍽️"
@@ -110,7 +110,7 @@ export default function AdminHomeContentEditor() {
   // Call to Action State
   const [ctaSection, setCTASection] = useState<CTASection>({
     title: "Love What You See?",
-    subtitle: "Join thousands of happy customers at DINEZ",
+    subtitle: "Join thousands of happy customers at KIT Canteen",
     buttonText: "Add to Favorites"
   });
 

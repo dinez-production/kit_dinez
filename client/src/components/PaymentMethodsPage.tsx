@@ -237,7 +237,7 @@ export default function PaymentMethodsPage() {
           <CardContent className="p-4">
             <h3 className="font-semibold text-warning mb-2">Security Information</h3>
             <p className="text-sm text-muted-foreground">
-              Your payment information is encrypted and stored securely. DINEZ never stores your full card details.
+              Your payment information is encrypted and stored securely. KIT-Canteen never stores your full card details.
             </p>
           </CardContent>
         </Card>

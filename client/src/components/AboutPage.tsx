@@ -52,17 +52,12 @@ export default function AboutPage() {
         {/* Hero Section */}
         <Card>
           <CardContent className="p-6 text-center">
-            {/* DINEZ Logo */}
-            <div className="w-20 h-20 mx-auto mb-4 rounded-xl overflow-hidden shadow-lg">
-              <img 
-                src="/logo.png" 
-                alt="DINEZ" 
-                className="w-full h-full object-cover"
-              />
+            <div className="w-20 h-20 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
+              <Utensils className="w-10 h-10 text-white" />
             </div>
-            <h2 className="text-2xl font-bold mb-2">DINEZ</h2>
+            <h2 className="text-2xl font-bold mb-2">KIT Canteen</h2>
             <p className="text-muted-foreground">
-              Serving delicious and nutritious meals to the college community since 2024
+              Serving delicious and nutritious meals to the KIT community since 2014
             </p>
           </CardContent>
         </Card>
