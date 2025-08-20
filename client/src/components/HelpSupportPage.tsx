@@ -49,7 +49,7 @@ export default function HelpSupportPage() {
                 </div>
                 <div>
                   <h3 className="font-medium">Call Us</h3>
-                  <p className="text-sm text-muted-foreground">+91 9876543210</p>
+                  <p className="text-sm text-muted-foreground">+91 8220963071</p>
                 </div>
               </CardContent>
             </Card>
@@ -61,7 +61,7 @@ export default function HelpSupportPage() {
                 </div>
                 <div>
                   <h3 className="font-medium">Email Us</h3>
-                  <p className="text-sm text-muted-foreground">support@kitcanteen.com</p>
+                  <p className="text-sm text-muted-foreground">dinez.production@gmail.com</p>
                 </div>
               </CardContent>
             </Card>

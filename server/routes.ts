@@ -2245,7 +2245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: `sup_${category.id}`,
           name: teamName,
           contact: `Ext. ${Math.floor(Math.random() * 100) + 100}`,
-          email: `${teamName.toLowerCase().replace(/\s+/g, '').replace(/[^a-z]/g, '')}@canteen.local`,
+          email: `${teamName.toLowerCase().replace(/\s+/g, '').replace(/[^a-z]/g, '')}@dinez.production`,
           itemCount,
           totalValue: Math.round(totalValue),
           category: category.name

@@ -105,7 +105,7 @@ export default function OrderDetailPage() {
     },
     customer: {
       name: "Rahul Kumar",
-      phone: "+91 98765 43210"
+      phone: "+91 8220963071"
     },
     payment: {
       method: "UPI",
