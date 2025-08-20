@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuthSync } from "@/hooks/useDataSync";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ export default function ProfilePage() {
   const [, setLocation] = useLocation();
   const [isEditing, setIsEditing] = useState(false);
   const { isAuthenticated } = useAuthSync();
+  const { logout } = useAuth();
   const isMobile = useIsMobile();
 
   // Enhanced security check for authenticated users only
@@ -84,16 +86,11 @@ export default function ProfilePage() {
     // In real app, this would save to backend
   };
 
-  const handleLogout = () => {
-    // Clear user data from localStorage
-    localStorage.removeItem('user');
-    localStorage.removeItem('isAuthenticated');
+  const handleLogout = async () => {
+    console.log("🚀 Profile page logout initiated...");
     
-    // Clear React Query cache
-    queryClient.clear();
-    
-    // Redirect to login
-    setLocation("/login");
+    // Use the enhanced logout from useAuth hook
+    await logout();
   };
 
   return (

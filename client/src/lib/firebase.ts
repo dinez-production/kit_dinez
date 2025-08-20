@@ -35,7 +35,9 @@ const googleProvider = new GoogleAuthProvider();
 
 // Force account selection every time - prevents automatic login with previous account
 googleProvider.setCustomParameters({
-  prompt: 'select_account' // Always show account picker
+  prompt: 'select_account', // Always show account picker
+  include_granted_scopes: 'false', // Don't include previously granted scopes
+  access_type: 'online' // Don't request offline access to prevent persistent tokens
 });
 
 // Sign in with Google popup (better for development)
@@ -84,9 +86,21 @@ export const handleGoogleRedirect = () => {
     });
 };
 
-// Sign out from Firebase to clear any cached accounts
-export const signOutFirebase = () => {
-  return signOut(auth);
+// Sign out from Firebase to clear any cached accounts and force complete Google logout
+export const signOutFirebase = async () => {
+  try {
+    // Clear Firebase auth state
+    await signOut(auth);
+    
+    // Clear any cached Google auth data by invalidating current user token
+    if (auth.currentUser) {
+      await auth.currentUser.getIdToken(true); // Force token refresh which clears cached data
+    }
+    
+    console.log('✅ Firebase and Google auth completely cleared');
+  } catch (error) {
+    console.warn('⚠️ Firebase signOut error:', error);
+  }
 };
 
 export { auth };

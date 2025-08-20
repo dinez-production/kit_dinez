@@ -83,6 +83,77 @@ export class CacheManager {
   }
 
   /**
+   * Complete logout cache clearing - clears EVERYTHING including user session
+   */
+  static async clearLogoutCaches(): Promise<void> {
+    try {
+      console.log('🔥 Starting complete logout cache clearing...');
+      
+      // Clear service worker caches
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(
+          cacheNames.map(cacheName => caches.delete(cacheName))
+        );
+        console.log('✅ Service worker caches cleared');
+      }
+
+      // Clear React Query cache
+      if (window.queryClient) {
+        window.queryClient.clear();
+        console.log('✅ React Query cache cleared');
+      }
+
+      // Clear ALL localStorage (including user session)
+      localStorage.clear();
+      console.log('✅ ALL localStorage cleared');
+
+      // Clear ALL sessionStorage
+      sessionStorage.clear();
+      console.log('✅ ALL sessionStorage cleared');
+
+      // Clear IndexedDB if present
+      if ('indexedDB' in window) {
+        try {
+          // Clear common IndexedDB stores
+          const databases = ['firebaseLocalStorageDb', 'firebase-installations-store'];
+          for (const dbName of databases) {
+            try {
+              indexedDB.deleteDatabase(dbName);
+              console.log(`✅ IndexedDB ${dbName} cleared`);
+            } catch (error) {
+              console.warn(`⚠️ Could not clear IndexedDB ${dbName}:`, error);
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ IndexedDB clearing failed:', error);
+        }
+      }
+
+      // Force service worker to skip waiting and activate
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.getRegistration();
+          if (registration) {
+            if (registration.waiting) {
+              registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+            if (registration.active) {
+              registration.active.postMessage({ type: 'CLEAR_CACHE' });
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Service worker messaging failed:', error);
+        }
+      }
+
+      console.log('✅ Complete logout cache clearing finished');
+    } catch (error) {
+      console.error('❌ Error during logout cache clearing:', error);
+    }
+  }
+
+  /**
    * Update stored version info
    */
   private static updateStoredVersion(): void {

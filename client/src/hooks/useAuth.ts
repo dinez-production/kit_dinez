@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getPWAAuthState, setPWAAuth, clearPWAAuth, isPWAInstalled } from '@/utils/pwaAuth';
 import { signOutFirebase } from '@/lib/firebase';
+import { CacheManager } from '@/utils/cacheManager';
 
 interface User {
   id: string | number;
@@ -87,7 +88,7 @@ export function useAuth() {
   };
 
   const logout = async () => {
-    console.log("useAuth logout called");
+    console.log("🚀 Complete logout initiated...");
     
     // Sign out from Firebase to clear cached Google accounts
     try {
@@ -97,9 +98,22 @@ export function useAuth() {
       console.warn("⚠️ Firebase signOut failed:", error);
     }
     
+    // Complete cache clearing for logout
+    try {
+      await CacheManager.clearLogoutCaches();
+      console.log("✅ Complete logout cache clearing finished");
+    } catch (error) {
+      console.warn("⚠️ Cache clearing failed:", error);
+    }
+    
     // Clear local app session
     setUser(null);
     clearPWAAuth();
+    
+    // Force reload to ensure clean state
+    setTimeout(() => {
+      window.location.href = '/login';
+    }, 100);
   };
 
   // Update activity timestamp for mobile PWA users
