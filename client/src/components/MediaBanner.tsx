@@ -7,6 +7,7 @@ import type { MediaBanner as MediaBannerType } from "@shared/schema";
 export default function MediaBanner() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const [showControls, setShowControls] = useState(false);
 
   // Fetch active media banners
   const { data: banners = [], isLoading } = useQuery<MediaBannerType[]>({
@@ -94,7 +95,13 @@ export default function MediaBanner() {
           </div>
         ) : (
           // Image display (single or carousel)
-          <div className="relative w-full">
+          <div 
+            className="relative w-full"
+            onMouseEnter={() => setShowControls(true)}
+            onMouseLeave={() => setShowControls(false)}
+            onTouchStart={() => setShowControls(true)}
+            onTouchEnd={() => setTimeout(() => setShowControls(false), 3000)} // Hide after 3s on mobile
+          >
             <img
               key={currentBanner.id}
               src={`/api/media-banners/${currentBanner.fileId}/file`}
@@ -107,13 +114,13 @@ export default function MediaBanner() {
               }}
             />
 
-            {/* Navigation arrows for multiple images */}
-            {hasMultipleBanners && imageOnlyBanners.length > 1 && (
+            {/* Navigation arrows for multiple images - only show on hover/touch */}
+            {hasMultipleBanners && imageOnlyBanners.length > 1 && showControls && (
               <>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white hover:bg-black/70 rounded-full w-8 h-8 p-0"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white hover:bg-black/70 rounded-full w-8 h-8 p-0 transition-opacity duration-200"
                   onClick={prevSlide}
                   aria-label="Previous banner"
                 >
@@ -122,7 +129,7 @@ export default function MediaBanner() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white hover:bg-black/70 rounded-full w-8 h-8 p-0"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white hover:bg-black/70 rounded-full w-8 h-8 p-0 transition-opacity duration-200"
                   onClick={nextSlide}
                   aria-label="Next banner"
                 >
@@ -131,9 +138,9 @@ export default function MediaBanner() {
               </>
             )}
 
-            {/* Dots indicator for multiple images */}
-            {hasMultipleBanners && imageOnlyBanners.length > 1 && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex space-x-2">
+            {/* Dots indicator for multiple images - only show on hover/touch */}
+            {hasMultipleBanners && imageOnlyBanners.length > 1 && showControls && (
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex space-x-2 transition-opacity duration-200">
                 {banners.map((_, index) => (
                   <button
                     key={index}
