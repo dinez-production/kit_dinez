@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, signInWithRedirect, getRedirectResult, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { getAuth, signInWithRedirect, getRedirectResult, signInWithPopup, GoogleAuthProvider, signOut } from "firebase/auth";
 
 // Validate required Firebase environment variables
 const requiredEnvVars = [
@@ -30,8 +30,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-// Google Auth Provider
+// Google Auth Provider with forced account selection
 const googleProvider = new GoogleAuthProvider();
+
+// Force account selection every time - prevents automatic login with previous account
+googleProvider.setCustomParameters({
+  prompt: 'select_account' // Always show account picker
+});
 
 // Sign in with Google popup (better for development)
 export const signInWithGoogle = () => {
@@ -77,6 +82,11 @@ export const handleGoogleRedirect = () => {
       const credential = GoogleAuthProvider.credentialFromError(error);
       throw { errorCode, errorMessage, email, credential };
     });
+};
+
+// Sign out from Firebase to clear any cached accounts
+export const signOutFirebase = () => {
+  return signOut(auth);
 };
 
 export { auth };
