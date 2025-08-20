@@ -260,7 +260,7 @@ export default function OrderStatusPage() {
       total: order.amount,
       estimatedTime: `${order.estimatedTime || 15} mins`,
       actualTime: orderStatus === "ready" ? `${order.estimatedTime || 15} mins` : `${order.estimatedTime || 15} mins`,
-      pickupLocation: "KIT College Main Canteen, Ground Floor"
+      pickupLocation: "DINEZ College Main Canteen, Ground Floor"
     };
   })() : null;
 

@@ -256,8 +256,16 @@ export default function LoginScreen() {
       {/* Main content */}
       <div className="flex-1 px-6 py-8">
         <div className="max-w-md mx-auto">
+          {/* DINEZ Logo */}
+          <div className="w-20 h-20 mx-auto mb-4 rounded-xl overflow-hidden shadow-lg">
+            <img 
+              src="/logo.png" 
+              alt="DINEZ" 
+              className="w-full h-full object-cover"
+            />
+          </div>
           <h1 className="text-2xl font-bold text-foreground mb-2">
-            Welcome to KIT-Canteen
+            Welcome to DINEZ
           </h1>
           <p className="text-muted-foreground mb-8">
             Sign in to order your favorite food

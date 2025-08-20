@@ -157,19 +157,23 @@ export default function SplashScreen() {
         
         {/* Main content */}
         <div className="relative z-10 flex flex-col items-center animate-fade-in">
-          {/* KIT Logo placeholder */}
-          <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mb-8 shadow-lg">
-            <span className="text-white text-3xl font-bold">KIT</span>
+          {/* DINEZ Logo */}
+          <div className="w-32 h-32 mb-8 shadow-lg rounded-2xl overflow-hidden bg-white/10 backdrop-blur-sm">
+            <img 
+              src="/logo.png" 
+              alt="DINEZ" 
+              className="w-full h-full object-cover rounded-2xl"
+            />
           </div>
           
           {/* App Title */}
           <h1 className="text-4xl font-bold text-white mb-4 tracking-wide">
-            KIT-Canteen
+            DINEZ
           </h1>
           
           {/* Subtitle */}
           <p className="text-white/80 text-lg font-medium">
-            Powered by KIT College
+            College Canteen at Your Fingertips
           </p>
           
           {/* Loading indicator */}

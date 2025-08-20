@@ -1,4 +1,4 @@
-# Barcode Scanner Guide for KIT Canteen
+# Barcode Scanner Guide for DINEZ
 
 ## How the Barcode System Works
 

@@ -16,7 +16,7 @@ export default function TermsConditionsPage() {
         "You are responsible for maintaining the confidentiality of your account credentials",
         "You must provide accurate and up-to-date information when creating your account",
         "One account per person - sharing accounts is prohibited",
-        "KIT-Canteen reserves the right to suspend or terminate accounts that violate these terms"
+        "DINEZ reserves the right to suspend or terminate accounts that violate these terms"
       ]
     },
     {
@@ -27,7 +27,7 @@ export default function TermsConditionsPage() {
         "Payment must be completed before order processing begins",
         "Order modifications or cancellations must be made within 5 minutes of placement",
         "Refunds will be processed within 3-5 business days for eligible cancellations",
-        "KIT-Canteen is not responsible for delays due to high demand or unforeseen circumstances"
+        "DINEZ is not responsible for delays due to high demand or unforeseen circumstances"
       ]
     },
     {
@@ -45,7 +45,7 @@ export default function TermsConditionsPage() {
       icon: AlertTriangle,
       title: "Limitations and Liability",
       content: [
-        "KIT-Canteen provides the service 'as is' without warranties of any kind",
+        "DINEZ provides the service 'as is' without warranties of any kind",
         "We are not liable for any damages arising from service interruptions or errors",
         "Food allergies and dietary restrictions are the user's responsibility to communicate",
         "Maximum liability is limited to the amount paid for the specific order in question",
@@ -144,7 +144,7 @@ export default function TermsConditionsPage() {
           <CardContent className="p-6">
             <h3 className="text-lg font-semibold mb-4">Intellectual Property</h3>
             <p className="text-muted-foreground text-sm leading-relaxed mb-3">
-              The KIT-Canteen app, including its design, functionality, and content, is owned by KIT College. 
+              The DINEZ app, including its design, functionality, and content, is owned by the college. 
               You may not copy, modify, distribute, or reverse engineer any part of the application.
             </p>
             <p className="text-muted-foreground text-sm leading-relaxed">
@@ -158,7 +158,7 @@ export default function TermsConditionsPage() {
           <CardContent className="p-6">
             <h3 className="text-lg font-semibold mb-4">Modifications to Terms</h3>
             <p className="text-muted-foreground text-sm leading-relaxed mb-3">
-              KIT-Canteen reserves the right to modify these terms at any time. We will notify users of significant changes 
+              DINEZ reserves the right to modify these terms at any time. We will notify users of significant changes 
               through the app or email notifications.
             </p>
             <p className="text-muted-foreground text-sm leading-relaxed">
@@ -188,7 +188,7 @@ export default function TermsConditionsPage() {
           <CardContent className="p-6">
             <h3 className="text-lg font-semibold text-success mb-2">Acceptance of Terms</h3>
             <p className="text-sm text-muted-foreground">
-              By using the KIT-Canteen application, you acknowledge that you have read, understood, and agree to be bound by these Terms and Conditions. 
+              By using the DINEZ application, you acknowledge that you have read, understood, and agree to be bound by these Terms and Conditions. 
               If you do not agree with any part of these terms, please discontinue use of the service.
             </p>
           </CardContent>

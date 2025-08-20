@@ -1,5 +1,5 @@
 # Overview
-KIT-Canteen is a modern food ordering application for college campuses, designed to streamline food services and enhance the user experience for students, faculty, and staff. It provides a web-based platform for browsing menus, placing orders, and managing preferences, alongside administrative tools for canteen operators. The project aims to offer a complete, efficient solution for campus food service operations with a focus on user convenience and operational management.
+DINEZ is a modern food ordering application for college campuses, designed to streamline food services and enhance the user experience for students, faculty, and staff. It provides a web-based platform for browsing menus, placing orders, and managing preferences, alongside administrative tools for canteen operators. The project aims to offer a complete, efficient solution for campus food service operations with a focus on user convenience and operational management.
 
 # User Preferences
 Preferred communication style: Simple, everyday language.
@@ -30,8 +30,17 @@ Authentication supports **Google OAuth** and guest access, with **role-based per
 **Push Notifications:** Native Web Push API with VAPID keys (web-push) - Replaced Firebase and OneSignal
 **Utilities & Helpers:** date-fns, clsx, class-variance-authority, zod, nanoid
 
-# Recent Changes (August 18, 2025)
-- **Project Migration**: Successfully migrated KIT-Canteen application from Replit Agent to standard Replit environment
+# Recent Changes (August 20, 2025)
+- **App Icon and Branding Update**: Completely updated app branding from KIT-Canteen to DINEZ
+  - **Icon Replacement**: Updated all PWA icons (favicon.png, logo.png, icon-192.png, icon-512.png) with new DINEZ logo
+  - **UI Component Updates**: Added DINEZ logo to splash screen, login screens, and about page with proper responsive design
+  - **Text Updates**: Updated all app references from "KIT-Canteen" to "DINEZ" across all components, pages, and documentation
+  - **Documentation Updates**: Updated replit.md and all guide documents to reflect new DINEZ branding
+  - **PWA Manifest**: All PWA icons and branding now use the new DINEZ logo for consistent app installation experience
+  - **Service Worker Cache**: Updated service worker to cache new logo assets for offline PWA functionality
+
+# Previous Changes (August 18, 2025)
+- **Project Migration**: Successfully migrated DINEZ application from Replit Agent to standard Replit environment
   - **Dependency Fix**: Resolved tsx dependency issue for TypeScript execution
   - **Startup Validation**: All databases connected successfully (MongoDB Atlas and PostgreSQL)
   - **Schema Validation**: Complete database schema validation passed

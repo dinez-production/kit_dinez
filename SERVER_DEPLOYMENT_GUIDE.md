@@ -1,6 +1,6 @@
 # Server Deployment Guide
 
-This guide covers deploying the KIT-Canteen application to your production server with all the performance optimizations and persistent session features.
+This guide covers deploying the DINEZ application to your production server with all the performance optimizations and persistent session features.
 
 ## Prerequisites
 

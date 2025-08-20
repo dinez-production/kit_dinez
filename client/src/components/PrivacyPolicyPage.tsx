@@ -68,7 +68,7 @@ export default function PrivacyPolicyPage() {
           <CardContent className="p-6">
             <h2 className="text-xl font-bold mb-4">Your Privacy Matters</h2>
             <p className="text-muted-foreground leading-relaxed">
-              At KIT-Canteen, we are committed to protecting your privacy and personal information. 
+              At DINEZ, we are committed to protecting your privacy and personal information. 
               This Privacy Policy explains how we collect, use, and safeguard your data when you use our application.
             </p>
             <div className="mt-4 p-3 bg-accent/50 rounded-lg">
