@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { MediaBanner as MediaBannerType } from "@shared/schema";
@@ -8,8 +8,9 @@ export default function MediaBanner() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const [showControls, setShowControls] = useState(false);
+  const queryClient = useQueryClient();
 
-  // Fetch active media banners
+  // Fetch active media banners (user-facing, only active banners)
   const { data: banners = [], isLoading } = useQuery<MediaBannerType[]>({
     queryKey: ['/api/media-banners'],
     queryFn: async () => {
@@ -17,14 +18,42 @@ export default function MediaBanner() {
       if (!response.ok) {
         throw new Error('Failed to fetch media banners');
       }
-      const allBanners = await response.json();
-      // Only show active banners
-      return allBanners.filter((banner: MediaBannerType) => banner.isActive);
+      return await response.json(); // Server now returns only active banners
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 30, // 30 seconds for real-time updates
     refetchOnMount: true,
     refetchOnWindowFocus: false,
   });
+
+  // Set up SSE connection for real-time banner updates
+  useEffect(() => {
+    const eventSource = new EventSource('/api/sse');
+    
+    const handleBannerUpdate = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'banner_updated') {
+          // Invalidate and refetch banner data when updates occur
+          queryClient.invalidateQueries({ queryKey: ['/api/media-banners'] });
+          console.log('Banner updated, refreshing display...');
+        }
+      } catch (error) {
+        console.error('Error parsing SSE message:', error);
+      }
+    };
+
+    eventSource.addEventListener('message', handleBannerUpdate);
+    
+    eventSource.onerror = (error) => {
+      console.warn('SSE connection error:', error);
+    };
+
+    return () => {
+      eventSource.removeEventListener('message', handleBannerUpdate);
+      eventSource.close();
+    };
+  }, [queryClient]);
 
   // Auto-slide for multiple images (every 5 seconds)
   useEffect(() => {

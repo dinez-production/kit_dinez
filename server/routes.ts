@@ -1157,7 +1157,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Media Banner Management endpoints
   app.get("/api/media-banners", async (req, res) => {
     try {
-      const banners = await mediaService.getAllBanners();
+      // Check if this is an admin request based on query parameter or user role
+      const isAdmin = req.query.admin === 'true';
+      
+      const banners = isAdmin 
+        ? await mediaService.getAllBannersForAdmin()
+        : await mediaService.getAllBanners();
+      
       res.json(banners);
     } catch (error) {
       console.error("Error fetching media banners:", error);

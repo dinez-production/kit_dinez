@@ -77,7 +77,7 @@ export class MediaService {
       await mediaBanner.save();
 
       return {
-        id: mediaBanner._id.toString(),
+        id: (mediaBanner._id as any).toString(),
         fileName: mediaBanner.fileName,
         originalName: mediaBanner.originalName,
         mimeType: mediaBanner.mimeType,
@@ -145,6 +145,32 @@ export class MediaService {
     }
   }
 
+  async getAllBannersForAdmin(): Promise<MediaBannerType[]> {
+    try {
+      const banners = await MediaBanner.find({})
+        .sort({ displayOrder: 1 })
+        .exec();
+
+      return banners.map(banner => ({
+        id: (banner._id as any).toString(),
+        fileName: banner.fileName,
+        originalName: banner.originalName,
+        mimeType: banner.mimeType,
+        size: banner.size,
+        type: banner.type,
+        fileId: banner.fileId?.toString() || '',
+        isActive: banner.isActive,
+        displayOrder: banner.displayOrder,
+        uploadedBy: banner.uploadedBy,
+        createdAt: banner.createdAt,
+        updatedAt: banner.updatedAt
+      })).filter(banner => banner.fileId); // Only return banners with valid fileIds
+    } catch (error) {
+      console.error('Error getting all banners for admin:', error);
+      throw new Error(`Failed to get banners: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
   async getAllBanners(): Promise<MediaBannerType[]> {
     try {
       const banners = await MediaBanner.find({ isActive: true })
@@ -152,7 +178,7 @@ export class MediaService {
         .exec();
 
       return banners.map(banner => ({
-        id: banner._id.toString(),
+        id: (banner._id as any).toString(),
         fileName: banner.fileName,
         originalName: banner.originalName,
         mimeType: banner.mimeType,
@@ -184,7 +210,7 @@ export class MediaService {
       }
 
       return {
-        id: banner._id.toString(),
+        id: (banner._id as any).toString(),
         fileName: banner.fileName,
         originalName: banner.originalName,
         mimeType: banner.mimeType,
@@ -215,7 +241,7 @@ export class MediaService {
       await banner.save();
 
       return {
-        id: banner._id.toString(),
+        id: (banner._id as any).toString(),
         fileName: banner.fileName,
         originalName: banner.originalName,
         mimeType: banner.mimeType,

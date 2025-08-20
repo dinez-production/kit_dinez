@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,17 +43,47 @@ export default function AdminContentManagementPage() {
 
   const [bannersData, setBannersData] = useState<any[]>([]);
 
-  // Fetch media banners
+  // Set up SSE connection for real-time updates
+  useEffect(() => {
+    const eventSource = new EventSource('/api/sse');
+    
+    const handleUpdate = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'banner_updated') {
+          // Invalidate both admin and user queries
+          queryClient.invalidateQueries({ queryKey: ['/api/media-banners'] });
+          console.log('Admin: Banner updated, refreshing data...');
+        }
+      } catch (error) {
+        console.error('Error parsing SSE message:', error);
+      }
+    };
+
+    eventSource.addEventListener('message', handleUpdate);
+    
+    eventSource.onerror = (error) => {
+      console.warn('Admin SSE connection error:', error);
+    };
+
+    return () => {
+      eventSource.removeEventListener('message', handleUpdate);
+      eventSource.close();
+    };
+  }, [queryClient]);
+
+  // Fetch media banners (admin view - all banners)
   const { data: mediaData = [], isLoading: mediaLoading, refetch: refetchMedia } = useQuery<MediaBanner[]>({
-    queryKey: ['/api/media-banners'],
+    queryKey: ['/api/media-banners', 'admin'],
     queryFn: async () => {
-      const response = await fetch('/api/media-banners');
+      const response = await fetch('/api/media-banners?admin=true');
       if (!response.ok) {
         throw new Error('Failed to fetch media banners');
       }
       return response.json();
     },
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: 1000 * 30, // 30 seconds for real-time updates
     refetchOnMount: true,
   });
 
@@ -79,6 +109,7 @@ export default function AdminContentManagementPage() {
       return response.json();
     },
     onSuccess: () => {
+      // Invalidate both admin and user queries for comprehensive updates
       queryClient.invalidateQueries({ queryKey: ['/api/media-banners'] });
       toast({
         title: "Success",
