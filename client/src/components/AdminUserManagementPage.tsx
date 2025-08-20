@@ -1032,6 +1032,304 @@ export default function AdminUserManagementPage() {
                 </Card>
               </div>
 
+              {/* Student Demographics Analysis */}
+              <div className="space-y-6">
+                <div className="flex items-center space-x-2 mb-4">
+                  <School className="w-5 h-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Student Demographics Analysis</h3>
+                </div>
+
+                {/* Department-wise Analysis */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex justify-between items-center">
+                      <CardTitle className="text-base">Department-wise Distribution</CardTitle>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          const students = users.filter(u => u.role === 'student');
+                          const deptData = {};
+                          students.forEach(student => {
+                            if (student.department) {
+                              deptData[student.department] = (deptData[student.department] || 0) + 1;
+                            }
+                          });
+                          const reportData = Object.entries(deptData).map(([dept, count]) => 
+                            `${dept}: ${count} students (${Math.round((count / students.length) * 100)}%)`
+                          ).join('\n');
+                          
+                          const blob = new Blob([`Department Analysis - ${new Date().toLocaleDateString()}\n\n${reportData}`], { type: 'text/plain' });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = `department_analysis_${new Date().toISOString().split('T')[0]}.txt`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          URL.revokeObjectURL(url);
+                          toast({ title: "Department Analysis Downloaded" });
+                        }}
+                      >
+                        <Download className="w-4 h-4 mr-1" />
+                        Export
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {Object.entries(users.filter(u => u.role === 'student').reduce((acc, student) => {
+                        if (student.department) {
+                          acc[student.department] = (acc[student.department] || 0) + 1;
+                        }
+                        return acc;
+                      }, {})).map(([dept, count]) => (
+                        <div 
+                          key={dept} 
+                          className="p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                          onClick={() => {
+                            setFilterDepartment(dept);
+                            setFilterRole("student");
+                            setActiveTab("all-users");
+                            toast({
+                              title: "Filter Applied",
+                              description: `Showing ${getDepartmentFullName(dept)} students`,
+                            });
+                          }}
+                          data-testid={`dept-card-${dept}`}
+                        >
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-muted-foreground">{dept}</div>
+                            <div className="text-2xl font-bold text-primary">{count}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {Math.round((count / users.filter(u => u.role === 'student').length) * 100)}%
+                            </div>
+                            <div className="text-xs text-primary mt-1">Click to filter</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {users.filter(u => u.role === 'student' && !u.department).length > 0 && (
+                      <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                          <span className="text-sm text-yellow-800 dark:text-yellow-200">
+                            {users.filter(u => u.role === 'student' && !u.department).length} students have no department assigned
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Year-wise Analysis */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex justify-between items-center">
+                      <CardTitle className="text-base">Year-wise Distribution</CardTitle>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          const students = users.filter(u => u.role === 'student');
+                          const currentYear = new Date().getFullYear();
+                          const yearData = {
+                            '1st Year': students.filter(s => s.passingOutYear === (currentYear + 4) || s.currentStudyYear === 1).length,
+                            '2nd Year': students.filter(s => s.passingOutYear === (currentYear + 3) || s.currentStudyYear === 2).length,
+                            '3rd Year': students.filter(s => s.passingOutYear === (currentYear + 2) || s.currentStudyYear === 3).length,
+                            '4th Year': students.filter(s => s.passingOutYear === (currentYear + 1) || s.currentStudyYear === 4).length
+                          };
+                          const reportData = Object.entries(yearData).map(([year, count]) => 
+                            `${year}: ${count} students (${Math.round((count / students.length) * 100)}%)`
+                          ).join('\n');
+                          
+                          const blob = new Blob([`Year Analysis - ${new Date().toLocaleDateString()}\n\n${reportData}`], { type: 'text/plain' });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = `year_analysis_${new Date().toISOString().split('T')[0]}.txt`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          URL.revokeObjectURL(url);
+                          toast({ title: "Year Analysis Downloaded" });
+                        }}
+                      >
+                        <Download className="w-4 h-4 mr-1" />
+                        Export
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {(() => {
+                        const students = users.filter(u => u.role === 'student');
+                        const currentYear = new Date().getFullYear();
+                        const yearData = {
+                          '1st': students.filter(s => s.passingOutYear === (currentYear + 4) || s.currentStudyYear === 1).length,
+                          '2nd': students.filter(s => s.passingOutYear === (currentYear + 3) || s.currentStudyYear === 2).length,
+                          '3rd': students.filter(s => s.passingOutYear === (currentYear + 2) || s.currentStudyYear === 3).length,
+                          '4th': students.filter(s => s.passingOutYear === (currentYear + 1) || s.currentStudyYear === 4).length
+                        };
+                        
+                        return Object.entries(yearData).map(([year, count]) => (
+                          <div 
+                            key={year} 
+                            className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                            onClick={() => {
+                              setFilterYear(year);
+                              setFilterRole("student");
+                              setActiveTab("all-users");
+                              toast({
+                                title: "Filter Applied",
+                                description: `Showing ${year} year students`,
+                              });
+                            }}
+                            data-testid={`year-card-${year}`}
+                          >
+                            <div className="text-center">
+                              <div className="text-sm font-medium text-muted-foreground">{year} Year</div>
+                              <div className="text-3xl font-bold text-blue-600">{count}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {students.length > 0 ? Math.round((count / students.length) * 100) : 0}%
+                              </div>
+                              <div className="text-xs text-blue-500 mt-1">Click to filter</div>
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Department + Year Combined Matrix */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex justify-between items-center">
+                      <CardTitle className="text-base">Department × Year Matrix</CardTitle>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          const students = users.filter(u => u.role === 'student');
+                          const currentYear = new Date().getFullYear();
+                          const matrix = {};
+                          
+                          students.forEach(student => {
+                            if (student.department) {
+                              if (!matrix[student.department]) matrix[student.department] = { '1st': 0, '2nd': 0, '3rd': 0, '4th': 0 };
+                              if (student.passingOutYear === (currentYear + 4) || student.currentStudyYear === 1) matrix[student.department]['1st']++;
+                              else if (student.passingOutYear === (currentYear + 3) || student.currentStudyYear === 2) matrix[student.department]['2nd']++;
+                              else if (student.passingOutYear === (currentYear + 2) || student.currentStudyYear === 3) matrix[student.department]['3rd']++;
+                              else if (student.passingOutYear === (currentYear + 1) || student.currentStudyYear === 4) matrix[student.department]['4th']++;
+                            }
+                          });
+                          
+                          const reportData = Object.entries(matrix).map(([dept, years]) => 
+                            `${dept}: 1st(${years['1st']}) 2nd(${years['2nd']}) 3rd(${years['3rd']}) 4th(${years['4th']}) Total(${years['1st'] + years['2nd'] + years['3rd'] + years['4th']})`
+                          ).join('\n');
+                          
+                          const blob = new Blob([`Department × Year Matrix - ${new Date().toLocaleDateString()}\n\n${reportData}`], { type: 'text/plain' });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = `dept_year_matrix_${new Date().toISOString().split('T')[0]}.txt`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          URL.revokeObjectURL(url);
+                          toast({ title: "Matrix Analysis Downloaded" });
+                        }}
+                      >
+                        <Download className="w-4 h-4 mr-1" />
+                        Export Matrix
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left p-2 font-medium">Department</th>
+                            <th className="text-center p-2 font-medium">1st Year</th>
+                            <th className="text-center p-2 font-medium">2nd Year</th>
+                            <th className="text-center p-2 font-medium">3rd Year</th>
+                            <th className="text-center p-2 font-medium">4th Year</th>
+                            <th className="text-center p-2 font-medium">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(() => {
+                            const students = users.filter(u => u.role === 'student');
+                            const currentYear = new Date().getFullYear();
+                            const departments = [...new Set(students.map(s => s.department).filter(Boolean))];
+                            
+                            return departments.map(dept => {
+                              const deptStudents = students.filter(s => s.department === dept);
+                              const year1 = deptStudents.filter(s => s.passingOutYear === (currentYear + 4) || s.currentStudyYear === 1).length;
+                              const year2 = deptStudents.filter(s => s.passingOutYear === (currentYear + 3) || s.currentStudyYear === 2).length;
+                              const year3 = deptStudents.filter(s => s.passingOutYear === (currentYear + 2) || s.currentStudyYear === 3).length;
+                              const year4 = deptStudents.filter(s => s.passingOutYear === (currentYear + 1) || s.currentStudyYear === 4).length;
+                              const total = year1 + year2 + year3 + year4;
+                              
+                              return (
+                                <tr key={dept} className="border-b hover:bg-muted/50">
+                                  <td className="p-2 font-medium">{dept}</td>
+                                  <td className="p-2 text-center">
+                                    <span 
+                                      className={`px-2 py-1 rounded text-xs ${year1 > 0 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : 'text-muted-foreground'}`}
+                                    >
+                                      {year1}
+                                    </span>
+                                  </td>
+                                  <td className="p-2 text-center">
+                                    <span 
+                                      className={`px-2 py-1 rounded text-xs ${year2 > 0 ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'text-muted-foreground'}`}
+                                    >
+                                      {year2}
+                                    </span>
+                                  </td>
+                                  <td className="p-2 text-center">
+                                    <span 
+                                      className={`px-2 py-1 rounded text-xs ${year3 > 0 ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' : 'text-muted-foreground'}`}
+                                    >
+                                      {year3}
+                                    </span>
+                                  </td>
+                                  <td className="p-2 text-center">
+                                    <span 
+                                      className={`px-2 py-1 rounded text-xs ${year4 > 0 ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' : 'text-muted-foreground'}`}
+                                    >
+                                      {year4}
+                                    </span>
+                                  </td>
+                                  <td className="p-2 text-center">
+                                    <span className="px-2 py-1 rounded text-xs bg-primary/10 text-primary font-bold">
+                                      {total}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            });
+                          })()}
+                        </tbody>
+                      </table>
+                      {users.filter(u => u.role === 'student').some(s => !s.department) && (
+                        <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg text-sm">
+                          <div className="flex items-center space-x-2">
+                            <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                            <span className="text-yellow-800 dark:text-yellow-200">
+                              Some students are not included in the matrix due to missing department information
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
               {/* Real-time Insights Panel */}
               <Card>
                 <CardHeader>
@@ -1045,24 +1343,31 @@ export default function AdminUserManagementPage() {
                         variant="ghost" 
                         size="sm"
                         onClick={() => {
-                          const insightsData = `User Management Insights - ${new Date().toLocaleDateString()}\n\n=== USER BREAKDOWN ===\nTotal Users: ${stats.totalUsers}\nStudents: ${stats.students} (${Math.round((stats.students/stats.totalUsers)*100)}%)\nCanteen Owner: ${stats.canteenOwner} (${Math.round((stats.canteenOwner/stats.totalUsers)*100)}%)\nStaff: ${stats.staff} (${Math.round((stats.staff/stats.totalUsers)*100)}%)\nAdmins: ${stats.admins} (${Math.round((stats.admins/stats.totalUsers)*100)}%)\n\n=== ENGAGEMENT METRICS ===\nActive Users: ${stats.activeUsers}\nEngagement Rate: ${Math.round((stats.activeUsers / stats.totalUsers) * 100)}%\nNew Users This Month: ${stats.newUsersThisMonth}\n\n=== REVENUE INSIGHTS ===\nTotal Revenue: ₹${stats.totalRevenue.toLocaleString()}\nRevenue per User: ₹${Math.round(stats.totalRevenue / stats.totalUsers) || 0}\nAverage Order Value: ₹${stats.avgOrderValue}\nTotal Orders: ${stats.totalOrders}\n\nGenerated by Canteen Management System`;
+                          const students = users.filter(u => u.role === 'student');
+                          const deptData = students.reduce((acc, student) => {
+                            if (student.department) {
+                              acc[student.department] = (acc[student.department] || 0) + 1;
+                            }
+                            return acc;
+                          }, {});
+                          const insightsData = `Comprehensive User Analytics - ${new Date().toLocaleDateString()}\n\n=== USER BREAKDOWN ===\nTotal Users: ${stats.totalUsers}\nStudents: ${stats.students} (${Math.round((stats.students/stats.totalUsers)*100)}%)\nCanteen Owner: ${stats.canteenOwner} (${Math.round((stats.canteenOwner/stats.totalUsers)*100)}%)\nStaff: ${stats.staff} (${Math.round((stats.staff/stats.totalUsers)*100)}%)\nAdmins: ${stats.admins} (${Math.round((stats.admins/stats.totalUsers)*100)}%)\n\n=== DEPARTMENT ANALYSIS ===\n${Object.entries(deptData).map(([dept, count]) => `${dept}: ${count} students`).join('\n')}\n\n=== ENGAGEMENT METRICS ===\nActive Users: ${stats.activeUsers}\nEngagement Rate: ${Math.round((stats.activeUsers / stats.totalUsers) * 100)}%\nNew Users This Month: ${stats.newUsersThisMonth}\n\n=== REVENUE INSIGHTS ===\nTotal Revenue: ₹${stats.totalRevenue.toLocaleString()}\nRevenue per User: ₹${Math.round(stats.totalRevenue / stats.totalUsers) || 0}\nAverage Order Value: ₹${stats.avgOrderValue}\nTotal Orders: ${stats.totalOrders}\n\nGenerated by Canteen Management System`;
                           const blob = new Blob([insightsData], { type: 'text/plain' });
                           const url = URL.createObjectURL(blob);
                           const link = document.createElement('a');
                           link.href = url;
-                          link.download = `user_insights_${new Date().toISOString().split('T')[0]}.txt`;
+                          link.download = `comprehensive_analytics_${new Date().toISOString().split('T')[0]}.txt`;
                           document.body.appendChild(link);
                           link.click();
                           document.body.removeChild(link);
                           URL.revokeObjectURL(url);
                           toast({
-                            title: "Insights Report Generated",
-                            description: "Complete user analytics report downloaded",
+                            title: "Complete Analytics Downloaded",
+                            description: "Comprehensive user analytics report with department and year analysis",
                           });
                         }}
                       >
                         <Download className="w-4 h-4 mr-2" />
-                        Download Full Report
+                        Download Complete Report
                       </Button>
                     </div>
                   </div>
@@ -1070,22 +1375,27 @@ export default function AdminUserManagementPage() {
                 <CardContent>
                   <div className="grid md:grid-cols-3 gap-4">
                     <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
-                      <h4 className="font-medium text-blue-800 dark:text-blue-200">User Distribution</h4>
+                      <h4 className="font-medium text-blue-800 dark:text-blue-200">Student Analytics</h4>
                       <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
-                        {stats.students > 0 ? `${Math.round((stats.students/stats.totalUsers)*100)}%` : '0%'} Students, {stats.canteenOwner > 0 ? `${Math.round((stats.canteenOwner/stats.totalUsers)*100)}%` : '0%'} Canteen Owner
+                        {users.filter(u => u.role === 'student').reduce((acc, s) => {
+                          if (s.department) acc.add(s.department);
+                          return acc;
+                        }, new Set()).size} departments, {stats.students} total students
                       </p>
                       <Button 
                         variant="ghost" 
                         size="sm" 
                         className="mt-2 text-blue-700 hover:text-blue-800"
                         onClick={() => {
+                          setFilterRole("student");
+                          setActiveTab("all-users");
                           toast({
-                            title: "User Distribution",
-                            description: `${stats.students} students make up the majority with ${Math.round((stats.students/stats.totalUsers)*100)}% of total users`,
+                            title: "Student Analysis",
+                            description: `Viewing ${stats.students} students across multiple departments`,
                           });
                         }}
                       >
-                        View Details
+                        View Students
                       </Button>
                     </div>
                     <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg">
