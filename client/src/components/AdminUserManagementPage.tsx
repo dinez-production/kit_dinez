@@ -205,7 +205,7 @@ export default function AdminUserManagementPage() {
         updateData.passingOutYear = null;
         updateData.currentStudyYear = null;
       } else {
-        // For admin and canteen-owner, clear both student and staff specific fields
+        // For admin and canteen_owner, clear both student and staff specific fields
         updateData.registerNumber = null;
         updateData.department = null;
         updateData.joiningYear = null;
@@ -263,7 +263,7 @@ export default function AdminUserManagementPage() {
   };
 
   const getAvailableRoles = (currentRole: string) => {
-    const allRoles = ['admin', 'canteen-owner', 'student', 'staff'];
+    const allRoles = ['admin', 'canteen_owner', 'student', 'staff'];
     return allRoles.filter(role => canChangeRole(currentRole, role));
   };
 
@@ -361,8 +361,8 @@ export default function AdminUserManagementPage() {
       const userRole = (user.role || '').toLowerCase();
       const filterRoleLower = filterRole.toLowerCase();
       
-      // Handle different role name variations
-      if (filterRoleLower === 'canteen-owner') {
+      // Handle different role name variations  
+      if (filterRoleLower === 'canteen_owner' || filterRoleLower === 'canteen-owner') {
         matchesRole = userRole === 'canteen-owner' || userRole === 'canteen_owner' || userRole === 'canteenowner';
       } else if (filterRoleLower === 'admin') {
         matchesRole = userRole === 'admin' || userRole === 'super admin' || userRole === 'super_admin' || userRole === 'superadmin';
@@ -389,7 +389,7 @@ export default function AdminUserManagementPage() {
     totalOrders: analyticsData?.totalOrders || 0,
     // User role breakdown
     students: users.filter(u => u.role === 'student').length,
-    canteenOwner: users.filter(u => u.role === 'canteen-owner').length,
+    canteenOwner: users.filter(u => u.role === 'canteen_owner' || u.role === 'canteen-owner').length,
     staff: users.filter(u => u.role === 'staff').length,
     admins: users.filter(u => {
       const role = (u.role || '').toLowerCase();
@@ -521,7 +521,7 @@ export default function AdminUserManagementPage() {
                       <SelectContent>
                         <SelectItem value="all">All Roles</SelectItem>
                         <SelectItem value="student">Student</SelectItem>
-                        <SelectItem value="canteen-owner">Canteen Owner</SelectItem>
+                        <SelectItem value="canteen_owner">Canteen Owner</SelectItem>
                         <SelectItem value="staff">Staff</SelectItem>
                         <SelectItem value="admin">Admin</SelectItem>
                       </SelectContent>
@@ -559,7 +559,7 @@ export default function AdminUserManagementPage() {
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="student">Student</SelectItem>
-                                  <SelectItem value="canteen-owner">Canteen Owner</SelectItem>
+                                  <SelectItem value="canteen_owner">Canteen Owner</SelectItem>
                                   <SelectItem value="staff">Staff</SelectItem>
                                 </SelectContent>
                               </Select>
@@ -791,7 +791,7 @@ export default function AdminUserManagementPage() {
                   </CardContent>
                 </Card>
                 <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => {
-                  setFilterRole("canteen-owner");
+                  setFilterRole("canteen_owner");
                   setActiveTab("all-users");
                   toast({
                     title: "Filter Applied",

@@ -35,7 +35,7 @@ export default function SplashScreen() {
         const userData = pwaAuthState.user;
         if (userData.role === 'super_admin') {
           setLocation("/admin");
-        } else if (userData.role === 'canteen_owner') {
+        } else if (userData.role === 'canteen_owner' || userData.role === 'canteen-owner') {
           setLocation("/canteen-owner-dashboard");
         } else {
           setLocation("/home");
@@ -47,7 +47,7 @@ export default function SplashScreen() {
       if (user) {
         if (user.role === 'super_admin') {
           setLocation("/admin");
-        } else if (user.role === 'canteen_owner') {
+        } else if (user.role === 'canteen_owner' || user.role === 'canteen-owner') {
           setLocation("/canteen-owner-dashboard");
         } else {
           setLocation("/home");
@@ -104,7 +104,7 @@ export default function SplashScreen() {
           // Valid session for PWA - redirect to appropriate page
           if (userData.role === 'super_admin') {
             setLocation("/admin");
-          } else if (userData.role === 'canteen_owner') {
+          } else if (userData.role === 'canteen_owner' || userData.role === 'canteen-owner') {
             setLocation("/canteen-owner-dashboard");
           } else {
             setLocation("/home");
@@ -132,7 +132,7 @@ export default function SplashScreen() {
         // Redirect based on user role
         if (user.role === 'super_admin') {
           setLocation("/admin");
-        } else if (user.role === 'canteen_owner') {
+        } else if (user.role === 'canteen_owner' || user.role === 'canteen-owner') {
           setLocation("/canteen-owner-dashboard");
         } else {
           setLocation("/home");

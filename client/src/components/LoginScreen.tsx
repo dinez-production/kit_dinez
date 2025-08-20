@@ -93,11 +93,11 @@ export default function LoginScreen() {
           // Use the proper login function to maintain authentication state
           login(userDisplayData);
           
-          // Redirect based on role
-          if (userData.role === 'super_admin') {
+          // Redirect based on role (handle both naming conventions)
+          if (userData.role === 'super_admin' || userData.role === 'admin') {
             toast({ title: "Welcome Super Admin!", description: "Access to all system controls" });
             setLocation("/admin");
-          } else if (userData.role === 'canteen_owner') {
+          } else if (userData.role === 'canteen_owner' || userData.role === 'canteen-owner') {
             toast({ title: "Welcome Canteen Owner!", description: "Manage your canteen operations" });
             setLocation("/canteen-owner-dashboard");
           } else {
