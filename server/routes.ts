@@ -29,6 +29,8 @@ import { SimpleSchemaValidator } from "./migrations/simple-schema-check";
 import { stockService } from "./stock-service";
 import { webPushService } from "./services/webPushService.js";
 import webPushRoutes from "./routes/webPush.js";
+import { mediaService } from "./services/mediaService.js";
+import multer from "multer";
 import axios from "axios";
 
 // Store SSE connections for real-time notifications
@@ -45,6 +47,22 @@ const paymentStatusCache = new Map<string, {
 }>();
 const API_RETRY_INTERVAL = 30000; // 30 seconds before retrying failed API calls
 const MAX_CONSECUTIVE_FAILURES = 3; // Skip API after 3 consecutive failures
+
+// Configure multer for file uploads (memory storage for GridFS)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept images and videos
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image and video files are allowed'));
+    }
+  }
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint with comprehensive database status
@@ -1133,6 +1151,211 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Media Banner Management endpoints
+  app.get("/api/media-banners", async (req, res) => {
+    try {
+      const banners = await mediaService.getAllBanners();
+      res.json(banners);
+    } catch (error) {
+      console.error("Error fetching media banners:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/media-banners", upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const { originalname, mimetype, buffer } = req.file;
+      const uploadedBy = req.body.uploadedBy ? parseInt(req.body.uploadedBy) : undefined;
+
+      // Generate unique filename
+      const timestamp = Date.now();
+      const fileExtension = originalname.split('.').pop();
+      const fileName = `banner_${timestamp}.${fileExtension}`;
+
+      const banner = await mediaService.uploadFile(
+        buffer,
+        fileName,
+        originalname,
+        mimetype,
+        uploadedBy
+      );
+
+      // Send SSE notification about new banner
+      if (sseConnections.size > 0) {
+        const message = `data: ${JSON.stringify({
+          type: 'banner_updated',
+          data: { action: 'created', banner }
+        })}\n\n`;
+        
+        sseConnections.forEach((connection) => {
+          try {
+            if (connection.writable && !connection.destroyed) {
+              connection.write(message);
+            }
+          } catch (error) {
+            console.warn('SSE connection error:', error);
+          }
+        });
+      }
+
+      res.status(201).json(banner);
+    } catch (error) {
+      console.error("Error uploading media banner:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Upload failed" });
+    }
+  });
+
+  app.get("/api/media-banners/:fileId/file", async (req, res) => {
+    try {
+      const { fileId } = req.params;
+      const { stream, metadata } = await mediaService.getFile(fileId);
+
+      res.set({
+        'Content-Type': metadata.contentType,
+        'Content-Length': metadata.length.toString(),
+        'Cache-Control': 'public, max-age=86400', // 24 hours
+      });
+
+      stream.pipe(res);
+    } catch (error) {
+      console.error("Error serving media file:", error);
+      res.status(404).json({ message: "File not found" });
+    }
+  });
+
+  app.patch("/api/media-banners/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const updatedBanner = await mediaService.updateBanner(id, updates);
+
+      // Send SSE notification about banner update
+      if (sseConnections.size > 0) {
+        const message = `data: ${JSON.stringify({
+          type: 'banner_updated',
+          data: { action: 'updated', banner: updatedBanner }
+        })}\n\n`;
+        
+        sseConnections.forEach((connection) => {
+          try {
+            if (connection.writable && !connection.destroyed) {
+              connection.write(message);
+            }
+          } catch (error) {
+            console.warn('SSE connection error:', error);
+          }
+        });
+      }
+
+      res.json(updatedBanner);
+    } catch (error) {
+      console.error("Error updating media banner:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Update failed" });
+    }
+  });
+
+  app.patch("/api/media-banners/:id/toggle", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const updatedBanner = await mediaService.toggleBannerStatus(id);
+
+      // Send SSE notification about status toggle
+      if (sseConnections.size > 0) {
+        const message = `data: ${JSON.stringify({
+          type: 'banner_updated',
+          data: { action: 'toggled', banner: updatedBanner }
+        })}\n\n`;
+        
+        sseConnections.forEach((connection) => {
+          try {
+            if (connection.writable && !connection.destroyed) {
+              connection.write(message);
+            }
+          } catch (error) {
+            console.warn('SSE connection error:', error);
+          }
+        });
+      }
+
+      res.json(updatedBanner);
+    } catch (error) {
+      console.error("Error toggling banner status:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Toggle failed" });
+    }
+  });
+
+  app.delete("/api/media-banners/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      await mediaService.deleteFile(id);
+
+      // Send SSE notification about banner deletion
+      if (sseConnections.size > 0) {
+        const message = `data: ${JSON.stringify({
+          type: 'banner_updated',
+          data: { action: 'deleted', bannerId: id }
+        })}\n\n`;
+        
+        sseConnections.forEach((connection) => {
+          try {
+            if (connection.writable && !connection.destroyed) {
+              connection.write(message);
+            }
+          } catch (error) {
+            console.warn('SSE connection error:', error);
+          }
+        });
+      }
+
+      res.json({ message: "Media banner deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting media banner:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Delete failed" });
+    }
+  });
+
+  app.post("/api/media-banners/reorder", async (req, res) => {
+    try {
+      const { bannerIds } = req.body;
+      
+      if (!Array.isArray(bannerIds)) {
+        return res.status(400).json({ message: "Banner IDs must be an array" });
+      }
+
+      await mediaService.reorderBanners(bannerIds);
+
+      // Send SSE notification about reorder
+      if (sseConnections.size > 0) {
+        const message = `data: ${JSON.stringify({
+          type: 'banner_updated',
+          data: { action: 'reordered', bannerIds }
+        })}\n\n`;
+        
+        sseConnections.forEach((connection) => {
+          try {
+            if (connection.writable && !connection.destroyed) {
+              connection.write(message);
+            }
+          } catch (error) {
+            console.warn('SSE connection error:', error);
+          }
+        });
+      }
+
+      res.json({ message: "Banners reordered successfully" });
+    } catch (error) {
+      console.error("Error reordering banners:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Reorder failed" });
     }
   });
 

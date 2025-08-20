@@ -15,6 +15,7 @@ import type { MenuItem, Category } from "@shared/schema";
 import { QuickOrders } from "@/components/QuickOrders";
 import NotificationPanel from "@/components/NotificationPanel";
 import PullToRefresh from "@/components/ui/PullToRefresh";
+import MediaBanner from "@/components/MediaBanner";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 
@@ -259,6 +260,13 @@ export default function HomeScreen() {
       </div>
 
       <div className="px-4 space-y-6 -mt-3">
+        {/* Media Banner - Show only when not searching */}
+        {!searchQuery.trim() && (
+          <div className="animate-fade-in">
+            <MediaBanner />
+          </div>
+        )}
+
         {/* Search Results */}
         {searchQuery.trim() && (
           <div className="animate-fade-in">

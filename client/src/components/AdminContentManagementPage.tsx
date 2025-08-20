@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useLocation } from "wouter";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,15 +13,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   ArrowLeft, FileText, Image, Video, Plus, Edit, 
   Trash2, Eye, Upload, Save, Globe, Calendar,
-  Search, Filter, X
+  Search, Filter, X, Loader2, Play, Pause
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuthSync } from "@/hooks/useDataSync";
+import type { MediaBanner } from "@shared/schema";
 
 export default function AdminContentManagementPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("pages");
+  const { user } = useAuthSync();
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState("media");
   const [searchTerm, setSearchTerm] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Dialog states
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -35,9 +41,119 @@ export default function AdminContentManagementPage() {
   // Empty pages data - will be connected to CMS database when implemented
   const [pagesData, setPagesData] = useState<any[]>([]);
 
-  const [mediaData, setMediaData] = useState<any[]>([]);
-
   const [bannersData, setBannersData] = useState<any[]>([]);
+
+  // Fetch media banners
+  const { data: mediaData = [], isLoading: mediaLoading, refetch: refetchMedia } = useQuery<MediaBanner[]>({
+    queryKey: ['/api/media-banners'],
+    queryFn: async () => {
+      const response = await fetch('/api/media-banners');
+      if (!response.ok) {
+        throw new Error('Failed to fetch media banners');
+      }
+      return response.json();
+    },
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    refetchOnMount: true,
+  });
+
+  // Upload media mutation
+  const uploadMediaMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (user?.id) {
+        formData.append('uploadedBy', user.id.toString());
+      }
+
+      const response = await fetch('/api/media-banners', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Upload failed');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/media-banners'] });
+      toast({
+        title: "Success",
+        description: "Media file uploaded successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Upload Failed", 
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete media mutation
+  const deleteMediaMutation = useMutation({
+    mutationFn: async (bannerId: string) => {
+      const response = await fetch(`/api/media-banners/${bannerId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Delete failed');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/media-banners'] });
+      setDeleteDialogOpen(false);
+      toast({
+        title: "Success",
+        description: "Media file deleted successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Delete Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Toggle media status mutation
+  const toggleMediaMutation = useMutation({
+    mutationFn: async (bannerId: string) => {
+      const response = await fetch(`/api/media-banners/${bannerId}/toggle`, {
+        method: 'PATCH',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Toggle failed');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/media-banners'] });
+      toast({
+        title: "Success",
+        description: "Media status updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Update Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -47,6 +163,45 @@ export default function AdminContentManagementPage() {
       case "Scheduled": return "bg-warning text-warning-foreground";
       case "Expired": return "bg-secondary text-secondary-foreground";
       default: return "bg-muted text-muted-foreground";
+    }
+  };
+
+  // File upload handlers
+  const handleFileSelect = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      
+      // Validate file type
+      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+        toast({
+          title: "Invalid File Type",
+          description: "Please select an image or video file.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validate file size (50MB limit)
+      if (file.size > 50 * 1024 * 1024) {
+        toast({
+          title: "File Too Large",
+          description: "Please select a file smaller than 50MB.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      uploadMediaMutation.mutate(file);
+    }
+    
+    // Reset the input
+    if (event.target) {
+      event.target.value = '';
     }
   };
 
@@ -93,19 +248,23 @@ export default function AdminContentManagementPage() {
   };
 
   const handleConfirmDelete = () => {
-    if (itemType === "pages") {
+    if (itemType === "media" && selectedItem?._id) {
+      deleteMediaMutation.mutate(selectedItem._id);
+    } else if (itemType === "pages") {
       setPagesData(prev => prev.filter(item => item.id !== selectedItem.id));
-    } else if (itemType === "media") {
-      setMediaData(prev => prev.filter(item => item.id !== selectedItem.id));
+      toast({
+        title: "Item Deleted",
+        description: `Page has been successfully deleted.`,
+      });
+      setDeleteDialogOpen(false);
     } else if (itemType === "banners") {
       setBannersData(prev => prev.filter(item => item.id !== selectedItem.id));
+      toast({
+        title: "Item Deleted", 
+        description: `Banner has been successfully deleted.`,
+      });
+      setDeleteDialogOpen(false);
     }
-    
-    toast({
-      title: "Item Deleted",
-      description: `${itemType.slice(0, -1)} has been successfully deleted.`,
-    });
-    setDeleteDialogOpen(false);
   };
 
   const handleFormChange = (field: string, value: string) => {
@@ -165,63 +324,160 @@ export default function AdminContentManagementPage() {
     </div>
   );
 
-  const renderMedia = () => (
-    <div className="space-y-4">
-      {mediaData.filter(item => 
-        item.name.toLowerCase().includes(searchTerm.toLowerCase())
-      ).map((item) => (
-        <div key={item.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              {item.type === "Image" ? (
-                <Image className="h-4 w-4 text-primary" />
+  const renderMedia = () => {
+    const filteredMedia = mediaData.filter((item: MediaBanner) =>
+      item.originalFileName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.title && item.title.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+
+    if (mediaLoading) {
+      return (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span className="ml-2">Loading media files...</span>
+        </div>
+      );
+    }
+
+    if (filteredMedia.length === 0 && !searchTerm) {
+      return (
+        <div className="text-center py-12">
+          <Image className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground text-lg">No media files uploaded yet</p>
+          <p className="text-muted-foreground text-sm mb-6">Upload images or videos to display as banners</p>
+          <Button onClick={handleFileSelect} className="bg-primary text-primary-foreground">
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Media
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {/* Upload button at top when there are files */}
+        {filteredMedia.length > 0 && (
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-muted-foreground">
+              {filteredMedia.length} media file{filteredMedia.length !== 1 ? 's' : ''}
+            </p>
+            <Button 
+              onClick={handleFileSelect} 
+              disabled={uploadMediaMutation.isPending}
+              className="bg-primary text-primary-foreground"
+            >
+              {uploadMediaMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Uploading...
+                </>
               ) : (
-                <Video className="h-4 w-4 text-primary" />
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Media
+                </>
               )}
-              <div>
-                <h4 className="font-medium text-foreground">{item.name}</h4>
-                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                  <span>{item.type}</span>
-                  <span>{item.size}</span>
-                  {item.dimensions && <span>{item.dimensions}</span>}
-                  {item.duration && <span>{item.duration}</span>}
+            </Button>
+          </div>
+        )}
+
+        {filteredMedia.map((item: MediaBanner) => (
+          <div key={item._id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start space-x-4 flex-1">
+                {/* Media Preview */}
+                <div className="w-20 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                  {item.mimeType.startsWith('image/') ? (
+                    <img 
+                      src={`/api/media-banners/${item._id}/file`} 
+                      alt={item.originalFileName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <video 
+                      src={`/api/media-banners/${item._id}/file`}
+                      className="w-full h-full object-cover"
+                      muted
+                    />
+                  )}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  Used in: {item.usedIn.join(", ")}
+
+                {/* Media Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center space-x-2 mb-2">
+                    {item.mimeType.startsWith('image/') ? (
+                      <Image className="h-4 w-4 text-primary" />
+                    ) : (
+                      <Video className="h-4 w-4 text-primary" />
+                    )}
+                    <h4 className="font-medium text-foreground truncate">
+                      {item.title || item.originalFileName}
+                    </h4>
+                    <Badge 
+                      className={item.isActive ? 
+                        "bg-success text-success-foreground" : 
+                        "bg-secondary text-secondary-foreground"
+                      }
+                    >
+                      {item.isActive ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                    <span>Type: {item.mimeType.split('/')[0]}</span>
+                    <span>Size: {(item.fileSize / (1024 * 1024)).toFixed(2)} MB</span>
+                    <span>Order: #{item.displayOrder}</span>
+                  </div>
+                  
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Uploaded: {new Date(item.uploadedAt).toLocaleDateString()}
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => handleView(item, "media")}
-                title="View Media"
-              >
-                <Eye className="h-3 w-3" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => handleEdit(item, "media")}
-                title="Edit Media"
-              >
-                <Edit className="h-3 w-3" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => handleDelete(item, "media")}
-                title="Delete Media"
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
+
+              {/* Action Buttons */}
+              <div className="flex items-center space-x-1 ml-4">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => toggleMediaMutation.mutate(item._id)}
+                  disabled={toggleMediaMutation.isPending}
+                  title={item.isActive ? "Deactivate" : "Activate"}
+                  className="h-8 w-8 p-0"
+                >
+                  {toggleMediaMutation.isPending ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : item.isActive ? (
+                    <Pause className="h-3 w-3" />
+                  ) : (
+                    <Play className="h-3 w-3" />
+                  )}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => handleView(item, "media")}
+                  title="View Details"
+                  className="h-8 w-8 p-0"
+                >
+                  <Eye className="h-3 w-3" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => handleDelete(item, "media")}
+                  title="Delete Media"
+                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
-    </div>
-  );
+        ))}
+      </div>
+    );
+  };
 
   const renderBanners = () => (
     <div className="space-y-4">
@@ -514,6 +770,16 @@ export default function AdminContentManagementPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Hidden file input for media upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,video/*"
+        onChange={handleFileChange}
+        style={{ display: 'none' }}
+        multiple={false}
+      />
     </div>
   );
 }

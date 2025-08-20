@@ -251,3 +251,44 @@ const PaymentSchema = new Schema<IPayment>({
 });
 
 export const Payment = mongoose.model<IPayment>('Payment', PaymentSchema);
+
+// MediaBanner Model
+export interface IMediaBanner extends Document {
+  fileName: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  type: 'image' | 'video';
+  fileId: mongoose.Types.ObjectId; // GridFS file ID
+  isActive: boolean;
+  displayOrder: number;
+  uploadedBy?: number; // User ID who uploaded
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const MediaBannerSchema = new Schema<IMediaBanner>({
+  fileName: { type: String, required: true },
+  originalName: { type: String, required: true },
+  mimeType: { type: String, required: true },
+  size: { type: Number, required: true },
+  type: { 
+    type: String, 
+    required: true, 
+    enum: ['image', 'video'] 
+  },
+  fileId: { type: Schema.Types.ObjectId, required: true }, // GridFS file reference
+  isActive: { type: Boolean, default: true },
+  displayOrder: { type: Number, default: 0 },
+  uploadedBy: { type: Number }, // References PostgreSQL user ID
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+// Update the updatedAt field on save
+MediaBannerSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+export const MediaBanner = mongoose.model<IMediaBanner>('MediaBanner', MediaBannerSchema);

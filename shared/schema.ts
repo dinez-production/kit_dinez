@@ -119,10 +119,26 @@ export type Payment = {
   updatedAt: Date;
 };
 
+export type MediaBanner = {
+  id: string;
+  fileName: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  type: 'image' | 'video';
+  fileId: string; // GridFS file ID
+  isActive: boolean;
+  displayOrder: number;
+  uploadedBy?: number; // User ID who uploaded
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 // Insert types for MongoDB models
 export type InsertCategory = Omit<Category, 'id' | 'createdAt'>;
 export type InsertMenuItem = Omit<MenuItem, 'id' | 'createdAt'>;
 export type InsertOrder = Omit<Order, 'id' | 'createdAt'>;
+export type InsertMediaBanner = Omit<MediaBanner, 'id' | 'createdAt' | 'updatedAt'>;
 export type InsertOrderItem = Omit<OrderItem, 'id'>;
 export type InsertNotification = Omit<Notification, 'id' | 'createdAt'>;
 export type InsertLoginIssue = Omit<LoginIssue, 'id' | 'createdAt'>;
