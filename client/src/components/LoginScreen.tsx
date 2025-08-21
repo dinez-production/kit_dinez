@@ -184,6 +184,36 @@ export default function LoginScreen() {
     }
   };
 
+  const handleDevModeSkipLogin = async () => {
+    setIsLoading(true);
+    try {
+      // Create a development test user
+      const devUser = {
+        id: 'dev-user-001',
+        name: 'Dev Test User',
+        email: 'dev.test@kitcanteen.local',
+        role: 'student',
+        isProfileComplete: true
+      };
+      
+      // Log in the dev user directly
+      login(devUser);
+      toast({ 
+        title: "Development Mode", 
+        description: "Logged in as test user - Dev Mode Active" 
+      });
+      setLocation("/home");
+    } catch (error) {
+      toast({
+        title: "Dev Login Failed",
+        description: "Something went wrong with development login",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
@@ -317,6 +347,30 @@ export default function LoginScreen() {
                 </svg>
 {isLoading ? "Signing in..." : "Continue with College Email"}
               </Button>
+              
+              {/* Development Mode Skip Login - Only show in development */}
+              {import.meta.env.DEV && (
+                <div className="mt-4">
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">Dev Mode</span>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleDevModeSkipLogin}
+                    variant="outline"
+                    size="mobile"
+                    className="w-full mt-3 border-orange-200 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
+                    disabled={isLoading}
+                    data-testid="button-skip-login-dev"
+                  >
+                    🚀 Skip Login (Development Mode)
+                  </Button>
+                </div>
+              )}
               
               <div className="mt-4 space-y-2 text-center">
                 <Button 
