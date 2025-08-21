@@ -1,12 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { MediaBanner as MediaBannerType } from "@shared/schema";
+import trackOrderImage from "@assets/image_1755805733030.png";
 
 export default function MediaBanner() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [imagesLoaded, setImagesLoaded] = useState<Record<string, boolean>>({});
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const startXRef = useRef(0);
   const queryClient = useQueryClient();
 
   // Fetch active media banners
@@ -65,39 +70,78 @@ export default function MediaBanner() {
     setImagesLoaded(prev => ({ ...prev, [bannerId]: false }));
   };
 
-  // Start auto-slide only when we have banners and they're loaded
-  useEffect(() => {
-    // Clear any existing interval
+  // Touch/mouse event handlers for swipe gestures
+  const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
+    if (isTransitioning) return;
+    
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    startXRef.current = clientX;
+    setIsDragging(true);
+    
+    // Clear auto-slide when user starts interacting
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+  };
 
-    // Don't start sliding if no banners or only one banner
-    if (banners.length <= 1) return;
+  const handleTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
+    if (!isDragging || isTransitioning) return;
+    
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const diff = clientX - startXRef.current;
+    setDragOffset(diff);
+  };
 
-    // Check if at least the current image is loaded
+  const handleTouchEnd = () => {
+    if (!isDragging || isTransitioning) return;
+    
+    setIsDragging(false);
+    const threshold = 80; // Minimum swipe distance
+    
+    if (Math.abs(dragOffset) > threshold) {
+      setIsTransitioning(true);
+      
+      if (dragOffset > 0 && currentIndex > 0) {
+        // Swipe right - go to previous
+        setCurrentIndex(currentIndex - 1);
+      } else if (dragOffset < 0 && currentIndex < banners.length - 1) {
+        // Swipe left - go to next
+        setCurrentIndex(currentIndex + 1);
+      }
+      
+      setTimeout(() => {
+        setIsTransitioning(false);
+        setDragOffset(0);
+      }, 300);
+    } else {
+      // Snap back to current position
+      setDragOffset(0);
+    }
+  };
+
+  // Auto-slide functionality
+  useEffect(() => {
+    if (banners.length <= 1 || isDragging) return;
+
     const currentBanner = banners[currentIndex];
     if (!currentBanner || !imagesLoaded[currentBanner.id]) {
       return;
     }
 
-    // Start the sliding interval
     intervalRef.current = setInterval(() => {
-      if (!isTransitioning) {
+      if (!isTransitioning && !isDragging) {
         setIsTransitioning(true);
         setCurrentIndex((prevIndex) => {
           const nextIndex = (prevIndex + 1) % banners.length;
-          console.log(`MediaBanner: Sliding from ${prevIndex + 1} to ${nextIndex + 1}`);
           return nextIndex;
         });
         
-        // Reset transition flag after animation completes
         setTimeout(() => {
           setIsTransitioning(false);
-        }, 800); // Match transition duration
+        }, 300);
       }
-    }, 5000); // 5 seconds between slides
+    }, 4000);
 
     return () => {
       if (intervalRef.current) {
@@ -105,18 +149,15 @@ export default function MediaBanner() {
         intervalRef.current = null;
       }
     };
-  }, [banners.length, currentIndex, isTransitioning, imagesLoaded]);
+  }, [banners.length, currentIndex, isTransitioning, imagesLoaded, isDragging]);
 
-  // Reset everything when banners change
+  // Reset when banners change
   useEffect(() => {
     setCurrentIndex(0);
     setIsTransitioning(false);
     setImagesLoaded({});
-    
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
+    setDragOffset(0);
+    setIsDragging(false);
   }, [banners.length]);
 
   // Cleanup on unmount
@@ -134,98 +175,118 @@ export default function MediaBanner() {
   }
 
   return (
-    <div className="w-full py-4" data-testid="media-banner-container">
-      <div className="relative w-full h-72 overflow-hidden">
-        {/* Banner slides */}
-        <div 
-          className="flex h-full transition-transform duration-700 ease-in-out"
-          style={{ 
-            transform: `translateX(-${currentIndex * (100 / banners.length)}%)`,
-            width: `${banners.length * 100}%`
-          }}
-        >
-          {banners.map((banner, index) => (
-            <div 
-              key={banner.id}
-              className="h-full flex-shrink-0 px-2 flex items-center justify-center"
-              style={{ width: `${100 / banners.length}%` }}
-              data-testid={`banner-slide-${index}`}
-            >
-              <div className="w-full h-full bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300" style={{ backfaceVisibility: 'hidden', transform: 'translateZ(0)' }}>
-                {banner.type === 'video' ? (
-                  <video
-                    className="w-full h-full object-contain"
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    data-testid={`video-${banner.id}`}
-                    onLoadedData={() => handleImageLoad(banner.id, index)}
-                    onError={() => handleImageError(banner.id, index)}
-                  >
-                    <source 
+    <div className="w-full px-4 py-6" data-testid="media-banner-container">
+      <div 
+        ref={containerRef}
+        className="relative w-full h-64 cursor-grab active:cursor-grabbing"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleTouchStart}
+        onMouseMove={handleTouchMove}
+        onMouseUp={handleTouchEnd}
+        onMouseLeave={handleTouchEnd}
+      >
+        {/* Card Container */}
+        <div className="relative w-full h-full overflow-visible">
+          {banners.map((banner, index) => {
+            const offset = (index - currentIndex) * 100;
+            const dragOffsetPercent = isDragging ? (dragOffset / (containerRef.current?.clientWidth || 1)) * 100 : 0;
+            
+            return (
+              <div
+                key={banner.id}
+                className="absolute inset-0 flex items-center justify-center"
+                style={{
+                  transform: `translateX(${offset + dragOffsetPercent}%)`,
+                  transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  zIndex: index === currentIndex ? 10 : 1,
+                }}
+                data-testid={`banner-card-${index}`}
+              >
+                {/* Floating Card */}
+                <div className="relative w-80 h-52 rounded-2xl shadow-2xl bg-gradient-to-br from-white to-gray-50 overflow-hidden transform hover:scale-105 transition-transform duration-200">
+                  {/* Card Content */}
+                  {banner.type === 'video' ? (
+                    <video
+                      className="w-full h-full object-cover rounded-2xl"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      data-testid={`video-${banner.id}`}
+                      onLoadedData={() => handleImageLoad(banner.id, index)}
+                      onError={() => handleImageError(banner.id, index)}
+                    >
+                      <source 
+                        src={`/api/media-banners/${banner.fileId}/file`}
+                        type={banner.mimeType}
+                      />
+                    </video>
+                  ) : (
+                    <img
                       src={`/api/media-banners/${banner.fileId}/file`}
-                      type={banner.mimeType}
+                      alt={banner.originalName}
+                      className="w-full h-full object-cover rounded-2xl"
+                      data-testid={`image-${banner.id}`}
+                      style={{ 
+                        opacity: imagesLoaded[banner.id] === false ? 0.3 : 1,
+                        transition: 'opacity 0.3s ease-in-out'
+                      }}
+                      onLoad={() => handleImageLoad(banner.id, index)}
+                      onError={() => handleImageError(banner.id, index)}
                     />
-                  </video>
-                ) : (
-                  <img
-                    src={`/api/media-banners/${banner.fileId}/file`}
-                    alt={banner.originalName}
-                    className="w-full h-full object-contain"
-                    data-testid={`image-${banner.id}`}
-                    style={{ 
-                      imageRendering: 'crisp-edges',
-                      opacity: imagesLoaded[banner.id] === false ? 0.3 : 1,
-                      transition: 'opacity 0.3s ease-in-out'
-                    }}
-                    onLoad={() => handleImageLoad(banner.id, index)}
-                    onError={() => handleImageError(banner.id, index)}
-                  />
-                )}
-                
-                {/* Loading indicator for images that haven't loaded */}
-                {!imagesLoaded[banner.id] && imagesLoaded[banner.id] !== false && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-                    <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
-                  </div>
-                )}
-                
-                {/* Error state for failed images */}
-                {imagesLoaded[banner.id] === false && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500">
-                    <span className="text-sm">Image unavailable</span>
-                  </div>
-                )}
+                  )}
+                  
+                  {/* Loading State */}
+                  {!imagesLoaded[banner.id] && imagesLoaded[banner.id] !== false && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl">
+                      <div className="w-10 h-10 border-3 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                  
+                  {/* Error State */}
+                  {imagesLoaded[banner.id] === false && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl text-gray-500">
+                      <div className="text-center">
+                        <div className="w-12 h-12 mx-auto mb-2 bg-gray-300 rounded-full flex items-center justify-center">
+                          <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <span className="text-sm font-medium">Content unavailable</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        {/* Navigation dots */}
+        {/* Card Indicators */}
         {banners.length > 1 && (
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+          <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-2">
             {banners.map((_, index) => (
               <button
                 key={index}
                 className={`w-2 h-2 rounded-full transition-all duration-300 ${
                   index === currentIndex 
-                    ? 'bg-white shadow-lg' 
-                    : 'bg-white/60 hover:bg-white/80'
+                    ? 'bg-blue-500 scale-125 shadow-lg' 
+                    : 'bg-gray-300 hover:bg-gray-400'
                 }`}
                 onClick={() => {
-                  if (!isTransitioning) {
+                  if (!isTransitioning && !isDragging) {
                     setIsTransitioning(true);
                     setCurrentIndex(index);
-                    setTimeout(() => setIsTransitioning(false), 800);
+                    setTimeout(() => setIsTransitioning(false), 300);
                   }
                 }}
-                data-testid={`banner-dot-${index}`}
+                data-testid={`banner-indicator-${index}`}
               />
             ))}
           </div>
         )}
-
       </div>
     </div>
   );
