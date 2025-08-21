@@ -179,20 +179,57 @@ export default function LoginScreen() {
   const handleDevModeSkipLogin = async () => {
     setIsLoading(true);
     try {
-      // Create a development test user
+      // First, check if dev user exists in database
+      const devEmail = 'dev.test@kitcanteen.local';
+      let userResponse = await fetch(`/api/users/by-email/${devEmail}`);
+      
+      let devUserData;
+      if (userResponse.ok) {
+        // Dev user exists, use existing data
+        devUserData = await userResponse.json();
+      } else {
+        // Create dev user in database
+        const createDevUser = {
+          email: devEmail,
+          name: 'Dev Test User',
+          phoneNumber: '+91-9876543210',
+          role: 'student',
+          registerNumber: 'DEV001',
+          department: 'Computer Science',
+          joiningYear: 2022,
+          passingOutYear: 2026,
+          currentStudyYear: 3,
+          isPassed: false,
+          isProfileComplete: true
+        };
+        
+        const createResponse = await fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(createDevUser)
+        });
+        
+        if (createResponse.ok) {
+          devUserData = await createResponse.json();
+        } else {
+          throw new Error('Failed to create dev user');
+        }
+      }
+      
+      // Create the user object for login
       const devUser = {
-        id: 'dev-user-001',
-        name: 'Dev Test User',
-        email: 'dev.test@kitcanteen.local',
-        role: 'student',
-        phoneNumber: '+91-9876543210',
-        registerNumber: 'DEV001',
-        department: 'Computer Science',
-        currentStudyYear: '3',
-        isPassed: false
+        id: devUserData.id,
+        name: devUserData.name,
+        email: devUserData.email,
+        role: devUserData.role,
+        phoneNumber: devUserData.phoneNumber || '+91-9876543210',
+        registerNumber: devUserData.registerNumber || 'DEV001',
+        department: devUserData.department || 'Computer Science',
+        currentStudyYear: devUserData.currentStudyYear?.toString() || '3',
+        isPassed: devUserData.isPassed || false
       };
       
-      // Log in the dev user directly
+      // Log in the dev user
       login(devUser);
       toast({ 
         title: "Development Mode", 
@@ -200,6 +237,7 @@ export default function LoginScreen() {
       });
       setLocation("/home");
     } catch (error) {
+      console.error('Dev login error:', error);
       toast({
         title: "Dev Login Failed",
         description: "Something went wrong with development login",
