@@ -2,33 +2,138 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { MediaBanner as MediaBannerType } from "@shared/schema";
 
+// Cache configuration
+const CACHE_CONFIG = {
+  BANNER_CACHE_KEY: 'media_banners_cache',
+  CACHE_DURATION: 1000 * 60 * 30, // 30 minutes
+  IMAGE_CACHE_DURATION: 1000 * 60 * 60 * 24, // 24 hours
+  STALE_TIME: 1000 * 60 * 15, // 15 minutes
+};
+
+// Cache utilities
+const CacheUtils = {
+  // Get cached banner data
+  getCachedBanners: (): { data: MediaBannerType[], timestamp: number } | null => {
+    try {
+      const cached = localStorage.getItem(CACHE_CONFIG.BANNER_CACHE_KEY);
+      if (!cached) return null;
+      
+      const parsedCache = JSON.parse(cached);
+      const now = Date.now();
+      
+      // Check if cache is still valid
+      if (now - parsedCache.timestamp > CACHE_CONFIG.CACHE_DURATION) {
+        localStorage.removeItem(CACHE_CONFIG.BANNER_CACHE_KEY);
+        return null;
+      }
+      
+      return parsedCache;
+    } catch (error) {
+      console.warn('Failed to get cached banners:', error);
+      return null;
+    }
+  },
+
+  // Cache banner data
+  cacheBanners: (banners: MediaBannerType[]) => {
+    try {
+      const cacheData = {
+        data: banners,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem(CACHE_CONFIG.BANNER_CACHE_KEY, JSON.stringify(cacheData));
+    } catch (error) {
+      console.warn('Failed to cache banners:', error);
+    }
+  },
+
+  // Preload images
+  preloadImages: (banners: MediaBannerType[]) => {
+    banners.forEach((banner) => {
+      if (banner.type !== 'video') {
+        const img = new Image();
+        img.src = `/api/media-banners/${banner.fileId}/file`;
+        // Store in memory for immediate access
+        img.onload = () => {
+          console.log(`Preloaded banner image: ${banner.id}`);
+        };
+      }
+    });
+  },
+
+  // Clear expired cache
+  clearExpiredCache: () => {
+    const cached = CacheUtils.getCachedBanners();
+    if (!cached) {
+      localStorage.removeItem(CACHE_CONFIG.BANNER_CACHE_KEY);
+    }
+  }
+};
+
 export default function MediaBanner() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [imagesLoaded, setImagesLoaded] = useState<Record<string, boolean>>({});
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [isUsingCache, setIsUsingCache] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const startXRef = useRef(0);
   const queryClient = useQueryClient();
 
-  // Fetch active media banners
-  const { data: banners = [], isLoading } = useQuery<MediaBannerType[]>({
+  // Clear expired cache on component mount
+  useEffect(() => {
+    CacheUtils.clearExpiredCache();
+  }, []);
+
+  // Enhanced fetch with caching
+  const { data, isLoading } = useQuery<MediaBannerType[]>({
     queryKey: ['/api/media-banners'],
     queryFn: async () => {
-      const response = await fetch('/api/media-banners');
+      // First, try to get from cache
+      const cachedData = CacheUtils.getCachedBanners();
+      if (cachedData) {
+        console.log('Using cached banner data');
+        setIsUsingCache(true);
+        // Preload images for cached data
+        CacheUtils.preloadImages(cachedData.data);
+        return cachedData.data;
+      }
+
+      // If no cache, fetch from server
+      console.log('Fetching fresh banner data from server');
+      setIsUsingCache(false);
+      
+      const response = await fetch('/api/media-banners', {
+        headers: {
+          'Cache-Control': 'max-age=1800', // 30 minutes browser cache
+        }
+      });
+      
       if (!response.ok) {
         throw new Error('Failed to fetch media banners');
       }
+      
       const data = await response.json();
-      console.log('MediaBanner: Fetched banners:', data.length, data);
+      
+      // Cache the fresh data
+      CacheUtils.cacheBanners(data);
+      
+      // Preload images
+      CacheUtils.preloadImages(data);
+      
       return data;
     },
-    staleTime: 1000 * 30,
-    refetchOnMount: true,
-    refetchOnWindowFocus: false,
+    staleTime: CACHE_CONFIG.STALE_TIME, // 15 minutes
+    gcTime: CACHE_CONFIG.CACHE_DURATION, // 30 minutes (React Query v5)
+    refetchOnMount: false, // Don't refetch on mount, use cache
+    refetchOnWindowFocus: false, // Don't refetch on focus
+    refetchInterval: 1000 * 60 * 10, // Refetch every 10 minutes in background
   });
+
+  // Ensure type safety for banners array
+  const banners: MediaBannerType[] = data || [];
 
   // Set up SSE connection for real-time banner updates
   useEffect(() => {
@@ -40,6 +145,8 @@ export default function MediaBanner() {
         
         if (data.type === 'banner_updated') {
           queryClient.invalidateQueries({ queryKey: ['/api/media-banners'] });
+          // Clear local cache when server updates
+          localStorage.removeItem(CACHE_CONFIG.BANNER_CACHE_KEY);
         }
       } catch (error) {
         console.error('Error parsing SSE message:', error);
