@@ -154,7 +154,7 @@ export default function MediaBanner() {
               <div className="w-full h-full bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300" style={{ backfaceVisibility: 'hidden', transform: 'translateZ(0)' }}>
                 {banner.type === 'video' ? (
                   <video
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                     autoPlay
                     muted
                     loop
@@ -172,13 +172,12 @@ export default function MediaBanner() {
                   <img
                     src={`/api/media-banners/${banner.fileId}/file`}
                     alt={banner.originalName}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                     data-testid={`image-${banner.id}`}
                     style={{ 
                       imageRendering: 'crisp-edges',
-                      filter: 'contrast(1.1) brightness(1.05) saturate(1.1)',
                       opacity: imagesLoaded[banner.id] === false ? 0.3 : 1,
-                      transition: 'opacity 0.3s ease-in-out, filter 0.3s ease-in-out'
+                      transition: 'opacity 0.3s ease-in-out'
                     }}
                     onLoad={() => handleImageLoad(banner.id, index)}
                     onError={() => handleImageError(banner.id, index)}
