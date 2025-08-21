@@ -101,13 +101,13 @@ export default function MediaBanner() {
 
   return (
     <div className="relative w-full bg-background">
-      <div className="relative overflow-hidden rounded-lg shadow-sm">
+      <div className="relative overflow-hidden rounded-2xl shadow-sm">
         {currentBanner.type === 'video' ? (
           // Single video display
           <div className="relative w-full">
             <video
               key={currentBanner.id}
-              className="w-full h-48 sm:h-64 object-cover rounded-lg"
+              className="w-full h-48 sm:h-64 object-cover rounded-2xl"
               autoPlay
               muted
               loop
@@ -135,7 +135,7 @@ export default function MediaBanner() {
               key={currentBanner.id}
               src={`/api/media-banners/${currentBanner.fileId}/file`}
               alt={currentBanner.originalName}
-              className="w-full h-48 sm:h-64 object-cover rounded-lg"
+              className="w-full h-48 sm:h-64 object-cover rounded-2xl"
               onError={(e) => {
                 console.error('Failed to load banner image:', currentBanner.id);
                 // Optionally hide broken images
