@@ -19,10 +19,17 @@ interface User {
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isValidating, setIsValidating] = useState(false);
 
   useEffect(() => {
     // Use PWA authentication utilities for consistent handling
     const loadUserFromStorage = async () => {
+      if (isValidating) {
+        console.log("Already validating, skipping...");
+        return;
+      }
+      
+      setIsValidating(true);
       const authState = getPWAAuthState();
       
       console.log("useAuth loadUserFromStorage - PWA State:", authState);
@@ -68,14 +75,16 @@ export function useAuth() {
         setUser(null);
       }
       setIsLoading(false);
+      setIsValidating(false);
     };
 
     // Cross-tab synchronization for mobile PWA - sync login/logout across tabs
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'user' || e.key === 'session_timestamp') {
-        console.log("Storage change detected for PWA:", e.key);
+      if (e.key === 'user' && !isValidating) {
+        console.log("Storage change detected for PWA user:", e.key);
         loadUserFromStorage();
       }
+      // Removed 'session_timestamp' to prevent infinite loops
     };
 
     // Initial load with database validation
