@@ -225,12 +225,6 @@ export default function MediaBanner() {
           </div>
         )}
 
-        {/* Banner counter */}
-        {banners.length > 1 && (
-          <div className="absolute top-4 right-4 bg-black/50 text-white px-2 py-1 rounded text-sm">
-            {currentIndex + 1} / {banners.length}
-          </div>
-        )}
       </div>
     </div>
   );
