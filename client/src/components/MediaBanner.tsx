@@ -71,7 +71,7 @@ const CacheUtils = {
 };
 
 export default function MediaBanner() {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(1); // Start at 1 (first real image)
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [imagesLoaded, setImagesLoaded] = useState<Record<string, boolean>>({});
   const [dragOffset, setDragOffset] = useState(0);
@@ -210,20 +210,28 @@ export default function MediaBanner() {
       setIsTransitioning(true);
       
       if (dragOffset > 0) {
-        // Swipe right - go to previous (with infinite loop)
-        setCurrentIndex((prevIndex) => {
-          return prevIndex > 0 ? prevIndex - 1 : banners.length - 1;
-        });
+        // Swipe right - go to previous
+        setCurrentIndex((prevIndex) => prevIndex - 1);
       } else if (dragOffset < 0) {
-        // Swipe left - go to next (with infinite loop)
-        setCurrentIndex((prevIndex) => {
-          return (prevIndex + 1) % banners.length;
-        });
+        // Swipe left - go to next
+        setCurrentIndex((prevIndex) => prevIndex + 1);
       }
       
       setTimeout(() => {
         setIsTransitioning(false);
         setDragOffset(0);
+        
+        // Handle infinite loop transitions after animation
+        setCurrentIndex((prevIndex) => {
+          if (prevIndex === 0) {
+            // If we went before the first real image, jump to last real image
+            return banners.length;
+          } else if (prevIndex === banners.length + 1) {
+            // If we went past the last real image, jump to first real image
+            return 1;
+          }
+          return prevIndex;
+        });
       }, 300);
     } else {
       // Snap back to current position
@@ -238,13 +246,18 @@ export default function MediaBanner() {
     intervalRef.current = setInterval(() => {
       if (!isTransitioning && !isDragging) {
         setIsTransitioning(true);
-        setCurrentIndex((prevIndex) => {
-          const nextIndex = (prevIndex + 1) % banners.length;
-          return nextIndex;
-        });
+        setCurrentIndex((prevIndex) => prevIndex + 1);
         
         setTimeout(() => {
           setIsTransitioning(false);
+          
+          // Handle infinite loop for auto-slide
+          setCurrentIndex((prevIndex) => {
+            if (prevIndex === banners.length + 1) {
+              return 1; // Jump back to first real image
+            }
+            return prevIndex;
+          });
         }, 300);
       }
     }, 4000);
@@ -259,7 +272,7 @@ export default function MediaBanner() {
 
   // Reset when banners change
   useEffect(() => {
-    setCurrentIndex(0);
+    setCurrentIndex(1); // Start at first real image
     setIsTransitioning(false);
     setImagesLoaded({});
     setDragOffset(0);
@@ -293,6 +306,14 @@ export default function MediaBanner() {
     return null;
   }
 
+  // Create extended array with cloned elements for infinite scroll
+  const extendedBanners = banners.length > 0 ? [
+    banners[banners.length - 1], // Clone of last image at start
+    ...banners,                  // All real images
+    banners[0]                   // Clone of first image at end
+  ] : [];
+
+  const totalSlides = extendedBanners.length;
 
   return (
     <div className="w-full" data-testid="media-banner-container">
@@ -313,15 +334,26 @@ export default function MediaBanner() {
           <div 
             className="flex h-full transition-transform duration-300 ease-out"
             style={{
-              transform: `translateX(-${currentIndex * (100 / banners.length)}%)`,
-              width: `${banners.length * 100}%`
+              transform: `translateX(-${currentIndex * (100 / totalSlides)}%)`,
+              width: `${totalSlides * 100}%`
             }}
           >
-            {banners.map((banner, index) => (
+            {extendedBanners.map((banner, index) => {
+              // Create unique keys for cloned elements
+              let uniqueKey;
+              if (index === 0) {
+                uniqueKey = `clone-last-${banner.id}`;
+              } else if (index === totalSlides - 1) {
+                uniqueKey = `clone-first-${banner.id}`;
+              } else {
+                uniqueKey = `real-${banner.id}`;
+              }
+              
+              return (
               <div
-                key={banner.id}
+                key={uniqueKey}
                 className="w-full h-full flex-shrink-0"
-                style={{ width: `${100 / banners.length}%` }}
+                style={{ width: `${100 / totalSlides}%` }}
                 data-testid={`banner-card-${index}`}
               >
                 {/* Full width card */}
@@ -370,30 +402,37 @@ export default function MediaBanner() {
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
           
           {/* Card Indicators */}
           {banners.length > 1 && (
             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-              {banners.map((_, index) => (
+              {banners.map((_, index) => {
+                // Calculate real current index (subtract 1 for the cloned element at start)
+                const realCurrentIndex = currentIndex - 1;
+                const isActive = index === realCurrentIndex;
+                
+                return (
                 <button
                   key={index}
                   className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                    index === currentIndex 
+                    isActive
                       ? 'bg-white scale-125 shadow-lg' 
                       : 'bg-white/60 hover:bg-white/80'
                   }`}
                   onClick={() => {
                     if (!isTransitioning && !isDragging) {
                       setIsTransitioning(true);
-                      setCurrentIndex(index);
+                      setCurrentIndex(index + 1); // Add 1 for the cloned element at start
                       setTimeout(() => setIsTransitioning(false), 300);
                     }
                   }}
                   data-testid={`banner-indicator-${index}`}
                 />
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
