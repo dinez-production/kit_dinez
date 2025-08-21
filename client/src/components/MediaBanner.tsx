@@ -49,13 +49,13 @@ export default function MediaBanner() {
     };
   }, [queryClient]);
 
-  // Auto-slide animation (every 4 seconds)
+  // Auto-slide animation (every 8 seconds)
   useEffect(() => {
     if (banners.length <= 1) return;
 
     const interval = setInterval(() => {
       setCurrentIndex((prevIndex) => (prevIndex + 1) % banners.length);
-    }, 4000);
+    }, 8000);
 
     return () => clearInterval(interval);
   }, [banners.length]);
@@ -75,7 +75,7 @@ export default function MediaBanner() {
   return (
     <div className="w-full overflow-hidden" data-testid="media-banner-flow">
       <div 
-        className="flex transition-transform duration-1000 ease-in-out"
+        className="flex transition-transform duration-2000 ease-in-out"
         style={{ 
           transform: `translateX(-${currentIndex * 100}%)`,
           width: `${banners.length * 100}%`
