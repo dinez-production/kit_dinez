@@ -236,7 +236,7 @@ export class DevUpdateDetector {
       }
       
       .refresh-btn {
-        background: #E23744;
+        background: #D63D31;
         color: white;
         border: none;
         padding: 16px 32px;
@@ -258,9 +258,9 @@ export class DevUpdateDetector {
       }
       
       .refresh-btn:hover {
-        background: #c12e3a;
+        background: #b5342a;
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(226, 55, 68, 0.3);
+        box-shadow: 0 4px 12px rgba(214, 61, 49, 0.3);
       }
       
       .refresh-btn:active {
@@ -314,7 +314,7 @@ export class DevUpdateDetector {
           e.stopPropagation();
           
           // Visual feedback
-          refreshBtn.style.background = '#c12e3a';
+          refreshBtn.style.background = '#b5342a';
           refreshBtn.style.transform = 'scale(0.95)';
           refreshBtn.textContent = '🔄 Refreshing...';
           
@@ -328,11 +328,11 @@ export class DevUpdateDetector {
         
         // Hover effects
         refreshBtn.addEventListener('mouseenter', () => {
-          refreshBtn.style.background = '#c12e3a';
+          refreshBtn.style.background = '#b5342a';
         });
         
         refreshBtn.addEventListener('mouseleave', () => {
-          refreshBtn.style.background = '#E23744';
+          refreshBtn.style.background = '#D63D31';
         });
         
         // Ensure button is accessible
@@ -402,7 +402,7 @@ export class DevUpdateDetector {
         .loading-progress {
           width: 100%;
           height: 100%;
-          background: #E23744;
+          background: #D63D31;
           border-radius: 3px;
           animation: progress 2s ease-in-out;
         }
