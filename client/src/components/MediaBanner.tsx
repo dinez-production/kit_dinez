@@ -86,6 +86,7 @@ export default function MediaBanner() {
 
   const handleTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
     if (!isDragging || isTransitioning) return;
+    e.preventDefault();
     
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const diff = clientX - startXRef.current;
@@ -163,10 +164,25 @@ export default function MediaBanner() {
     };
   }, []);
 
-  // Don't render if no banners or still loading
-  if (isLoading || banners.length === 0) {
+  // Show loading state instead of null
+  if (isLoading) {
+    return (
+      <div className="w-full py-6" data-testid="media-banner-container">
+        <div className="relative w-full h-64 overflow-hidden mx-auto max-w-sm">
+          <div className="flex items-center justify-center h-full bg-gray-100 rounded-2xl">
+            <div className="w-10 h-10 border-3 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if no banners
+  if (banners.length === 0) {
     return null;
   }
+
+  console.log('MediaBanner: Rendering with banners:', banners.length, banners);
 
   return (
     <div className="w-full py-6" data-testid="media-banner-container">
@@ -187,7 +203,7 @@ export default function MediaBanner() {
           <div 
             className="flex h-full transition-transform duration-300 ease-out"
             style={{
-              transform: `translateX(calc(-${currentIndex * 100}% + ${isDragging ? dragOffset : 0}px))`,
+              transform: `translateX(-${currentIndex * (100 / banners.length)}%)`,
               width: `${banners.length * 100}%`
             }}
           >
@@ -228,12 +244,6 @@ export default function MediaBanner() {
                     />
                   )}
                   
-                  {/* Loading State */}
-                  {!imagesLoaded[banner.id] && imagesLoaded[banner.id] !== false && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl">
-                      <div className="w-10 h-10 border-3 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
-                    </div>
-                  )}
                   
                   {/* Error State */}
                   {imagesLoaded[banner.id] === false && (
