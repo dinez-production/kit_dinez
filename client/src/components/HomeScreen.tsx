@@ -425,17 +425,6 @@ export default function HomeScreen() {
                   <div className="absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-background via-background/80 to-transparent pointer-events-none" />
                 )}
               </div>
-              
-              {/* Subtle scroll indicator */}
-              {displayCategories.length > 4 && (
-                <div className="flex justify-center mt-2">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 rounded-full bg-primary/40"></div>
-                    <div className="w-2 h-2 rounded-full bg-muted"></div>
-                    <div className="w-2 h-2 rounded-full bg-muted"></div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}
