@@ -123,11 +123,6 @@ export default function MediaBanner() {
   useEffect(() => {
     if (banners.length <= 1 || isDragging) return;
 
-    const currentBanner = banners[currentIndex];
-    if (!currentBanner || !imagesLoaded[currentBanner.id]) {
-      return;
-    }
-
     intervalRef.current = setInterval(() => {
       if (!isTransitioning && !isDragging) {
         setIsTransitioning(true);
@@ -148,7 +143,7 @@ export default function MediaBanner() {
         intervalRef.current = null;
       }
     };
-  }, [banners.length, currentIndex, isTransitioning, imagesLoaded, isDragging]);
+  }, [banners.length, currentIndex, isTransitioning, isDragging]);
 
   // Reset when banners change
   useEffect(() => {
@@ -200,7 +195,7 @@ export default function MediaBanner() {
               <div
                 key={banner.id}
                 className="w-full h-full flex-shrink-0 flex items-center justify-center px-4"
-                style={{ width: '100%' }}
+                style={{ width: `${100 / banners.length}%` }}
                 data-testid={`banner-card-${index}`}
               >
                 {/* Floating Card */}
@@ -228,10 +223,6 @@ export default function MediaBanner() {
                       alt={banner.originalName}
                       className="w-full h-full object-cover rounded-2xl"
                       data-testid={`image-${banner.id}`}
-                      style={{ 
-                        opacity: imagesLoaded[banner.id] === false ? 0.3 : 1,
-                        transition: 'opacity 0.3s ease-in-out'
-                      }}
                       onLoad={() => handleImageLoad(banner.id, index)}
                       onError={() => handleImageError(banner.id, index)}
                     />
