@@ -120,7 +120,7 @@ export default function MediaBanner() {
                       <img
                         src={`/api/media-banners/${banner.fileId}/file`}
                         alt={banner.originalName}
-                        className="w-full h-auto max-h-40 sm:max-h-48 object-contain"
+                        className="w-full h-full max-h-40 sm:max-h-48 object-contain object-center"
                         onError={(e) => {
                           console.error('Failed to load banner image:', banner.id);
                           (e.target as HTMLImageElement).style.display = 'none';
