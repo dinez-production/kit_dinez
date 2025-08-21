@@ -133,23 +133,7 @@ export default function MediaBanner() {
             </div>
           </div>
 
-          {/* Slide indicators */}
-          {hasMultipleBanners && (
-            <div className="flex justify-center space-x-2 py-4">
-              {banners.map((_, index) => (
-                <button
-                  key={index}
-                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                    index === currentIndex
-                      ? 'bg-blue-500 scale-125'
-                      : 'bg-gray-300 hover:bg-gray-400'
-                  }`}
-                  onClick={() => setCurrentIndex(index)}
-                  aria-label={`Go to slide ${index + 1}`}
-                />
-              ))}
-            </div>
-          )}
+          
         </div>
       </div>
     </div>
