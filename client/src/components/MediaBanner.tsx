@@ -209,12 +209,16 @@ export default function MediaBanner() {
     if (Math.abs(dragOffset) > threshold) {
       setIsTransitioning(true);
       
-      if (dragOffset > 0 && currentIndex > 0) {
-        // Swipe right - go to previous
-        setCurrentIndex(currentIndex - 1);
-      } else if (dragOffset < 0 && currentIndex < banners.length - 1) {
-        // Swipe left - go to next
-        setCurrentIndex(currentIndex + 1);
+      if (dragOffset > 0) {
+        // Swipe right - go to previous (with infinite loop)
+        setCurrentIndex((prevIndex) => {
+          return prevIndex > 0 ? prevIndex - 1 : banners.length - 1;
+        });
+      } else if (dragOffset < 0) {
+        // Swipe left - go to next (with infinite loop)
+        setCurrentIndex((prevIndex) => {
+          return (prevIndex + 1) % banners.length;
+        });
       }
       
       setTimeout(() => {
