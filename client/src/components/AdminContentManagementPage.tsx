@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { 
   ArrowLeft, Image, Video, Plus, 
-  Trash2, Eye, Upload, Search, X, Loader2, Play, Pause
+  Trash2, Eye, Upload, Search, X, Loader2, Play, Pause, CheckCircle, XCircle, Clock
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthSync } from "@/hooks/useDataSync";
@@ -27,6 +27,12 @@ export default function AdminContentManagementPage() {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MediaBanner | null>(null);
+  
+  // Multiple file upload state
+  const [uploadProgress, setUploadProgress] = useState<{
+    [key: string]: { name: string; status: 'waiting' | 'uploading' | 'success' | 'error'; error?: string }
+  }>({});
+  const [isMultipleUpload, setIsMultipleUpload] = useState(false);
 
   // Set up SSE connection for real-time updates
   useEffect(() => {
@@ -176,38 +182,139 @@ export default function AdminContentManagementPage() {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (files && files.length > 0) {
-      const file = files[0];
+    if (!files || files.length === 0) return;
+
+    const fileArray = Array.from(files);
+    
+    // Validate all files first
+    const invalidFiles = fileArray.filter(file => 
+      !file.type.startsWith('image/') && !file.type.startsWith('video/') ||
+      file.size > 50 * 1024 * 1024
+    );
+
+    if (invalidFiles.length > 0) {
+      toast({
+        title: "Invalid Files",
+        description: `${invalidFiles.length} file(s) are invalid. Only images/videos under 50MB are allowed.`,
+        variant: "destructive",
+      });
       
-      // Validate file type
-      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-        toast({
-          title: "Invalid File Type",
-          description: "Please select an image or video file.",
-          variant: "destructive",
-        });
+      // Filter out invalid files and continue with valid ones
+      const validFiles = fileArray.filter(file => 
+        (file.type.startsWith('image/') || file.type.startsWith('video/')) &&
+        file.size <= 50 * 1024 * 1024
+      );
+      
+      if (validFiles.length === 0) {
+        if (event.target) {
+          event.target.value = '';
+        }
         return;
       }
+    }
 
-      // Validate file size (50MB limit)
-      if (file.size > 50 * 1024 * 1024) {
-        toast({
-          title: "File Too Large",
-          description: "Please select a file smaller than 50MB.",
-          variant: "destructive",
-        });
-        return;
-      }
+    const validFiles = fileArray.filter(file => 
+      (file.type.startsWith('image/') || file.type.startsWith('video/')) &&
+      file.size <= 50 * 1024 * 1024
+    );
 
-      uploadMediaMutation.mutate(file);
+    if (validFiles.length === 1) {
+      // Single file upload - use existing logic
+      uploadMediaMutation.mutate(validFiles[0]);
+    } else {
+      // Multiple file upload - handle sequentially
+      await handleMultipleFileUpload(validFiles);
     }
     
     // Reset the input
     if (event.target) {
       event.target.value = '';
     }
+  };
+
+  const handleMultipleFileUpload = async (files: File[]) => {
+    setIsMultipleUpload(true);
+    
+    // Initialize progress state
+    const initialProgress: typeof uploadProgress = {};
+    files.forEach((file, index) => {
+      initialProgress[`${index}-${file.name}`] = {
+        name: file.name,
+        status: 'waiting'
+      };
+    });
+    setUploadProgress(initialProgress);
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    // Upload files sequentially
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const fileKey = `${i}-${file.name}`;
+      
+      // Update status to uploading
+      setUploadProgress(prev => ({
+        ...prev,
+        [fileKey]: { ...prev[fileKey], status: 'uploading' }
+      }));
+
+      try {
+        // Create FormData for this file
+        const formData = new FormData();
+        formData.append('file', file);
+        if (user?.id) {
+          formData.append('uploadedBy', user.id.toString());
+        }
+
+        const response = await fetch('/api/media-banners', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Upload failed');
+        }
+
+        // Update status to success
+        setUploadProgress(prev => ({
+          ...prev,
+          [fileKey]: { ...prev[fileKey], status: 'success' }
+        }));
+        successCount++;
+      } catch (error) {
+        // Update status to error
+        setUploadProgress(prev => ({
+          ...prev,
+          [fileKey]: { 
+            ...prev[fileKey], 
+            status: 'error',
+            error: error instanceof Error ? error.message : 'Upload failed'
+          }
+        }));
+        errorCount++;
+      }
+    }
+
+    // Show final result
+    if (successCount > 0) {
+      queryClient.invalidateQueries({ queryKey: ['/api/media-banners'] });
+    }
+    
+    toast({
+      title: "Upload Complete",
+      description: `${successCount} file(s) uploaded successfully${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
+      variant: errorCount === files.length ? "destructive" : "default",
+    });
+
+    // Clear progress after a delay
+    setTimeout(() => {
+      setUploadProgress({});
+      setIsMultipleUpload(false);
+    }, 3000);
   };
 
   // Button handlers for media
@@ -362,6 +469,41 @@ export default function AdminContentManagementPage() {
         </div>
       </div>
 
+      {/* Multiple Upload Progress */}
+      {isMultipleUpload && Object.keys(uploadProgress).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Upload className="h-4 w-4" />
+              <span>Upload Progress</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {Object.entries(uploadProgress).map(([key, progress]) => (
+                <div key={key} className="flex items-center space-x-3 p-2 border rounded-lg">
+                  <div className="flex-shrink-0">
+                    {progress.status === 'waiting' && <Clock className="h-4 w-4 text-gray-400" />}
+                    {progress.status === 'uploading' && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
+                    {progress.status === 'success' && <CheckCircle className="h-4 w-4 text-green-500" />}
+                    {progress.status === 'error' && <XCircle className="h-4 w-4 text-red-500" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{progress.name}</p>
+                    <p className="text-xs text-muted-foreground capitalize">
+                      {progress.status === 'waiting' && 'Waiting...'}
+                      {progress.status === 'uploading' && 'Uploading...'}
+                      {progress.status === 'success' && 'Completed'}
+                      {progress.status === 'error' && `Failed: ${progress.error}`}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Search and Filter Bar */}
       <div className="flex items-center space-x-4">
         <div className="relative flex-1 max-w-md">
@@ -404,6 +546,7 @@ export default function AdminContentManagementPage() {
         ref={fileInputRef}
         onChange={handleFileChange}
         accept="image/*,video/*"
+        multiple
         className="hidden"
       />
 
