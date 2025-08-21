@@ -183,7 +183,10 @@ export default function MediaBanner() {
   const updateSlideWidth = () => {
     if (containerRef.current) {
       const width = containerRef.current.getBoundingClientRect().width;
+      console.log('updateSlideWidth called, container width:', width);
       setSlideWidth(width);
+    } else {
+      console.log('updateSlideWidth called but containerRef is null');
     }
   };
 
@@ -223,8 +226,15 @@ export default function MediaBanner() {
 
   // Move to specific slide with animation
   const moveToSlide = (index: number) => {
-    if (isTransitioning || isDragging) return;
+    console.log('moveToSlide called with index:', index, 'current:', currentIndex);
+    console.log('isTransitioning:', isTransitioning, 'isDragging:', isDragging);
     
+    if (isTransitioning || isDragging) {
+      console.log('Cannot move - already transitioning or dragging');
+      return;
+    }
+    
+    console.log('Setting isTransitioning to true and moving to index:', index);
     setIsTransitioning(true);
     setCurrentIndex(index);
   };
@@ -255,18 +265,25 @@ export default function MediaBanner() {
   const handleTouchEnd = () => {
     if (!isDragging || isTransitioning) return;
     
+    console.log('Touch end - dragOffset:', dragOffset, 'threshold: 80');
+    
     setIsDragging(false);
     const threshold = 80; // Minimum swipe distance
     
     if (Math.abs(dragOffset) > threshold) {
+      console.log('Swipe detected! Direction:', dragOffset > 0 ? 'right (prev)' : 'left (next)');
       // Calculate the target index based on swipe direction
       if (dragOffset > 0) {
         // Swipe right - go to previous (left→right)
+        console.log('Moving to previous slide:', currentIndex - 1);
         moveToSlide(currentIndex - 1);
       } else if (dragOffset < 0) {
         // Swipe left - go to next (right→left)
+        console.log('Moving to next slide:', currentIndex + 1);
         moveToSlide(currentIndex + 1);
       }
+    } else {
+      console.log('Swipe too short, staying on current slide');
     }
     
     // Always reset drag offset
@@ -353,6 +370,9 @@ export default function MediaBanner() {
   
   // Use container width as fallback when slideWidth is not calculated yet
   const effectiveSlideWidth = slideWidth || (containerRef.current?.getBoundingClientRect().width || 320);
+  
+  // Debug logging
+  console.log('Render - slideWidth:', slideWidth, 'effectiveSlideWidth:', effectiveSlideWidth, 'currentIndex:', currentIndex);
 
   return (
     <div className="w-full" data-testid="media-banner-container">
