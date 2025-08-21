@@ -185,9 +185,9 @@ export default function MediaBanner() {
   console.log('MediaBanner: Rendering with banners:', banners.length, banners);
 
   return (
-    <div className="w-full py-6" data-testid="media-banner-container">
-      {/* Properly contained carousel */}
-      <div className="relative w-full h-64 overflow-hidden mx-auto max-w-sm">
+    <div className="w-full" data-testid="media-banner-container">
+      {/* Full width carousel */}
+      <div className="relative w-full h-64 overflow-hidden">
         <div 
           ref={containerRef}
           className="relative w-full h-full cursor-grab active:cursor-grabbing"
@@ -210,12 +210,12 @@ export default function MediaBanner() {
             {banners.map((banner, index) => (
               <div
                 key={banner.id}
-                className="w-full h-full flex-shrink-0 flex items-center justify-center px-4"
+                className="w-full h-full flex-shrink-0"
                 style={{ width: `${100 / banners.length}%` }}
                 data-testid={`banner-card-${index}`}
               >
-                {/* Floating Card */}
-                <div className="w-full max-w-xs h-52 rounded-2xl shadow-2xl bg-gradient-to-br from-white to-gray-50 overflow-hidden transform hover:scale-105 transition-transform duration-200">
+                {/* Full width card */}
+                <div className="w-full h-full rounded-2xl overflow-hidden shadow-lg">
                   {/* Card Content */}
                   {banner.type === 'video' ? (
                     <video
@@ -262,32 +262,32 @@ export default function MediaBanner() {
               </div>
             ))}
           </div>
+          
+          {/* Card Indicators */}
+          {banners.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+              {banners.map((_, index) => (
+                <button
+                  key={index}
+                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                    index === currentIndex 
+                      ? 'bg-white scale-125 shadow-lg' 
+                      : 'bg-white/60 hover:bg-white/80'
+                  }`}
+                  onClick={() => {
+                    if (!isTransitioning && !isDragging) {
+                      setIsTransitioning(true);
+                      setCurrentIndex(index);
+                      setTimeout(() => setIsTransitioning(false), 300);
+                    }
+                  }}
+                  data-testid={`banner-indicator-${index}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Card Indicators */}
-      {banners.length > 1 && (
-        <div className="flex justify-center mt-4 space-x-2">
-          {banners.map((_, index) => (
-            <button
-              key={index}
-              className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                index === currentIndex 
-                  ? 'bg-blue-500 scale-125 shadow-lg' 
-                  : 'bg-gray-300 hover:bg-gray-400'
-              }`}
-              onClick={() => {
-                if (!isTransitioning && !isDragging) {
-                  setIsTransitioning(true);
-                  setCurrentIndex(index);
-                  setTimeout(() => setIsTransitioning(false), 300);
-                }
-              }}
-              data-testid={`banner-indicator-${index}`}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 }
