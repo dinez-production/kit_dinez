@@ -81,8 +81,8 @@ export default function MediaBanner() {
   return (
     <div className="animate-fade-in">
       <div className="relative w-full bg-background p-4">
-        {/* Elevated container with soft shadow */}
-        <div className="bg-white rounded-3xl shadow-lg shadow-gray-200/50 overflow-hidden">
+        {/* Media container */}
+        <div className="overflow-hidden">
           {/* Horizontal scrolling container */}
           <div className="relative overflow-hidden">
             <div 
@@ -104,7 +104,7 @@ export default function MediaBanner() {
                   <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 mx-4">
                     {banner.type === 'video' ? (
                       <video
-                        className="w-full h-auto max-h-32 sm:max-h-40 object-contain"
+                        className="w-full h-auto max-h-40 sm:max-h-48 object-contain"
                         autoPlay
                         muted
                         loop
@@ -120,7 +120,7 @@ export default function MediaBanner() {
                       <img
                         src={`/api/media-banners/${banner.fileId}/file`}
                         alt={banner.originalName}
-                        className="w-full h-auto max-h-32 sm:max-h-40 object-contain"
+                        className="w-full h-auto max-h-40 sm:max-h-48 object-contain"
                         onError={(e) => {
                           console.error('Failed to load banner image:', banner.id);
                           (e.target as HTMLImageElement).style.display = 'none';
@@ -135,7 +135,7 @@ export default function MediaBanner() {
 
           {/* Slide indicators */}
           {hasMultipleBanners && (
-            <div className="flex justify-center space-x-2 py-4 bg-white">
+            <div className="flex justify-center space-x-2 py-4">
               {banners.map((_, index) => (
                 <button
                   key={index}
