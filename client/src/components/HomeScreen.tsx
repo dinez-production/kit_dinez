@@ -361,27 +361,6 @@ export default function HomeScreen() {
           </div>
         )}
 
-        {/* Quick Stats - Hidden when searching */}
-        {!searchQuery.trim() && (
-          <Card className="bg-white shadow-lg">
-            <CardContent className="p-4">
-              <div className="grid grid-cols-4 gap-4">
-                {quickStats.map((stat, index) => {
-                  const IconComponent = stat.icon;
-                  return (
-                    <div key={index} className="text-center">
-                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
-                        <IconComponent className="w-5 h-5 text-primary" />
-                      </div>
-                      <p className="text-sm font-semibold">{stat.label}</p>
-                      <p className="text-xs text-muted-foreground">{stat.sublabel}</p>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Quick Orders - Hidden when searching */}
         {!searchQuery.trim() && (
