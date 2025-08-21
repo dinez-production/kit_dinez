@@ -182,7 +182,6 @@ export default function MediaBanner() {
     return null;
   }
 
-  console.log('MediaBanner: Rendering with banners:', banners.length, banners);
 
   return (
     <div className="w-full" data-testid="media-banner-container">
