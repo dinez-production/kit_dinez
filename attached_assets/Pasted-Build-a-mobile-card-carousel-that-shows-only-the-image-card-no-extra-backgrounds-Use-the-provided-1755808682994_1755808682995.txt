@@ -1,0 +1,62 @@
+Build a mobile card carousel that shows only the image card (no extra backgrounds).
+Use the provided images at their exact intrinsic size — no zoom, no resize, no crop.
+Remove the side white background and the thin background strip above the image so only the card is visible.
+Each slide is a card with rounded corners and a soft shadow (still a card, not a flat/static image).
+
+Behavior
+
+One card per view. A single swipe always moves exactly one card.
+
+Forward swipes (left→right): 1 → 2 → 3 → 4 → 5 (and so on).
+
+Backward swipes (right→left): 5 → 4 → 3 → 2 → 1.
+
+Infinite loop:
+
+From slide 5, a right→left swipe must smoothly wrap to slide 1.
+
+From slide 1, a left→right swipe must smoothly wrap to slide 5.
+
+The transition between neighboring cards must feel connected (cards visually “join” as they move).
+
+Critical bug to fix (current issue)
+
+When wrapping 5 → 1, there is a momentary flash where it briefly lands on 1, then instantly “replays” 5→4→3→2→1 in a millisecond.
+
+Eliminate this glitch so the wrap 5 → 1 is a single, clean animation with no flicker, no double-landing, and no phantom pass through other slides.
+
+Implementation requirements
+
+Use the standard infinite-carousel pattern with cloned slides (clone of last before first, clone of first after last).
+
+During a wrap:
+
+Animate into the clone. On transitionend, instantly jump to the corresponding real slide without animation.
+
+Use a transition lock (isTransitioning) so user input doesn’t trigger extra moves mid-transition.
+
+Temporarily set transition: none, perform the index reset, then re-enable transition on the next animation frame (double requestAnimationFrame) to avoid reflow-induced flicker.
+
+Use transform: translate3d(...) (GPU accelerated) and will-change: transform.
+
+Compute slide width from getBoundingClientRect() after images load; update on resize.
+
+Ensure each slide width is identical to the image width to prevent sub-pixel drift.
+
+Passive touch listeners, pointer capture, and a velocity/threshold so quick swipes still advance one slide.
+
+Container must be overflow: hidden; no scroll-snap; no auto-zoom.
+
+Do not re-render or remount slides on each move; only update the translate value/index.
+
+Acceptance criteria
+
+No side white background or top strip—only the card is visible with rounded corners + shadow.
+
+Images are displayed at original size (no zoom/resize).
+
+Single-swipe → single-step movement.
+
+Wraps 1 ↔ 5 are seamless: no flicker, no double jump, no phantom pass through intermediate slides.
+
+Rapid swipes do not break the animation or index.
