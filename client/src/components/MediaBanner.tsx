@@ -135,7 +135,7 @@ export default function MediaBanner() {
 
   return (
     <div className="w-full py-4" data-testid="media-banner-container">
-      <div className="relative w-full h-64 overflow-hidden">
+      <div className="relative w-full h-72 overflow-hidden">
         {/* Banner slides */}
         <div 
           className="flex h-full transition-transform duration-700 ease-in-out"
@@ -147,7 +147,7 @@ export default function MediaBanner() {
           {banners.map((banner, index) => (
             <div 
               key={banner.id}
-              className="h-full flex-shrink-0 px-4 flex items-center justify-center"
+              className="h-full flex-shrink-0 px-2 flex items-center justify-center"
               style={{ width: `${100 / banners.length}%` }}
               data-testid={`banner-slide-${index}`}
             >
