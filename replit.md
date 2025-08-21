@@ -30,14 +30,7 @@ Authentication supports **Google OAuth** and guest access, with **role-based per
 **Push Notifications:** Native Web Push API with VAPID keys (web-push) - Replaced Firebase and OneSignal
 **Utilities & Helpers:** date-fns, clsx, class-variance-authority, zod, nanoid
 
-# Recent Changes (August 21, 2025)
-- **Color Scheme Update**: Updated application color scheme from #E23744 to #D63D31 throughout the codebase
-  - **CSS Variables**: Updated primary color theme in index.css with new HSL values (349 70% 49%)
-  - **Component Colors**: Updated primary-light, primary-dark, ring, and accent colors to match new scheme
-  - **Development Tools**: Updated devUpdateDetector.ts modal colors and hover states
-  - **UI Consistency**: All buttons, focus rings, and brand elements now use the new #D63D31 color
-
-# Previous Changes (August 20, 2025)
+# Recent Changes (August 20, 2025)
 - **Media Banner Management System**: Implemented comprehensive media banner system for dynamic content display
   - **GridFS Storage**: Large media files (images/videos) stored in MongoDB using GridFS for optimal performance
   - **Admin Interface**: Complete media management panel in Admin → Content Management → Media tab
