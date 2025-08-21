@@ -209,29 +209,35 @@ export default function MediaBanner() {
     if (Math.abs(dragOffset) > threshold) {
       setIsTransitioning(true);
       
+      // Calculate the target index based on swipe direction
+      let targetIndex = currentIndex;
       if (dragOffset > 0) {
         // Swipe right - go to previous
-        setCurrentIndex((prevIndex) => prevIndex - 1);
+        targetIndex = currentIndex - 1;
       } else if (dragOffset < 0) {
         // Swipe left - go to next
-        setCurrentIndex((prevIndex) => prevIndex + 1);
+        targetIndex = currentIndex + 1;
       }
       
+      // Set the target index (this will show the smooth animation)
+      setCurrentIndex(targetIndex);
+      
+      // After animation completes, handle boundary cases
       setTimeout(() => {
-        setIsTransitioning(false);
-        setDragOffset(0);
-        
-        // Handle infinite loop transitions after animation
         setCurrentIndex((prevIndex) => {
+          // Handle infinite loop boundaries
           if (prevIndex === 0) {
-            // If we went before the first real image, jump to last real image
+            // Went before first real image, jump to last real image
             return banners.length;
           } else if (prevIndex === banners.length + 1) {
-            // If we went past the last real image, jump to first real image
+            // Went past last real image, jump to first real image
             return 1;
           }
           return prevIndex;
         });
+        
+        setIsTransitioning(false);
+        setDragOffset(0);
       }, 300);
     } else {
       // Snap back to current position
