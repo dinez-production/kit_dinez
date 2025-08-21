@@ -84,36 +84,38 @@ export default function MediaBanner() {
         {banners.map((banner, index) => (
           <div 
             key={banner.id}
-            className="w-full flex-shrink-0"
+            className="w-full flex-shrink-0 px-4"
             style={{ width: `${100 / banners.length}%` }}
             data-testid={`banner-${index}`}
           >
-            {banner.type === 'video' ? (
-              <video
-                className="w-full h-auto object-cover"
-                autoPlay
-                muted
-                loop
-                playsInline
-                data-testid={`video-${banner.id}`}
-              >
-                <source 
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
+              {banner.type === 'video' ? (
+                <video
+                  className="w-full h-48 object-cover"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  data-testid={`video-${banner.id}`}
+                >
+                  <source 
+                    src={`/api/media-banners/${banner.fileId}/file`}
+                    type={banner.mimeType}
+                  />
+                </video>
+              ) : (
+                <img
                   src={`/api/media-banners/${banner.fileId}/file`}
-                  type={banner.mimeType}
+                  alt={banner.originalName}
+                  className="w-full h-48 object-cover"
+                  data-testid={`image-${banner.id}`}
+                  onError={(e) => {
+                    console.error('Failed to load banner image:', banner.id);
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
                 />
-              </video>
-            ) : (
-              <img
-                src={`/api/media-banners/${banner.fileId}/file`}
-                alt={banner.originalName}
-                className="w-full h-auto object-cover"
-                data-testid={`image-${banner.id}`}
-                onError={(e) => {
-                  console.error('Failed to load banner image:', banner.id);
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
-            )}
+              )}
+            </div>
           </div>
         ))}
       </div>
