@@ -88,8 +88,8 @@ export default function MediaBanner() {
             <div 
               className="flex transition-transform duration-500 ease-in-out"
               style={{ 
-                transform: `translateX(-${currentIndex * (hasMultipleBanners ? 50 : 100)}%)`,
-                width: hasMultipleBanners ? `${banners.length * 50}%` : '100%'
+                transform: `translateX(-${currentIndex * 100}%)`,
+                width: `${banners.length * 100}%`
               }}
               onMouseEnter={() => setIsAutoPlaying(false)}
               onMouseLeave={() => setIsAutoPlaying(true)}
@@ -97,11 +97,11 @@ export default function MediaBanner() {
               {banners.map((banner, index) => (
                 <div 
                   key={banner.id}
-                  className={`flex-shrink-0 ${hasMultipleBanners ? 'w-1/2 pr-2' : 'w-full'}`}
-                  style={{ width: hasMultipleBanners ? '50%' : '100%' }}
+                  className="flex-shrink-0 w-full"
+                  style={{ width: '100%' }}
                 >
                   {/* Individual media card */}
-                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 mx-2">
+                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 mx-4">
                     {banner.type === 'video' ? (
                       <video
                         className="w-full h-48 sm:h-64 object-cover"
