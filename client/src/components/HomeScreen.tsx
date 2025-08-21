@@ -395,7 +395,7 @@ export default function HomeScreen() {
             <div className="relative">
               {/* Horizontal scrolling container */}
               <div 
-                className="grid grid-rows-2 grid-flow-col auto-cols-[140px] gap-3 overflow-x-auto pb-2 scrollbar-hide"
+                className="grid grid-rows-2 grid-flow-col auto-cols-[120px] gap-2.5 overflow-x-auto pb-2 scrollbar-hide"
                 style={{
                   scrollbarWidth: 'none',
                   msOverflowStyle: 'none'
@@ -406,14 +406,16 @@ export default function HomeScreen() {
                   return (
                     <Card
                       key={index}
-                      className="cursor-pointer hover:shadow-md transition-shadow flex-shrink-0 w-[132px]"
+                      className="cursor-pointer hover:shadow-md transition-shadow flex-shrink-0 w-[112px]"
                       onClick={() => setLocation(category.route)}
                     >
-                      <CardContent className="p-3 text-center h-full flex flex-col justify-center">
-                        <div className={`w-10 h-10 ${category.color} rounded-lg flex items-center justify-center mx-auto mb-2`}>
-                          <IconComponent className="w-5 h-5 text-white" />
+                      <CardContent className="p-2.5 text-center h-full flex flex-col justify-center">
+                        <div className={`w-9 h-9 ${category.color} rounded-lg flex items-center justify-center mx-auto mb-1.5`}>
+                          <IconComponent className="w-4 h-4 text-white" />
                         </div>
-                        <p className="text-xs font-medium leading-tight">{category.name}</p>
+                        <p className="text-xs font-medium leading-tight truncate px-1" title={category.name}>
+                          {category.name}
+                        </p>
                       </CardContent>
                     </Card>
                   );
