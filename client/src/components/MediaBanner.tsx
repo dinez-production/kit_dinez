@@ -17,7 +17,9 @@ export default function MediaBanner() {
       if (!response.ok) {
         throw new Error('Failed to fetch media banners');
       }
-      return await response.json();
+      const data = await response.json();
+      console.log('MediaBanner: Fetched banners:', data.length, data);
+      return data;
     },
     staleTime: 1000 * 30,
     refetchOnMount: true,
@@ -53,12 +55,13 @@ export default function MediaBanner() {
   }, [queryClient]);
 
   // Handle image loading
-  const handleImageLoad = (bannerId: string) => {
+  const handleImageLoad = (bannerId: string, index: number) => {
+    console.log(`MediaBanner: Image ${index + 1} loaded successfully:`, bannerId);
     setImagesLoaded(prev => ({ ...prev, [bannerId]: true }));
   };
 
-  const handleImageError = (bannerId: string) => {
-    console.error('Failed to load banner image:', bannerId);
+  const handleImageError = (bannerId: string, index: number) => {
+    console.error(`MediaBanner: Image ${index + 1} failed to load:`, bannerId);
     setImagesLoaded(prev => ({ ...prev, [bannerId]: false }));
   };
 
@@ -85,6 +88,7 @@ export default function MediaBanner() {
         setIsTransitioning(true);
         setCurrentIndex((prevIndex) => {
           const nextIndex = (prevIndex + 1) % banners.length;
+          console.log(`MediaBanner: Sliding from ${prevIndex + 1} to ${nextIndex + 1}`);
           return nextIndex;
         });
         
@@ -93,7 +97,7 @@ export default function MediaBanner() {
           setIsTransitioning(false);
         }, 800); // Match transition duration
       }
-    }, 6000); // 6 seconds between slides
+    }, 5000); // 5 seconds between slides
 
     return () => {
       if (intervalRef.current) {
@@ -136,14 +140,14 @@ export default function MediaBanner() {
         <div 
           className="flex h-full transition-transform duration-700 ease-in-out"
           style={{ 
-            transform: `translateX(-${currentIndex * 100}%)`,
+            transform: `translateX(-${currentIndex * (100 / banners.length)}%)`,
             width: `${banners.length * 100}%`
           }}
         >
           {banners.map((banner, index) => (
             <div 
               key={banner.id}
-              className="w-full h-full flex-shrink-0 px-4"
+              className="h-full flex-shrink-0 px-4 flex items-center justify-center"
               style={{ width: `${100 / banners.length}%` }}
               data-testid={`banner-slide-${index}`}
             >
@@ -156,8 +160,8 @@ export default function MediaBanner() {
                     loop
                     playsInline
                     data-testid={`video-${banner.id}`}
-                    onLoadedData={() => handleImageLoad(banner.id)}
-                    onError={() => handleImageError(banner.id)}
+                    onLoadedData={() => handleImageLoad(banner.id, index)}
+                    onError={() => handleImageError(banner.id, index)}
                   >
                     <source 
                       src={`/api/media-banners/${banner.fileId}/file`}
@@ -170,8 +174,8 @@ export default function MediaBanner() {
                     alt={banner.originalName}
                     className="w-full h-full object-cover"
                     data-testid={`image-${banner.id}`}
-                    onLoad={() => handleImageLoad(banner.id)}
-                    onError={() => handleImageError(banner.id)}
+                    onLoad={() => handleImageLoad(banner.id, index)}
+                    onError={() => handleImageError(banner.id, index)}
                     style={{ 
                       opacity: imagesLoaded[banner.id] === false ? 0.3 : 1,
                       transition: 'opacity 0.3s ease-in-out'
