@@ -71,45 +71,37 @@ export default function LoginScreen() {
           return;
         }
         
-        if (userData.isProfileComplete) {
-          // Profile is complete, login normally
-          const userDisplayData = {
-            id: userData.id,
-            name: userData.name,
-            email: userData.email,
-            role: userData.role,
-            phoneNumber: userData.phoneNumber,
-            ...(userData.role === "student" && {
-              registerNumber: userData.registerNumber,
-              department: userData.department,
-              currentStudyYear: userData.currentStudyYear,
-              isPassed: userData.isPassed,
-            }),
-            ...(userData.role === "staff" && {
-              staffId: userData.staffId,
-            }),
-          };
-          
-          // Use the proper login function to maintain authentication state
-          login(userDisplayData);
-          
-          // Redirect based on role (handle both naming conventions)
-          if (userData.role === 'super_admin' || userData.role === 'admin') {
-            toast({ title: "Welcome Super Admin!", description: "Access to all system controls" });
-            setLocation("/admin");
-          } else if (userData.role === 'canteen_owner' || userData.role === 'canteen-owner') {
-            toast({ title: "Welcome Canteen Owner!", description: "Manage your canteen operations" });
-            setLocation("/canteen-owner-dashboard");
-          } else {
-            toast({ title: `Welcome ${userData.role === 'staff' ? 'Staff' : 'Student'}!`, description: "Explore delicious menu options" });
-            setLocation("/home");
-          }
+        // Login user directly without profile completion check
+        const userDisplayData = {
+          id: userData.id,
+          name: userData.name,
+          email: userData.email,
+          role: userData.role,
+          phoneNumber: userData.phoneNumber || '',
+          ...(userData.role === "student" && {
+            registerNumber: userData.registerNumber || '',
+            department: userData.department || '',
+            currentStudyYear: userData.currentStudyYear?.toString() || '1',
+            isPassed: userData.isPassed || false,
+          }),
+          ...(userData.role === "staff" && {
+            staffId: userData.staffId || '',
+          }),
+        };
+        
+        // Use the proper login function to maintain authentication state
+        login(userDisplayData);
+        
+        // Redirect based on role (handle both naming conventions)
+        if (userData.role === 'super_admin' || userData.role === 'admin') {
+          toast({ title: "Welcome Super Admin!", description: "Access to all system controls" });
+          setLocation("/admin");
+        } else if (userData.role === 'canteen_owner' || userData.role === 'canteen-owner') {
+          toast({ title: "Welcome Canteen Owner!", description: "Manage your canteen operations" });
+          setLocation("/canteen-owner-dashboard");
         } else {
-          // Profile exists but incomplete, redirect to setup
-          setNeedsProfileSetup({
-            email: user.email,
-            name: user.displayName || '',
-          });
+          toast({ title: `Welcome ${userData.role === 'staff' ? 'Staff' : 'Student'}!`, description: "Explore delicious menu options" });
+          setLocation("/home");
         }
       } else if (userResponse.status === 404) {
         // User doesn't exist - check for special admin accounts
@@ -193,7 +185,11 @@ export default function LoginScreen() {
         name: 'Dev Test User',
         email: 'dev.test@kitcanteen.local',
         role: 'student',
-        isProfileComplete: true
+        phoneNumber: '+91-9876543210',
+        registerNumber: 'DEV001',
+        department: 'Computer Science',
+        currentStudyYear: '3',
+        isPassed: false
       };
       
       // Log in the dev user directly
