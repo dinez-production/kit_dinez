@@ -200,7 +200,7 @@ export default function MediaBanner() {
               <div
                 key={banner.id}
                 className="w-full h-full flex-shrink-0 flex items-center justify-center px-4"
-                style={{ width: `${100 / banners.length}%` }}
+                style={{ width: '100%' }}
                 data-testid={`banner-card-${index}`}
               >
                 {/* Floating Card */}
