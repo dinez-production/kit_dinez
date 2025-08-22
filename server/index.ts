@@ -5,13 +5,11 @@ import { performStartupCheck } from "./startup-check";
 import { performStartupSchemaCheck } from "./startup-schema-check";
 
 const app = express();
+
+// Apply JSON parser only for application/json content type
 app.use(express.json({ 
   limit: '50mb',
-  type: (req) => {
-    // Skip JSON parsing for multipart requests (file uploads)
-    const contentType = req.headers['content-type'] || '';
-    return !contentType.startsWith('multipart/');
-  }
+  type: 'application/json'
 }));
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
