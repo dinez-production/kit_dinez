@@ -671,7 +671,8 @@ export default function AdminCouponManagement() {
                         size="sm"
                         onClick={() => {
                           setShowAssignDialog(coupon.id);
-                          setSelectedUsers([]);
+                          // Pre-select currently assigned users
+                          setSelectedUsers(coupon.assignedUsers || []);
                         }}
                         data-testid={`button-assign-users-${coupon.id}`}
                         title="Assign to specific users"
@@ -923,6 +924,11 @@ export default function AdminCouponManagement() {
                 <div className="text-sm font-medium text-blue-700 dark:text-blue-300">
                   {selectedUsers.length} user(s) selected for assignment
                 </div>
+                {showAssignDialog && coupons.find((c: Coupon) => c.id === showAssignDialog)?.assignedUsers?.length && (
+                  <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                    ({coupons.find((c: Coupon) => c.id === showAssignDialog)?.assignedUsers?.length || 0} currently assigned)
+                  </div>
+                )}
               </div>
             )}
           </div>
