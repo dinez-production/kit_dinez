@@ -422,11 +422,11 @@ export default function MediaBanner() {
                 data-testid={`banner-card-${index}`}
               >
                 {/* Image card with full size */}
-                <div className="rounded-2xl overflow-hidden shadow-lg w-full h-full">
+                <div className="overflow-hidden shadow-lg w-full h-full">
                   {/* Card Content */}
                   {banner.type === 'video' ? (
                     <video
-                      className="w-full h-full object-cover rounded-2xl"
+                      className="w-full h-full object-cover"
                       style={{
                         width: '100%',
                         height: '100%'
@@ -451,7 +451,7 @@ export default function MediaBanner() {
                     <img
                       src={`/api/media-banners/${banner.fileId}/file`}
                       alt={banner.originalName}
-                      className="w-full h-full object-cover rounded-2xl"
+                      className="w-full h-full object-cover"
                       style={{
                         width: '100%',
                         height: '100%'
@@ -468,7 +468,7 @@ export default function MediaBanner() {
                   
                   {/* Error State */}
                   {imagesLoaded[banner.id] === false && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl text-gray-500">
+                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-gray-500">
                       <div className="text-center">
                         <div className="w-12 h-12 mx-auto mb-2 bg-gray-300 rounded-full flex items-center justify-center">
                           <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
