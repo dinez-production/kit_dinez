@@ -377,7 +377,7 @@ export default function MediaBanner() {
   return (
     <div className="w-full" data-testid="media-banner-container">
       {/* Full width carousel */}
-      <div className="relative w-full h-64 overflow-hidden">
+      <div className="relative w-full aspect-[2/1] overflow-hidden">
         <div 
           ref={containerRef}
           className="relative w-full h-full cursor-grab active:cursor-grabbing"
@@ -421,17 +421,15 @@ export default function MediaBanner() {
                 style={{ width: `${effectiveSlideWidth}px` }}
                 data-testid={`banner-card-${index}`}
               >
-                {/* Image card with intrinsic size */}
-                <div className="rounded-2xl overflow-hidden shadow-lg max-w-full max-h-full">
+                {/* Image card with full size */}
+                <div className="rounded-2xl overflow-hidden shadow-lg w-full h-full">
                   {/* Card Content */}
                   {banner.type === 'video' ? (
                     <video
-                      className="max-w-full max-h-full object-contain rounded-2xl"
+                      className="w-full h-full object-cover rounded-2xl"
                       style={{
-                        width: 'auto',
-                        height: 'auto',
-                        maxWidth: '100%',
-                        maxHeight: '100%'
+                        width: '100%',
+                        height: '100%'
                       }}
                       autoPlay
                       muted
@@ -453,12 +451,10 @@ export default function MediaBanner() {
                     <img
                       src={`/api/media-banners/${banner.fileId}/file`}
                       alt={banner.originalName}
-                      className="max-w-full max-h-full object-contain rounded-2xl"
+                      className="w-full h-full object-cover rounded-2xl"
                       style={{
-                        width: 'auto',
-                        height: 'auto',
-                        maxWidth: '100%',
-                        maxHeight: '100%'
+                        width: '100%',
+                        height: '100%'
                       }}
                       data-testid={`image-${banner.id}`}
                       onLoad={() => {
