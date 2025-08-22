@@ -6,12 +6,28 @@ import { performStartupSchemaCheck } from "./startup-schema-check";
 
 const app = express();
 
-// Apply JSON parser only for application/json content type
-app.use(express.json({ 
-  limit: '50mb',
-  type: 'application/json'
-}));
-app.use(express.urlencoded({ extended: false, limit: '50mb' }));
+// Custom middleware to selectively apply body parsing
+app.use((req, res, next) => {
+  const contentType = req.headers['content-type'] || '';
+  
+  // Skip all body parsing for multipart requests (file uploads)
+  if (contentType.startsWith('multipart/')) {
+    return next();
+  }
+  
+  // Apply JSON parsing for application/json content
+  if (contentType.startsWith('application/json')) {
+    return express.json({ limit: '50mb' })(req, res, next);
+  }
+  
+  // Apply URL-encoded parsing for form data
+  if (contentType.startsWith('application/x-www-form-urlencoded')) {
+    return express.urlencoded({ extended: false, limit: '50mb' })(req, res, next);
+  }
+  
+  // Skip parsing for other content types
+  next();
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
