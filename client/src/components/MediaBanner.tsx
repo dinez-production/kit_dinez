@@ -199,7 +199,7 @@ export default function MediaBanner() {
     
     if (!isTransitioning) return;
     
-    // Check if we need to jump to real slide after clone transition
+    // For auto-slide only, check if we need to jump to real slide after clone transition
     if (currentIndex === 0) {
       // At clone of last image, jump to real last image
       console.log('At clone start, jumping to real last slide:', banners.length);
@@ -237,7 +237,7 @@ export default function MediaBanner() {
     });
   };
 
-  // Move to specific slide with animation
+  // Move to specific slide with animation (used for auto-slide and indicators)
   const moveToSlide = (index: number) => {
     console.log('moveToSlide called with index:', index, 'current:', currentIndex);
     console.log('isTransitioning:', isTransitioning, 'isDragging:', isDragging);
@@ -276,46 +276,43 @@ export default function MediaBanner() {
   };
 
   const handleTouchEnd = () => {
-    if (!isDragging || isTransitioning || isSingleBanner) return; // Disable for single banner
+    if (!isDragging || isSingleBanner) return; // Disable for single banner
     
-    console.log('Touch end - dragOffset:', dragOffset, 'threshold: 80');
+    console.log('Touch end - dragOffset:', dragOffset, 'threshold: 80, currentIndex:', currentIndex);
     
     const threshold = 80; // Minimum swipe distance
+    
+    // Reset dragging state first
+    setIsDragging(false);
     
     if (Math.abs(dragOffset) > threshold) {
       console.log('Swipe detected! Direction:', dragOffset > 0 ? 'right (prev)' : 'left (next)');
       
-      // Calculate target index ensuring we stay within real slide bounds
-      let targetIndex;
+      // Simple approach: calculate real target slide and set directly
+      let targetRealIndex;
+      const realCurrentIndex = currentIndex - 1; // Convert to 0-based real index
       
       if (dragOffset > 0) {
         // Swipe right - go to previous
-        if (currentIndex === 1) {
-          // At first real slide, go to last real slide via clone
-          targetIndex = 0; // This will trigger jump to last real slide
-        } else {
-          // Normal previous slide
-          targetIndex = currentIndex - 1;
-        }
+        targetRealIndex = realCurrentIndex === 0 ? banners.length - 1 : realCurrentIndex - 1;
       } else {
         // Swipe left - go to next
-        if (currentIndex === banners.length) {
-          // At last real slide, go to first real slide via clone
-          targetIndex = banners.length + 1; // This will trigger jump to first real slide
-        } else {
-          // Normal next slide
-          targetIndex = currentIndex + 1;
-        }
+        targetRealIndex = realCurrentIndex === banners.length - 1 ? 0 : realCurrentIndex + 1;
       }
       
-      console.log('Moving to target slide:', targetIndex);
-      moveToSlide(targetIndex);
+      // Convert back to extended array index
+      const targetIndex = targetRealIndex + 1;
+      
+      console.log('Real current index:', realCurrentIndex, 'Target real index:', targetRealIndex, 'Target index:', targetIndex);
+      
+      // Set transition state and move directly
+      setIsTransitioning(true);
+      setCurrentIndex(targetIndex);
     } else {
       console.log('Swipe too short, staying on current slide');
     }
     
-    // Always reset drag offset and dragging state
-    setIsDragging(false);
+    // Always reset drag offset
     setDragOffset(0);
   };
 
