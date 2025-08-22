@@ -71,7 +71,7 @@ const CacheUtils = {
 };
 
 export default function MediaBanner() {
-  const [currentIndex, setCurrentIndex] = useState(1); // Start at 1 (first real image)
+  const [currentIndex, setCurrentIndex] = useState(0); // Start at 0 (first image in cyclic queue)
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [imagesLoaded, setImagesLoaded] = useState<Record<string, boolean>>({});
   const [dragOffset, setDragOffset] = useState(0);
@@ -193,90 +193,18 @@ export default function MediaBanner() {
     }
   };
 
-  // Handle transition end for seamless cyclic loop
+  // Handle transition end for cyclic queue
   const handleTransitionEnd = () => {
-    console.log('Transition ended at index:', currentIndex, 'isTransitioning:', isTransitioning);
+    console.log('Cyclic queue: Transition ended at index:', currentIndex);
     
     if (!isTransitioning) return;
     
-    // Check if we're at a clone and need to jump to real slide for seamless cycle
-    if (currentIndex === 0) {
-      // At clone of last image (start), jump seamlessly to real last image
-      console.log('Cyclic: At start clone, jumping to real last slide:', banners.length);
-      // Add small delay to make transition smoother
-      setTimeout(() => {
-        jumpToSlide(banners.length);
-      }, 150);
-    } else if (currentIndex === banners.length + 1) {
-      // At clone of first image (end), jump seamlessly to real first image  
-      console.log('Cyclic: At end clone, jumping to real first slide: 1');
-      // Add small delay to make transition smoother
-      setTimeout(() => {
-        jumpToSlide(1);
-      }, 150);
-    } else {
-      // Normal transition end on real slides, just reset transitioning state
-      console.log('Normal transition end, staying at real slide:', currentIndex);
-      setIsTransitioning(false);
-    }
+    // Simple - just reset transitioning state, no jumps needed in cyclic queue
+    setIsTransitioning(false);
+    console.log('Cyclic queue: Ready for next transition');
   };
 
-  // Jump to slide without animation (for seamless cyclic transitions)
-  const jumpToSlide = (index: number) => {
-    if (!slidesRef.current) return;
-    
-    console.log('Cyclic jump to slide:', index);
-    
-    // Add subtle fade effect to mask the jump
-    slidesRef.current.style.transition = 'opacity 200ms ease-out';
-    slidesRef.current.style.opacity = '0.5';
-    
-    setTimeout(() => {
-      if (!slidesRef.current) return;
-      
-      // Disable transform transitions for the jump
-      slidesRef.current.style.transition = 'none';
-      setCurrentIndex(index);
-      
-      // Re-enable transitions with fade back in
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (slidesRef.current) {
-            slidesRef.current.style.transition = 'transform 600ms cubic-bezier(0.23, 1, 0.32, 1), opacity 300ms ease-out';
-            slidesRef.current.style.opacity = '1';
-          }
-          // Reset transitioning state after seamless jump
-          setTimeout(() => {
-            setIsTransitioning(false);
-            console.log('Cyclic jump completed, now at real slide:', index);
-          }, 200);
-        });
-      });
-    }, 150);
-  };
 
-  // Move to specific slide with animation (used for auto-slide and indicators)
-  const moveToSlide = (index: number) => {
-    console.log('moveToSlide called with index:', index, 'current:', currentIndex);
-    console.log('isTransitioning:', isTransitioning, 'isDragging:', isDragging);
-    
-    if (isTransitioning || isDragging) {
-      console.log('Cannot move - already transitioning or dragging');
-      return;
-    }
-    
-    // For auto-slide, use cyclic logic to go through clones smoothly
-    let targetIndex = index;
-    
-    // If auto-advancing past last real slide, go through end clone
-    if (index > banners.length) {
-      targetIndex = banners.length + 1; // Use end clone for smooth transition
-    }
-    
-    console.log('Cyclic moveToSlide: Setting isTransitioning to true and moving to index:', targetIndex);
-    setIsTransitioning(true);
-    setCurrentIndex(targetIndex);
-  };
 
   const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
     if (isTransitioning || isSingleBanner || isDragging) return; // Prevent multiple simultaneous drags
@@ -328,36 +256,20 @@ export default function MediaBanner() {
     if (Math.abs(dragOffset) > threshold) {
       console.log('Swipe detected! Direction:', dragOffset > 0 ? 'right (prev)' : 'left (next)');
       
-      // Use cyclic queue logic with smooth transitions through clones
-      let targetIndex;
-      
+      // Use cyclic queue logic
       if (dragOffset > 0) {
-        // Swipe right - go to previous
-        if (currentIndex === 1) {
-          // At first real slide, smoothly transition to clone (which shows last image)
-          targetIndex = 0;
-        } else {
-          // Normal previous slide
-          targetIndex = currentIndex - 1;
-        }
+        // Swipe right - go to previous in cyclic queue
+        console.log('Swiping right - going to previous');
+        moveToPrev();
       } else {
-        // Swipe left - go to next
-        if (currentIndex === banners.length) {
-          // At last real slide, smoothly transition to clone (which shows first image)
-          targetIndex = banners.length + 1;
-        } else {
-          // Normal next slide
-          targetIndex = currentIndex + 1;
-        }
+        // Swipe left - go to next in cyclic queue
+        console.log('Swiping left - going to next');
+        moveToNext();
       }
       
-      console.log('Moving to target index:', targetIndex, 'from current:', currentIndex);
-      
-      // Reset states and move
+      // Reset drag states
       setIsDragging(false);
       setDragOffset(0);
-      setIsTransitioning(true);
-      setCurrentIndex(targetIndex);
     } else {
       console.log('Swipe too short, staying on current slide');
       // Reset states
@@ -366,25 +278,46 @@ export default function MediaBanner() {
     }
   };
 
-  // Auto-slide functionality - pause longer after manual interaction
+  // Cyclic queue functions
+  const moveToNext = () => {
+    if (isTransitioning || isDragging) return;
+    
+    const nextIndex = (currentIndex + 1) % banners.length;
+    console.log('Cyclic queue: Moving from', currentIndex, 'to', nextIndex);
+    
+    setIsTransitioning(true);
+    setCurrentIndex(nextIndex);
+  };
+  
+  const moveToPrev = () => {
+    if (isTransitioning || isDragging) return;
+    
+    const prevIndex = currentIndex === 0 ? banners.length - 1 : currentIndex - 1;
+    console.log('Cyclic queue: Moving from', currentIndex, 'to', prevIndex);
+    
+    setIsTransitioning(true);
+    setCurrentIndex(prevIndex);
+  };
+  
+  // Move to specific slide (used for indicators)
+  const moveToSlide = (index: number) => {
+    if (isTransitioning || isDragging) return;
+    
+    console.log('moveToSlide: Moving to index', index);
+    setIsTransitioning(true);
+    setCurrentIndex(index);
+  };
+
+  // Auto-slide with cyclic queue
   useEffect(() => {
     if (banners.length <= 1 || isDragging) return;
 
-    // Clear existing interval
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-
-    // Set new interval with delay
-    const delay = isTransitioning ? 5000 : 4000; // Longer delay after transitions
-    
     intervalRef.current = setInterval(() => {
       if (!isTransitioning && !isDragging) {
-        console.log('Auto-slide: moving from', currentIndex, 'to', currentIndex + 1);
-        moveToSlide(currentIndex + 1);
+        console.log('Auto-slide: cyclic queue advancing from', currentIndex);
+        moveToNext();
       }
-    }, delay);
+    }, 4000);
 
     return () => {
       if (intervalRef.current) {
@@ -445,14 +378,9 @@ export default function MediaBanner() {
     return null;
   }
 
-  // Create extended array with cloned elements for infinite scroll only if multiple banners
-  const extendedBanners = isSingleBanner ? banners : (banners.length > 0 ? [
-    banners[banners.length - 1], // Clone of last image at start
-    ...banners,                  // All real images
-    banners[0]                   // Clone of first image at end
-  ] : []);
-
-  const totalSlides = extendedBanners.length;
+  // Use banners array directly with cyclic queue - no clones needed
+  const extendedBanners = banners;
+  const totalSlides = banners.length;
   
   // Use container width as fallback when slideWidth is not calculated yet
   const effectiveSlideWidth = slideWidth || (containerRef.current?.getBoundingClientRect().width || 320);
@@ -578,8 +506,7 @@ export default function MediaBanner() {
             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
               {banners.map((_, index) => {
                 // Calculate real current index (subtract 1 for the cloned element at start)
-                const realCurrentIndex = currentIndex - 1;
-                const isActive = index === realCurrentIndex;
+                const isActive = index === currentIndex;
                 
                 return (
                 <button
