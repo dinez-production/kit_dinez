@@ -262,37 +262,51 @@ export default function MediaBanner() {
   };
 
   const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
-    if (isTransitioning || isSingleBanner) return; // Disable for single banner
+    if (isTransitioning || isSingleBanner || isDragging) return; // Prevent multiple simultaneous drags
     
+    e.preventDefault(); // Prevent default touch behavior
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     startXRef.current = clientX;
     setIsDragging(true);
+    setDragOffset(0); // Reset drag offset
     
     // Clear auto-slide when user starts interacting
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+    
+    console.log('Touch start at:', clientX, 'currentIndex:', currentIndex);
   };
 
   const handleTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
-    if (!isDragging || isTransitioning || isSingleBanner) return; // Disable for single banner
+    if (!isDragging || isSingleBanner) return; // Allow during transition for responsive feel
     e.preventDefault();
     
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const diff = clientX - startXRef.current;
-    setDragOffset(diff);
+    
+    // Limit drag distance to prevent over-scrolling
+    const maxDrag = slideWidth * 0.5; // Max 50% of slide width
+    const limitedDiff = Math.max(-maxDrag, Math.min(maxDrag, diff));
+    
+    setDragOffset(limitedDiff);
   };
 
   const handleTouchEnd = () => {
     if (!isDragging || isSingleBanner) return; // Disable for single banner
     
-    console.log('Touch end - dragOffset:', dragOffset, 'threshold: 80, currentIndex:', currentIndex);
+    console.log('Touch end - dragOffset:', dragOffset, 'threshold: 60, currentIndex:', currentIndex);
     
-    const threshold = 80; // Minimum swipe distance
+    const threshold = 60; // Reduced threshold for better responsiveness
     
-    // Reset dragging state first
-    setIsDragging(false);
+    // Prevent multiple rapid swipes
+    if (isTransitioning) {
+      console.log('Already transitioning, ignoring touch end');
+      setIsDragging(false);
+      setDragOffset(0);
+      return;
+    }
     
     if (Math.abs(dragOffset) > threshold) {
       console.log('Swipe detected! Direction:', dragOffset > 0 ? 'right (prev)' : 'left (next)');
@@ -320,28 +334,40 @@ export default function MediaBanner() {
         }
       }
       
-      console.log('Smooth cyclic transition to index:', targetIndex);
+      console.log('Moving to target index:', targetIndex, 'from current:', currentIndex);
       
-      // Set transition state and move smoothly through clones
+      // Reset states and move
+      setIsDragging(false);
+      setDragOffset(0);
       setIsTransitioning(true);
       setCurrentIndex(targetIndex);
     } else {
       console.log('Swipe too short, staying on current slide');
+      // Reset states
+      setIsDragging(false);
+      setDragOffset(0);
     }
-    
-    // Always reset drag offset
-    setDragOffset(0);
   };
 
-  // Auto-slide functionality
+  // Auto-slide functionality - pause longer after manual interaction
   useEffect(() => {
     if (banners.length <= 1 || isDragging) return;
 
+    // Clear existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    // Set new interval with delay
+    const delay = isTransitioning ? 5000 : 4000; // Longer delay after transitions
+    
     intervalRef.current = setInterval(() => {
       if (!isTransitioning && !isDragging) {
+        console.log('Auto-slide: moving from', currentIndex, 'to', currentIndex + 1);
         moveToSlide(currentIndex + 1);
       }
-    }, 4000);
+    }, delay);
 
     return () => {
       if (intervalRef.current) {
@@ -442,7 +468,7 @@ export default function MediaBanner() {
                 : `translate3d(-${currentIndex * effectiveSlideWidth}px, 0, 0)${
                     isDragging ? ` translateX(${dragOffset}px)` : ''
                   }`,
-              transition: isDragging || isSingleBanner ? 'none' : 'transform 300ms ease-out',
+              transition: isDragging || isSingleBanner ? 'none' : 'transform 400ms cubic-bezier(0.25, 0.46, 0.45, 0.94)', // Smoother transition
               willChange: isSingleBanner ? 'auto' : 'transform',
               width: isSingleBanner ? '100%' : `${totalSlides * effectiveSlideWidth}px`
             }}
