@@ -195,34 +195,44 @@ export default function MediaBanner() {
 
   // Handle transition end for seamless infinite loop
   const handleTransitionEnd = () => {
+    console.log('Transition ended at index:', currentIndex, 'isTransitioning:', isTransitioning);
+    
     if (!isTransitioning) return;
     
     // Check if we need to jump to real slide after clone transition
     if (currentIndex === 0) {
       // At clone of last image, jump to real last image
+      console.log('At clone start, jumping to real last slide:', banners.length);
       jumpToSlide(banners.length);
     } else if (currentIndex === banners.length + 1) {
       // At clone of first image, jump to real first image  
+      console.log('At clone end, jumping to real first slide: 1');
       jumpToSlide(1);
+    } else {
+      // Normal transition end, just reset transitioning state
+      console.log('Normal transition end, staying at index:', currentIndex);
+      setIsTransitioning(false);
     }
-    
-    setIsTransitioning(false);
   };
 
   // Jump to slide without animation
   const jumpToSlide = (index: number) => {
     if (!slidesRef.current) return;
     
+    console.log('Jumping to slide:', index);
+    
     // Temporarily disable transitions
     slidesRef.current.style.transition = 'none';
     setCurrentIndex(index);
     
-    // Re-enable transitions on next frame
+    // Re-enable transitions on next frame and reset transitioning state
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         if (slidesRef.current) {
           slidesRef.current.style.transition = 'transform 300ms ease-out';
         }
+        // Reset transitioning state after jump
+        setIsTransitioning(false);
       });
     });
   };
@@ -274,16 +284,32 @@ export default function MediaBanner() {
     
     if (Math.abs(dragOffset) > threshold) {
       console.log('Swipe detected! Direction:', dragOffset > 0 ? 'right (prev)' : 'left (next)');
-      // Calculate the target index based on swipe direction
+      
+      // Calculate target index ensuring we stay within real slide bounds
+      let targetIndex;
+      
       if (dragOffset > 0) {
-        // Swipe right - go to previous (left→right)
-        console.log('Moving to previous slide:', currentIndex - 1);
-        moveToSlide(currentIndex - 1);
-      } else if (dragOffset < 0) {
-        // Swipe left - go to next (right→left)
-        console.log('Moving to next slide:', currentIndex + 1);
-        moveToSlide(currentIndex + 1);
+        // Swipe right - go to previous
+        if (currentIndex === 1) {
+          // At first real slide, go to last real slide via clone
+          targetIndex = 0; // This will trigger jump to last real slide
+        } else {
+          // Normal previous slide
+          targetIndex = currentIndex - 1;
+        }
+      } else {
+        // Swipe left - go to next
+        if (currentIndex === banners.length) {
+          // At last real slide, go to first real slide via clone
+          targetIndex = banners.length + 1; // This will trigger jump to first real slide
+        } else {
+          // Normal next slide
+          targetIndex = currentIndex + 1;
+        }
       }
+      
+      console.log('Moving to target slide:', targetIndex);
+      moveToSlide(targetIndex);
     } else {
       console.log('Swipe too short, staying on current slide');
     }
