@@ -203,11 +203,17 @@ export default function MediaBanner() {
     if (currentIndex === 0) {
       // At clone of last image (start), jump seamlessly to real last image
       console.log('Cyclic: At start clone, jumping to real last slide:', banners.length);
-      jumpToSlide(banners.length);
+      // Add small delay to make transition smoother
+      setTimeout(() => {
+        jumpToSlide(banners.length);
+      }, 150);
     } else if (currentIndex === banners.length + 1) {
       // At clone of first image (end), jump seamlessly to real first image  
       console.log('Cyclic: At end clone, jumping to real first slide: 1');
-      jumpToSlide(1);
+      // Add small delay to make transition smoother
+      setTimeout(() => {
+        jumpToSlide(1);
+      }, 150);
     } else {
       // Normal transition end on real slides, just reset transitioning state
       console.log('Normal transition end, staying at real slide:', currentIndex);
@@ -221,21 +227,32 @@ export default function MediaBanner() {
     
     console.log('Cyclic jump to slide:', index);
     
-    // Temporarily disable transitions for seamless jump
-    slidesRef.current.style.transition = 'none';
-    setCurrentIndex(index);
+    // Add subtle fade effect to mask the jump
+    slidesRef.current.style.transition = 'opacity 200ms ease-out';
+    slidesRef.current.style.opacity = '0.5';
     
-    // Re-enable transitions on next frame and reset transitioning state
-    requestAnimationFrame(() => {
+    setTimeout(() => {
+      if (!slidesRef.current) return;
+      
+      // Disable transform transitions for the jump
+      slidesRef.current.style.transition = 'none';
+      setCurrentIndex(index);
+      
+      // Re-enable transitions with fade back in
       requestAnimationFrame(() => {
-        if (slidesRef.current) {
-          slidesRef.current.style.transition = 'transform 300ms ease-out';
-        }
-        // Reset transitioning state after seamless jump
-        setIsTransitioning(false);
-        console.log('Cyclic jump completed, now at real slide:', index);
+        requestAnimationFrame(() => {
+          if (slidesRef.current) {
+            slidesRef.current.style.transition = 'transform 600ms cubic-bezier(0.23, 1, 0.32, 1), opacity 300ms ease-out';
+            slidesRef.current.style.opacity = '1';
+          }
+          // Reset transitioning state after seamless jump
+          setTimeout(() => {
+            setIsTransitioning(false);
+            console.log('Cyclic jump completed, now at real slide:', index);
+          }, 200);
+        });
       });
-    });
+    }, 150);
   };
 
   // Move to specific slide with animation (used for auto-slide and indicators)
@@ -468,7 +485,7 @@ export default function MediaBanner() {
                 : `translate3d(-${currentIndex * effectiveSlideWidth}px, 0, 0)${
                     isDragging ? ` translateX(${dragOffset}px)` : ''
                   }`,
-              transition: isDragging || isSingleBanner ? 'none' : 'transform 400ms cubic-bezier(0.25, 0.46, 0.45, 0.94)', // Smoother transition
+              transition: isDragging || isSingleBanner ? 'none' : 'transform 600ms cubic-bezier(0.23, 1, 0.32, 1)', // Super smooth easing
               willChange: isSingleBanner ? 'auto' : 'transform',
               width: isSingleBanner ? '100%' : `${totalSlides * effectiveSlideWidth}px`
             }}
