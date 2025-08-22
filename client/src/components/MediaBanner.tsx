@@ -193,35 +193,35 @@ export default function MediaBanner() {
     }
   };
 
-  // Handle transition end for seamless infinite loop
+  // Handle transition end for seamless cyclic loop
   const handleTransitionEnd = () => {
     console.log('Transition ended at index:', currentIndex, 'isTransitioning:', isTransitioning);
     
     if (!isTransitioning) return;
     
-    // For auto-slide only, check if we need to jump to real slide after clone transition
+    // Check if we're at a clone and need to jump to real slide for seamless cycle
     if (currentIndex === 0) {
-      // At clone of last image, jump to real last image
-      console.log('At clone start, jumping to real last slide:', banners.length);
+      // At clone of last image (start), jump seamlessly to real last image
+      console.log('Cyclic: At start clone, jumping to real last slide:', banners.length);
       jumpToSlide(banners.length);
     } else if (currentIndex === banners.length + 1) {
-      // At clone of first image, jump to real first image  
-      console.log('At clone end, jumping to real first slide: 1');
+      // At clone of first image (end), jump seamlessly to real first image  
+      console.log('Cyclic: At end clone, jumping to real first slide: 1');
       jumpToSlide(1);
     } else {
-      // Normal transition end, just reset transitioning state
-      console.log('Normal transition end, staying at index:', currentIndex);
+      // Normal transition end on real slides, just reset transitioning state
+      console.log('Normal transition end, staying at real slide:', currentIndex);
       setIsTransitioning(false);
     }
   };
 
-  // Jump to slide without animation
+  // Jump to slide without animation (for seamless cyclic transitions)
   const jumpToSlide = (index: number) => {
     if (!slidesRef.current) return;
     
-    console.log('Jumping to slide:', index);
+    console.log('Cyclic jump to slide:', index);
     
-    // Temporarily disable transitions
+    // Temporarily disable transitions for seamless jump
     slidesRef.current.style.transition = 'none';
     setCurrentIndex(index);
     
@@ -231,8 +231,9 @@ export default function MediaBanner() {
         if (slidesRef.current) {
           slidesRef.current.style.transition = 'transform 300ms ease-out';
         }
-        // Reset transitioning state after jump
+        // Reset transitioning state after seamless jump
         setIsTransitioning(false);
+        console.log('Cyclic jump completed, now at real slide:', index);
       });
     });
   };
@@ -247,9 +248,17 @@ export default function MediaBanner() {
       return;
     }
     
-    console.log('Setting isTransitioning to true and moving to index:', index);
+    // For auto-slide, use cyclic logic to go through clones smoothly
+    let targetIndex = index;
+    
+    // If auto-advancing past last real slide, go through end clone
+    if (index > banners.length) {
+      targetIndex = banners.length + 1; // Use end clone for smooth transition
+    }
+    
+    console.log('Cyclic moveToSlide: Setting isTransitioning to true and moving to index:', targetIndex);
     setIsTransitioning(true);
-    setCurrentIndex(index);
+    setCurrentIndex(targetIndex);
   };
 
   const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
@@ -288,24 +297,32 @@ export default function MediaBanner() {
     if (Math.abs(dragOffset) > threshold) {
       console.log('Swipe detected! Direction:', dragOffset > 0 ? 'right (prev)' : 'left (next)');
       
-      // Simple approach: calculate real target slide and set directly
-      let targetRealIndex;
-      const realCurrentIndex = currentIndex - 1; // Convert to 0-based real index
+      // Use cyclic queue logic with smooth transitions through clones
+      let targetIndex;
       
       if (dragOffset > 0) {
         // Swipe right - go to previous
-        targetRealIndex = realCurrentIndex === 0 ? banners.length - 1 : realCurrentIndex - 1;
+        if (currentIndex === 1) {
+          // At first real slide, smoothly transition to clone (which shows last image)
+          targetIndex = 0;
+        } else {
+          // Normal previous slide
+          targetIndex = currentIndex - 1;
+        }
       } else {
         // Swipe left - go to next
-        targetRealIndex = realCurrentIndex === banners.length - 1 ? 0 : realCurrentIndex + 1;
+        if (currentIndex === banners.length) {
+          // At last real slide, smoothly transition to clone (which shows first image)
+          targetIndex = banners.length + 1;
+        } else {
+          // Normal next slide
+          targetIndex = currentIndex + 1;
+        }
       }
       
-      // Convert back to extended array index
-      const targetIndex = targetRealIndex + 1;
+      console.log('Smooth cyclic transition to index:', targetIndex);
       
-      console.log('Real current index:', realCurrentIndex, 'Target real index:', targetRealIndex, 'Target index:', targetIndex);
-      
-      // Set transition state and move directly
+      // Set transition state and move smoothly through clones
       setIsTransitioning(true);
       setCurrentIndex(targetIndex);
     } else {
