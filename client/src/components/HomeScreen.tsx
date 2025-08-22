@@ -259,14 +259,14 @@ export default function HomeScreen() {
         </div>
       </div>
 
-      <div className="px-4 space-y-6 mt-4">
-        {/* Media Banner - Show only when not searching */}
-        {!searchQuery.trim() && (
-          <div className="animate-fade-in">
-            <MediaBanner />
-          </div>
-        )}
+      {/* Media Banner - Show only when not searching, outside padding container */}
+      {!searchQuery.trim() && (
+        <div className="animate-fade-in mt-4">
+          <MediaBanner />
+        </div>
+      )}
 
+      <div className="px-4 space-y-6 mt-4">
         {/* Search Results */}
         {searchQuery.trim() && (
           <div className="animate-fade-in">
