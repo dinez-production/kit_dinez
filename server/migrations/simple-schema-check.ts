@@ -109,6 +109,18 @@ export class SimpleSchemaValidator {
     try {
       console.log('🔍 Validating MongoDB schema...');
       
+      // Wait for MongoDB connection to be fully ready
+      let retries = 0;
+      const maxRetries = 10;
+      while (mongoose.connection.readyState !== 1 && retries < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        retries++;
+      }
+      
+      if (mongoose.connection.readyState !== 1) {
+        throw new Error('MongoDB connection not ready after timeout');
+      }
+      
       const db = mongoose.connection.db;
       if (!db) {
         throw new Error('MongoDB connection not available');
