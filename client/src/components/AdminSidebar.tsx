@@ -15,11 +15,11 @@ import {
   MessageSquare,
   Shield,
   Database,
-  Globe,
   Star,
   Clock,
   DollarSign,
-  AlertTriangle
+  AlertTriangle,
+  Ticket
 } from "lucide-react";
 
 import {
@@ -50,7 +50,7 @@ const managementItems = [
 
 const contentItems = [
   { title: "Content Management", url: "/admin/content-management", icon: FileText },
-  { title: "Home Content Editor", url: "/admin/home-content", icon: Globe },
+  { title: "Coupon Management", url: "/admin/coupon-management", icon: Ticket },
   { title: "Feedback Management", url: "/admin/feedback-management", icon: MessageSquare },
   { title: "Review Management", url: "/admin/review-management", icon: Star },
 ];

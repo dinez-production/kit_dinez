@@ -10,7 +10,9 @@ import {
   insertLoginIssueSchema,
   insertQuickOrderSchema,
   insertPaymentSchema,
-  insertComplaintSchema
+  insertComplaintSchema,
+  type Coupon,
+  type InsertCoupon
 } from "@shared/schema";
 import { generateOrderNumber } from "@shared/utils";
 import { 
@@ -29,6 +31,8 @@ import { SimpleSchemaValidator } from "./migrations/simple-schema-check";
 import { stockService } from "./stock-service";
 import { webPushService } from "./services/webPushService.js";
 import webPushRoutes from "./routes/webPush.js";
+import { mediaService } from "./services/mediaService.js";
+import multer from "multer";
 import axios from "axios";
 
 // Store SSE connections for real-time notifications
@@ -45,6 +49,22 @@ const paymentStatusCache = new Map<string, {
 }>();
 const API_RETRY_INTERVAL = 30000; // 30 seconds before retrying failed API calls
 const MAX_CONSECUTIVE_FAILURES = 3; // Skip API after 3 consecutive failures
+
+// Configure multer for file uploads (memory storage for GridFS)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept images and videos
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image and video files are allowed'));
+    }
+  }
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint with comprehensive database status
@@ -1133,6 +1153,217 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Media Banner Management endpoints
+  app.get("/api/media-banners", async (req, res) => {
+    try {
+      // Check if this is an admin request based on query parameter or user role
+      const isAdmin = req.query.admin === 'true';
+      
+      const banners = isAdmin 
+        ? await mediaService.getAllBannersForAdmin()
+        : await mediaService.getAllBanners();
+      
+      res.json(banners);
+    } catch (error) {
+      console.error("Error fetching media banners:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/media-banners", upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const { originalname, mimetype, buffer } = req.file;
+      const uploadedBy = req.body.uploadedBy ? parseInt(req.body.uploadedBy) : undefined;
+
+      // Generate unique filename
+      const timestamp = Date.now();
+      const fileExtension = originalname.split('.').pop();
+      const fileName = `banner_${timestamp}.${fileExtension}`;
+
+      const banner = await mediaService.uploadFile(
+        buffer,
+        fileName,
+        originalname,
+        mimetype,
+        uploadedBy
+      );
+
+      // Send SSE notification about new banner
+      if (sseConnections.size > 0) {
+        const message = `data: ${JSON.stringify({
+          type: 'banner_updated',
+          data: { action: 'created', banner }
+        })}\n\n`;
+        
+        sseConnections.forEach((connection) => {
+          try {
+            if (connection.writable && !connection.destroyed) {
+              connection.write(message);
+            }
+          } catch (error) {
+            console.warn('SSE connection error:', error);
+          }
+        });
+      }
+
+      res.status(201).json(banner);
+    } catch (error) {
+      console.error("Error uploading media banner:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Upload failed" });
+    }
+  });
+
+  app.get("/api/media-banners/:fileId/file", async (req, res) => {
+    try {
+      const { fileId } = req.params;
+      const { stream, metadata } = await mediaService.getFile(fileId);
+
+      res.set({
+        'Content-Type': metadata.contentType,
+        'Content-Length': metadata.length.toString(),
+        'Cache-Control': 'public, max-age=86400', // 24 hours
+      });
+
+      stream.pipe(res);
+    } catch (error) {
+      console.error("Error serving media file:", error);
+      res.status(404).json({ message: "File not found" });
+    }
+  });
+
+  app.patch("/api/media-banners/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const updatedBanner = await mediaService.updateBanner(id, updates);
+
+      // Send SSE notification about banner update
+      if (sseConnections.size > 0) {
+        const message = `data: ${JSON.stringify({
+          type: 'banner_updated',
+          data: { action: 'updated', banner: updatedBanner }
+        })}\n\n`;
+        
+        sseConnections.forEach((connection) => {
+          try {
+            if (connection.writable && !connection.destroyed) {
+              connection.write(message);
+            }
+          } catch (error) {
+            console.warn('SSE connection error:', error);
+          }
+        });
+      }
+
+      res.json(updatedBanner);
+    } catch (error) {
+      console.error("Error updating media banner:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Update failed" });
+    }
+  });
+
+  app.patch("/api/media-banners/:id/toggle", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const updatedBanner = await mediaService.toggleBannerStatus(id);
+
+      // Send SSE notification about status toggle
+      if (sseConnections.size > 0) {
+        const message = `data: ${JSON.stringify({
+          type: 'banner_updated',
+          data: { action: 'toggled', banner: updatedBanner }
+        })}\n\n`;
+        
+        sseConnections.forEach((connection) => {
+          try {
+            if (connection.writable && !connection.destroyed) {
+              connection.write(message);
+            }
+          } catch (error) {
+            console.warn('SSE connection error:', error);
+          }
+        });
+      }
+
+      res.json(updatedBanner);
+    } catch (error) {
+      console.error("Error toggling banner status:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Toggle failed" });
+    }
+  });
+
+  app.delete("/api/media-banners/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      await mediaService.deleteFile(id);
+
+      // Send SSE notification about banner deletion
+      if (sseConnections.size > 0) {
+        const message = `data: ${JSON.stringify({
+          type: 'banner_updated',
+          data: { action: 'deleted', bannerId: id }
+        })}\n\n`;
+        
+        sseConnections.forEach((connection) => {
+          try {
+            if (connection.writable && !connection.destroyed) {
+              connection.write(message);
+            }
+          } catch (error) {
+            console.warn('SSE connection error:', error);
+          }
+        });
+      }
+
+      res.json({ message: "Media banner deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting media banner:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Delete failed" });
+    }
+  });
+
+  app.post("/api/media-banners/reorder", async (req, res) => {
+    try {
+      const { bannerIds } = req.body;
+      
+      if (!Array.isArray(bannerIds)) {
+        return res.status(400).json({ message: "Banner IDs must be an array" });
+      }
+
+      await mediaService.reorderBanners(bannerIds);
+
+      // Send SSE notification about reorder
+      if (sseConnections.size > 0) {
+        const message = `data: ${JSON.stringify({
+          type: 'banner_updated',
+          data: { action: 'reordered', bannerIds }
+        })}\n\n`;
+        
+        sseConnections.forEach((connection) => {
+          try {
+            if (connection.writable && !connection.destroyed) {
+              connection.write(message);
+            }
+          } catch (error) {
+            console.warn('SSE connection error:', error);
+          }
+        });
+      }
+
+      res.json({ message: "Banners reordered successfully" });
+    } catch (error) {
+      console.error("Error reordering banners:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Reorder failed" });
     }
   });
 
@@ -2256,6 +2487,176 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching suppliers:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // ===========================================
+  // COUPON MANAGEMENT ROUTES
+  // ===========================================
+
+  // Get all coupons (admin only)
+  app.get("/api/coupons", async (req, res) => {
+    try {
+      const coupons = await storage.getCoupons();
+      res.json(coupons);
+    } catch (error) {
+      console.error("Error fetching coupons:", error);
+      res.status(500).json({ message: "Failed to fetch coupons" });
+    }
+  });
+
+  // Get active coupons for users
+  app.get("/api/coupons/active", async (req, res) => {
+    try {
+      const activeCoupons = await storage.getActiveCoupons();
+      res.json(activeCoupons);
+    } catch (error) {
+      console.error("Error fetching active coupons:", error);
+      res.status(500).json({ message: "Failed to fetch active coupons" });
+    }
+  });
+
+  // Create new coupon (admin only)
+  app.post("/api/coupons", async (req, res) => {
+    try {
+      const couponData: InsertCoupon = req.body;
+      
+      // Validate required fields
+      if (!couponData.code || !couponData.description || !couponData.discountType || 
+          !couponData.discountValue || !couponData.usageLimit || !couponData.validFrom || 
+          !couponData.validUntil || !couponData.createdBy) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      // Validate discount value
+      if (couponData.discountType === 'percentage' && couponData.discountValue > 100) {
+        return res.status(400).json({ message: "Percentage discount cannot exceed 100%" });
+      }
+
+      if (couponData.discountValue <= 0) {
+        return res.status(400).json({ message: "Discount value must be greater than 0" });
+      }
+
+      // Validate dates
+      const validFrom = new Date(couponData.validFrom);
+      const validUntil = new Date(couponData.validUntil);
+      
+      if (validFrom >= validUntil) {
+        return res.status(400).json({ message: "Valid from date must be before valid until date" });
+      }
+
+      const coupon = await storage.createCoupon(couponData);
+      res.status(201).json(coupon);
+    } catch (error) {
+      console.error("Error creating coupon:", error);
+      if (error instanceof Error && error.message.includes('duplicate key')) {
+        res.status(400).json({ message: "Coupon code already exists" });
+      } else {
+        res.status(500).json({ message: "Failed to create coupon" });
+      }
+    }
+  });
+
+  // Validate coupon for user
+  app.post("/api/coupons/validate", async (req, res) => {
+    try {
+      const { code, userId, orderAmount } = req.body;
+      
+      if (!code || !orderAmount) {
+        return res.status(400).json({ 
+          valid: false, 
+          message: "Coupon code and order amount are required" 
+        });
+      }
+
+      const validation = await storage.validateCoupon(code, userId, orderAmount);
+      res.json(validation);
+    } catch (error) {
+      console.error("Error validating coupon:", error);
+      res.status(500).json({ 
+        valid: false, 
+        message: "Failed to validate coupon" 
+      });
+    }
+  });
+
+  // Apply coupon to order
+  app.post("/api/coupons/apply", async (req, res) => {
+    try {
+      const { code, userId, orderAmount } = req.body;
+      
+      if (!code || !userId || !orderAmount) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Coupon code, user ID, and order amount are required" 
+        });
+      }
+
+      const result = await storage.applyCoupon(code, userId, orderAmount);
+      res.json(result);
+    } catch (error) {
+      console.error("Error applying coupon:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to apply coupon" 
+      });
+    }
+  });
+
+  // Get coupon by ID
+  app.get("/api/coupons/:id", async (req, res) => {
+    try {
+      const coupon = await storage.getCoupon(req.params.id);
+      if (!coupon) {
+        return res.status(404).json({ message: "Coupon not found" });
+      }
+      res.json(coupon);
+    } catch (error) {
+      console.error("Error fetching coupon:", error);
+      res.status(500).json({ message: "Failed to fetch coupon" });
+    }
+  });
+
+  // Update coupon (admin only)
+  app.put("/api/coupons/:id", async (req, res) => {
+    try {
+      const updateData = req.body;
+      const coupon = await storage.updateCoupon(req.params.id, updateData);
+      if (!coupon) {
+        return res.status(404).json({ message: "Coupon not found" });
+      }
+      res.json(coupon);
+    } catch (error) {
+      console.error("Error updating coupon:", error);
+      res.status(500).json({ message: "Failed to update coupon" });
+    }
+  });
+
+  // Delete coupon (admin only)
+  app.delete("/api/coupons/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteCoupon(req.params.id);
+      if (!success) {
+        return res.status(404).json({ message: "Coupon not found" });
+      }
+      res.json({ message: "Coupon deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting coupon:", error);
+      res.status(500).json({ message: "Failed to delete coupon" });
+    }
+  });
+
+  // Toggle coupon status (admin only)
+  app.patch("/api/coupons/:id/toggle", async (req, res) => {
+    try {
+      const coupon = await storage.toggleCouponStatus(req.params.id);
+      if (!coupon) {
+        return res.status(404).json({ message: "Coupon not found" });
+      }
+      res.json(coupon);
+    } catch (error) {
+      console.error("Error toggling coupon status:", error);
+      res.status(500).json({ message: "Failed to toggle coupon status" });
     }
   });
 

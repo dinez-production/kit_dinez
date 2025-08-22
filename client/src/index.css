@@ -13,9 +13,9 @@
     --foreground: 0 0% 13%;
     
     /* Zomato Red Theme */
-    --primary: 349 84% 57%; /* #E23744 */
-    --primary-light: 349 84% 67%;
-    --primary-dark: 349 84% 47%;
+    --primary: 4 68% 52%; /* #D63D31 */
+    --primary-light: 4 68% 62%;
+    --primary-dark: 4 68% 42%;
     --primary-foreground: 0 0% 98%;
 
     
@@ -29,8 +29,8 @@
     --muted: 0 0% 96%;
     --muted-foreground: 0 0% 45%;
     
-    --accent: 349 84% 95%;
-    --accent-foreground: 349 84% 47%;
+    --accent: 4 68% 95%;
+    --accent-foreground: 4 68% 42%;
     
     /* Food App Specific */
     --success: 120 93% 34%; /* Green for veg */
@@ -45,7 +45,7 @@
     /* Form Elements */
     --border: 0 0% 90%;
     --input: 0 0% 96%;
-    --ring: 349 84% 57%;
+    --ring: 4 68% 52%;
     
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-light)));
@@ -93,9 +93,9 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 349 84% 57%;
-    --primary-light: 349 84% 67%;
-    --primary-dark: 349 84% 47%;
+    --primary: 4 68% 52%;
+    --primary-light: 4 68% 62%;
+    --primary-dark: 4 68% 42%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 217.2 32.6% 17.5%;
@@ -303,4 +303,14 @@
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
+}
+
+/* Hide scrollbar utility class */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }

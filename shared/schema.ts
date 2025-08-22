@@ -119,16 +119,51 @@ export type Payment = {
   updatedAt: Date;
 };
 
+export type MediaBanner = {
+  id: string;
+  fileName: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  type: 'image' | 'video';
+  fileId: string; // GridFS file ID
+  isActive: boolean;
+  displayOrder: number;
+  uploadedBy?: number; // User ID who uploaded
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type Coupon = {
+  id: string;
+  code: string;
+  description: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  minimumOrderAmount?: number;
+  maxDiscountAmount?: number;
+  usageLimit: number;
+  usedCount: number;
+  usedBy: number[];
+  isActive: boolean;
+  validFrom: Date;
+  validUntil: Date;
+  createdBy: number;
+  createdAt: Date;
+};
+
 // Insert types for MongoDB models
 export type InsertCategory = Omit<Category, 'id' | 'createdAt'>;
 export type InsertMenuItem = Omit<MenuItem, 'id' | 'createdAt'>;
 export type InsertOrder = Omit<Order, 'id' | 'createdAt'>;
+export type InsertMediaBanner = Omit<MediaBanner, 'id' | 'createdAt' | 'updatedAt'>;
 export type InsertOrderItem = Omit<OrderItem, 'id'>;
 export type InsertNotification = Omit<Notification, 'id' | 'createdAt'>;
 export type InsertLoginIssue = Omit<LoginIssue, 'id' | 'createdAt'>;
 export type InsertQuickOrder = Omit<QuickOrder, 'id' | 'createdAt'>;
 export type InsertPayment = Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>;
 export type InsertComplaint = Omit<Complaint, 'id' | 'createdAt' | 'updatedAt'>;
+export type InsertCoupon = Omit<Coupon, 'id' | 'createdAt' | 'usedCount' | 'usedBy'>;
 
 // Keep validation schemas using Zod for form validation
 import { z } from "zod";

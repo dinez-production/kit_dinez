@@ -71,45 +71,37 @@ export default function LoginScreen() {
           return;
         }
         
-        if (userData.isProfileComplete) {
-          // Profile is complete, login normally
-          const userDisplayData = {
-            id: userData.id,
-            name: userData.name,
-            email: userData.email,
-            role: userData.role,
-            phoneNumber: userData.phoneNumber,
-            ...(userData.role === "student" && {
-              registerNumber: userData.registerNumber,
-              department: userData.department,
-              currentStudyYear: userData.currentStudyYear,
-              isPassed: userData.isPassed,
-            }),
-            ...(userData.role === "staff" && {
-              staffId: userData.staffId,
-            }),
-          };
-          
-          // Use the proper login function to maintain authentication state
-          login(userDisplayData);
-          
-          // Redirect based on role (handle both naming conventions)
-          if (userData.role === 'super_admin' || userData.role === 'admin') {
-            toast({ title: "Welcome Super Admin!", description: "Access to all system controls" });
-            setLocation("/admin");
-          } else if (userData.role === 'canteen_owner' || userData.role === 'canteen-owner') {
-            toast({ title: "Welcome Canteen Owner!", description: "Manage your canteen operations" });
-            setLocation("/canteen-owner-dashboard");
-          } else {
-            toast({ title: `Welcome ${userData.role === 'staff' ? 'Staff' : 'Student'}!`, description: "Explore delicious menu options" });
-            setLocation("/home");
-          }
+        // Login user directly without profile completion check
+        const userDisplayData = {
+          id: userData.id,
+          name: userData.name,
+          email: userData.email,
+          role: userData.role,
+          phoneNumber: userData.phoneNumber || '',
+          ...(userData.role === "student" && {
+            registerNumber: userData.registerNumber || '',
+            department: userData.department || '',
+            currentStudyYear: userData.currentStudyYear?.toString() || '1',
+            isPassed: userData.isPassed || false,
+          }),
+          ...(userData.role === "staff" && {
+            staffId: userData.staffId || '',
+          }),
+        };
+        
+        // Use the proper login function to maintain authentication state
+        login(userDisplayData);
+        
+        // Redirect based on role (handle both naming conventions)
+        if (userData.role === 'super_admin' || userData.role === 'admin') {
+          toast({ title: "Welcome Super Admin!", description: "Access to all system controls" });
+          setLocation("/admin");
+        } else if (userData.role === 'canteen_owner' || userData.role === 'canteen-owner') {
+          toast({ title: "Welcome Canteen Owner!", description: "Manage your canteen operations" });
+          setLocation("/canteen-owner-dashboard");
         } else {
-          // Profile exists but incomplete, redirect to setup
-          setNeedsProfileSetup({
-            email: user.email,
-            name: user.displayName || '',
-          });
+          toast({ title: `Welcome ${userData.role === 'staff' ? 'Staff' : 'Student'}!`, description: "Explore delicious menu options" });
+          setLocation("/home");
         }
       } else if (userResponse.status === 404) {
         // User doesn't exist - check for special admin accounts
@@ -181,6 +173,78 @@ export default function LoginScreen() {
         description: "Failed to authenticate user. Please try again.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleDevModeSkipLogin = async () => {
+    setIsLoading(true);
+    try {
+      // First, check if dev user exists in database
+      const devEmail = 'dev.test@kitcanteen.local';
+      let userResponse = await fetch(`/api/users/by-email/${devEmail}`);
+      
+      let devUserData;
+      if (userResponse.ok) {
+        // Dev user exists, use existing data
+        devUserData = await userResponse.json();
+      } else {
+        // Create dev user in database
+        const createDevUser = {
+          email: devEmail,
+          name: 'Dev Test User',
+          phoneNumber: '+91-9876543210',
+          role: 'student',
+          registerNumber: 'DEV001',
+          department: 'Computer Science',
+          joiningYear: 2022,
+          passingOutYear: 2026,
+          currentStudyYear: 3,
+          isPassed: false,
+          isProfileComplete: true
+        };
+        
+        const createResponse = await fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(createDevUser)
+        });
+        
+        if (createResponse.ok) {
+          devUserData = await createResponse.json();
+        } else {
+          throw new Error('Failed to create dev user');
+        }
+      }
+      
+      // Create the user object for login
+      const devUser = {
+        id: devUserData.id,
+        name: devUserData.name,
+        email: devUserData.email,
+        role: devUserData.role,
+        phoneNumber: devUserData.phoneNumber || '+91-9876543210',
+        registerNumber: devUserData.registerNumber || 'DEV001',
+        department: devUserData.department || 'Computer Science',
+        currentStudyYear: devUserData.currentStudyYear?.toString() || '3',
+        isPassed: devUserData.isPassed || false
+      };
+      
+      // Log in the dev user
+      login(devUser);
+      toast({ 
+        title: "Development Mode", 
+        description: "Logged in as test user - Dev Mode Active" 
+      });
+      setLocation("/home");
+    } catch (error) {
+      console.error('Dev login error:', error);
+      toast({
+        title: "Dev Login Failed",
+        description: "Something went wrong with development login",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -317,6 +381,30 @@ export default function LoginScreen() {
                 </svg>
 {isLoading ? "Signing in..." : "Continue with College Email"}
               </Button>
+              
+              {/* Development Mode Skip Login - Only show in development */}
+              {import.meta.env.DEV && (
+                <div className="mt-4">
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">Dev Mode</span>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleDevModeSkipLogin}
+                    variant="outline"
+                    size="mobile"
+                    className="w-full mt-3 border-orange-200 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
+                    disabled={isLoading}
+                    data-testid="button-skip-login-dev"
+                  >
+                    🚀 Skip Login (Development Mode)
+                  </Button>
+                </div>
+              )}
               
               <div className="mt-4 space-y-2 text-center">
                 <Button 

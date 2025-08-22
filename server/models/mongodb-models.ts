@@ -251,3 +251,81 @@ const PaymentSchema = new Schema<IPayment>({
 });
 
 export const Payment = mongoose.model<IPayment>('Payment', PaymentSchema);
+
+// MediaBanner Model
+export interface IMediaBanner extends Document {
+  fileName: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  type: 'image' | 'video';
+  fileId: mongoose.Types.ObjectId; // GridFS file ID
+  isActive: boolean;
+  displayOrder: number;
+  uploadedBy?: number; // User ID who uploaded
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const MediaBannerSchema = new Schema<IMediaBanner>({
+  fileName: { type: String, required: true },
+  originalName: { type: String, required: true },
+  mimeType: { type: String, required: true },
+  size: { type: Number, required: true },
+  type: { 
+    type: String, 
+    required: true, 
+    enum: ['image', 'video'] 
+  },
+  fileId: { type: Schema.Types.ObjectId, required: true }, // GridFS file reference
+  isActive: { type: Boolean, default: true },
+  displayOrder: { type: Number, default: 0 },
+  uploadedBy: { type: Number }, // References PostgreSQL user ID
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+// Update the updatedAt field on save
+MediaBannerSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+export const MediaBanner = mongoose.model<IMediaBanner>('MediaBanner', MediaBannerSchema);
+
+// Discount Coupon Model
+export interface ICoupon extends Document {
+  code: string;
+  description: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  minimumOrderAmount?: number;
+  maxDiscountAmount?: number;
+  usageLimit: number;
+  usedCount: number;
+  usedBy: number[]; // Array of user IDs who have used this coupon
+  isActive: boolean;
+  validFrom: Date;
+  validUntil: Date;
+  createdBy: number; // Admin user ID
+  createdAt: Date;
+}
+
+const CouponSchema = new Schema<ICoupon>({
+  code: { type: String, required: true, unique: true, uppercase: true },
+  description: { type: String, required: true },
+  discountType: { type: String, enum: ['percentage', 'fixed'], required: true },
+  discountValue: { type: Number, required: true },
+  minimumOrderAmount: { type: Number, default: 0 },
+  maxDiscountAmount: { type: Number },
+  usageLimit: { type: Number, required: true },
+  usedCount: { type: Number, default: 0 },
+  usedBy: { type: [Number], default: [] },
+  isActive: { type: Boolean, default: true },
+  validFrom: { type: Date, required: true },
+  validUntil: { type: Date, required: true },
+  createdBy: { type: Number, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+export const Coupon = mongoose.model<ICoupon>('Coupon', CouponSchema);

@@ -2,9 +2,9 @@ import { PrismaClient } from '@prisma/client';
 import type { User, Prisma } from '@prisma/client';
 import { connectToMongoDB } from './mongodb';
 import { 
-  Category, MenuItem, Order, OrderItem, Notification, LoginIssue, QuickOrder, Payment, Complaint,
+  Category, MenuItem, Order, OrderItem, Notification, LoginIssue, QuickOrder, Payment, Complaint, Coupon,
   type ICategory, type IMenuItem, type IOrder, type IOrderItem, 
-  type INotification, type ILoginIssue, type IQuickOrder, type IPayment, type IComplaint
+  type INotification, type ILoginIssue, type IQuickOrder, type IPayment, type IComplaint, type ICoupon
 } from './models/mongodb-models';
 import { db as getPostgresDb } from "./db";
 import mongoose from 'mongoose';
@@ -71,6 +71,20 @@ export type InsertComplaint = {
   orderId?: string; 
   adminNotes?: string; 
   resolvedBy?: string 
+};
+
+export type InsertCoupon = {
+  code: string;
+  description: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  minimumOrderAmount?: number;
+  maxDiscountAmount?: number;
+  usageLimit: number;
+  isActive?: boolean;
+  validFrom: Date;
+  validUntil: Date;
+  createdBy: number;
 };
 
 // Convert MongoDB document to plain object
@@ -159,6 +173,34 @@ export interface IStorage {
   createPayment(payment: InsertPayment): Promise<any>;
   updatePayment(id: string, payment: Partial<InsertPayment>): Promise<any>;
   updatePaymentByMerchantTxnId(merchantTransactionId: string, payment: Partial<InsertPayment>): Promise<any | undefined>;
+
+  // Complaints (MongoDB)
+  getComplaints(): Promise<any[]>;
+  getComplaint(id: string): Promise<any | undefined>;
+  createComplaint(complaint: InsertComplaint): Promise<any>;
+  updateComplaint(id: string, complaint: Partial<any>): Promise<any>;
+  deleteComplaint(id: string): Promise<void>;
+
+  // Coupons (MongoDB)
+  getCoupons(): Promise<any[]>;
+  getActiveCoupons(): Promise<any[]>;
+  getCoupon(id: string): Promise<any | undefined>;
+  createCoupon(coupon: InsertCoupon): Promise<any>;
+  updateCoupon(id: string, coupon: Partial<any>): Promise<any>;
+  deleteCoupon(id: string): Promise<boolean>;
+  toggleCouponStatus(id: string): Promise<any>;
+  validateCoupon(code: string, userId?: number, orderAmount?: number): Promise<{
+    valid: boolean;
+    message: string;
+    coupon?: any;
+    discountAmount?: number;
+  }>;
+  applyCoupon(code: string, userId: number, orderAmount: number): Promise<{
+    success: boolean;
+    message: string;
+    discountAmount?: number;
+    finalAmount?: number;
+  }>;
 }
 
 export class HybridStorage implements IStorage {
@@ -644,6 +686,173 @@ export class HybridStorage implements IStorage {
       where: { id },
       data: { role: unblocked_role }
     });
+  }
+
+  // ===========================================
+  // COUPON METHODS (MongoDB)
+  // ===========================================
+
+  async getCoupons(): Promise<any[]> {
+    const coupons = await Coupon.find().sort({ createdAt: -1 });
+    return mongoToPlain(coupons);
+  }
+
+  async getActiveCoupons(): Promise<any[]> {
+    const now = new Date();
+    const coupons = await Coupon.find({
+      isActive: true,
+      validFrom: { $lte: now },
+      validUntil: { $gte: now },
+      $expr: { $lt: ['$usedCount', '$usageLimit'] }
+    }).sort({ createdAt: -1 });
+    return mongoToPlain(coupons);
+  }
+
+  async getCoupon(id: string): Promise<any | undefined> {
+    const coupon = await Coupon.findById(id);
+    return coupon ? mongoToPlain(coupon) : undefined;
+  }
+
+  async createCoupon(couponData: InsertCoupon): Promise<any> {
+    const coupon = new Coupon({
+      ...couponData,
+      usedCount: 0,
+      usedBy: [],
+      isActive: couponData.isActive ?? true
+    });
+    const saved = await coupon.save();
+    return mongoToPlain(saved);
+  }
+
+  async updateCoupon(id: string, updateData: Partial<any>): Promise<any | undefined> {
+    const coupon = await Coupon.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    );
+    return coupon ? mongoToPlain(coupon) : undefined;
+  }
+
+  async deleteCoupon(id: string): Promise<boolean> {
+    const result = await Coupon.findByIdAndDelete(id);
+    return !!result;
+  }
+
+  async toggleCouponStatus(id: string): Promise<any | undefined> {
+    const coupon = await Coupon.findById(id);
+    if (!coupon) return undefined;
+    
+    coupon.isActive = !coupon.isActive;
+    const saved = await coupon.save();
+    return mongoToPlain(saved);
+  }
+
+  async validateCoupon(code: string, userId?: number, orderAmount?: number): Promise<{
+    valid: boolean;
+    message: string;
+    coupon?: any;
+    discountAmount?: number;
+  }> {
+    try {
+      const coupon = await Coupon.findOne({ code });
+      
+      if (!coupon) {
+        return { valid: false, message: 'Coupon not found' };
+      }
+
+      if (!coupon.isActive) {
+        return { valid: false, message: 'Coupon is not active' };
+      }
+
+      const now = new Date();
+      if (now < coupon.validFrom) {
+        return { valid: false, message: 'Coupon is not yet valid' };
+      }
+
+      if (now > coupon.validUntil) {
+        return { valid: false, message: 'Coupon has expired' };
+      }
+
+      if (coupon.usedCount >= coupon.usageLimit) {
+        return { valid: false, message: 'Coupon usage limit reached' };
+      }
+
+      if (userId && coupon.usedBy.includes(userId)) {
+        return { valid: false, message: 'You have already used this coupon' };
+      }
+
+      if (orderAmount && coupon.minimumOrderAmount && orderAmount < coupon.minimumOrderAmount) {
+        return { 
+          valid: false, 
+          message: `Minimum order amount of ₹${coupon.minimumOrderAmount} required` 
+        };
+      }
+
+      let discountAmount = 0;
+      if (orderAmount) {
+        if (coupon.discountType === 'percentage') {
+          discountAmount = (orderAmount * coupon.discountValue) / 100;
+          if (coupon.maxDiscountAmount) {
+            discountAmount = Math.min(discountAmount, coupon.maxDiscountAmount);
+          }
+        } else {
+          discountAmount = coupon.discountValue;
+        }
+        discountAmount = Math.min(discountAmount, orderAmount);
+      }
+
+      return {
+        valid: true,
+        message: 'Coupon is valid',
+        coupon: mongoToPlain(coupon),
+        discountAmount
+      };
+    } catch (error) {
+      console.error('Error validating coupon:', error);
+      return { valid: false, message: 'Error validating coupon' };
+    }
+  }
+
+  async applyCoupon(code: string, userId: number, orderAmount: number): Promise<{
+    success: boolean;
+    message: string;
+    discountAmount?: number;
+    finalAmount?: number;
+  }> {
+    try {
+      const validation = await this.validateCoupon(code, userId, orderAmount);
+      
+      if (!validation.valid) {
+        return {
+          success: false,
+          message: validation.message
+        };
+      }
+
+      const coupon = await Coupon.findOne({ code });
+      if (!coupon) {
+        return { success: false, message: 'Coupon not found' };
+      }
+
+      // Update coupon usage
+      await Coupon.findByIdAndUpdate(coupon._id, {
+        $inc: { usedCount: 1 },
+        $addToSet: { usedBy: userId }
+      });
+
+      const discountAmount = validation.discountAmount || 0;
+      const finalAmount = orderAmount - discountAmount;
+
+      return {
+        success: true,
+        message: 'Coupon applied successfully',
+        discountAmount,
+        finalAmount
+      };
+    } catch (error) {
+      console.error('Error applying coupon:', error);
+      return { success: false, message: 'Error applying coupon' };
+    }
   }
 }
 

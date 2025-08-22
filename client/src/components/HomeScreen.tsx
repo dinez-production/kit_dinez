@@ -15,6 +15,7 @@ import type { MenuItem, Category } from "@shared/schema";
 import { QuickOrders } from "@/components/QuickOrders";
 import NotificationPanel from "@/components/NotificationPanel";
 import PullToRefresh from "@/components/ui/PullToRefresh";
+import MediaBanner from "@/components/MediaBanner";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 
@@ -258,7 +259,14 @@ export default function HomeScreen() {
         </div>
       </div>
 
-      <div className="px-4 space-y-6 -mt-3">
+      {/* Media Banner - Show only when not searching, outside padding container */}
+      {!searchQuery.trim() && (
+        <div className="animate-fade-in">
+          <MediaBanner />
+        </div>
+      )}
+
+      <div className="px-4 space-y-6 mt-4">
         {/* Search Results */}
         {searchQuery.trim() && (
           <div className="animate-fade-in">
@@ -353,27 +361,6 @@ export default function HomeScreen() {
           </div>
         )}
 
-        {/* Quick Stats - Hidden when searching */}
-        {!searchQuery.trim() && (
-          <Card className="bg-white shadow-lg">
-            <CardContent className="p-4">
-              <div className="grid grid-cols-4 gap-4">
-                {quickStats.map((stat, index) => {
-                  const IconComponent = stat.icon;
-                  return (
-                    <div key={index} className="text-center">
-                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
-                        <IconComponent className="w-5 h-5 text-primary" />
-                      </div>
-                      <p className="text-sm font-semibold">{stat.label}</p>
-                      <p className="text-xs text-muted-foreground">{stat.sublabel}</p>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Quick Orders - Hidden when searching */}
         {!searchQuery.trim() && (
@@ -384,24 +371,39 @@ export default function HomeScreen() {
         {!searchQuery.trim() && displayCategories.length > 0 && (
           <div>
             <h2 className="text-xl font-bold mb-4">Categories</h2>
-            <div className="grid grid-cols-4 gap-4">
-              {displayCategories.map((category, index) => {
-                const IconComponent = category.icon;
-                return (
-                  <Card
-                    key={index}
-                    className="cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => setLocation(category.route)}
-                  >
-                    <CardContent className="p-4 text-center">
-                      <div className={`w-12 h-12 ${category.color} rounded-lg flex items-center justify-center mx-auto mb-2`}>
-                        <IconComponent className="w-6 h-6 text-white" />
-                      </div>
-                      <p className="text-sm font-medium">{category.name}</p>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+            <div className="relative">
+              {/* Horizontal scrolling container */}
+              <div 
+                className="grid grid-rows-2 grid-flow-col auto-cols-[120px] gap-2.5 overflow-x-auto pb-2 scrollbar-hide"
+                style={{
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none'
+                }}
+              >
+                {displayCategories.map((category, index) => {
+                  const IconComponent = category.icon;
+                  return (
+                    <Card
+                      key={index}
+                      className="cursor-pointer hover:shadow-md transition-shadow flex-shrink-0 w-[112px]"
+                      onClick={() => setLocation(category.route)}
+                    >
+                      <CardContent className="p-2.5 text-center h-full flex flex-col justify-center">
+                        <div className={`w-9 h-9 ${category.color} rounded-lg flex items-center justify-center mx-auto mb-1.5`}>
+                          <IconComponent className="w-4 h-4 text-white" />
+                        </div>
+                        <p className="text-xs font-medium leading-tight truncate px-1" title={category.name}>
+                          {category.name}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                {/* Peek indicator - shows partial next items */}
+                {displayCategories.length > 4 && (
+                  <div className="absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-background via-background/80 to-transparent pointer-events-none" />
+                )}
+              </div>
             </div>
           </div>
         )}

@@ -11,6 +11,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useCart } from "@/contexts/CartContext";
 import { useWebPushNotifications } from "@/hooks/useWebPushNotifications";
 import NotificationPermissionDialog from "@/components/NotificationPermissionDialog";
+import CouponApplicator from "@/components/CouponApplicator";
 
 export default function CheckoutPage() {
   const [, setLocation] = useLocation();
@@ -20,6 +21,12 @@ export default function CheckoutPage() {
   const [timeLeft, setTimeLeft] = useState(420); // 7 minutes in seconds
   const [paymentInProgress, setPaymentInProgress] = useState(false);
   const [showNotificationDialog, setShowNotificationDialog] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    discountAmount: number;
+    finalAmount: number;
+    description: string;
+  } | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const paymentValidRef = useRef(false);
   const queryClient = useQueryClient();
@@ -34,7 +41,8 @@ export default function CheckoutPage() {
   const orderItems = cart;
   const subtotal = cart.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
   const tax = Math.round(subtotal * 0.05);
-  const total = subtotal + tax;
+  const totalBeforeDiscount = subtotal + tax;
+  const total = appliedCoupon ? appliedCoupon.finalAmount : totalBeforeDiscount;
 
   // Check for pending order data on mount
   useEffect(() => {
@@ -314,6 +322,12 @@ export default function CheckoutPage() {
                   <span>Tax (5%)</span>
                   <span>₹{tax}</span>
                 </div>
+                {appliedCoupon && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Coupon Discount ({appliedCoupon.code})</span>
+                    <span>-₹{appliedCoupon.discountAmount}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-bold text-lg">
                   <span>Total</span>
                   <span>₹{total}</span>
@@ -323,7 +337,13 @@ export default function CheckoutPage() {
           </CardContent>
         </Card>
 
-
+        {/* Coupon Applicator */}
+        <CouponApplicator
+          totalAmount={totalBeforeDiscount}
+          onCouponApplied={(couponData) => setAppliedCoupon(couponData)}
+          onCouponRemoved={() => setAppliedCoupon(null)}
+          appliedCoupon={appliedCoupon}
+        />
 
         {/* Payment Options */}
         <Card className="shadow-card">

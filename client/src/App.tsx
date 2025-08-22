@@ -39,6 +39,7 @@ import AdminSystemSettingsPage from "./components/AdminSystemSettingsPage";
 import AdminPaymentManagementPage from "./components/AdminPaymentManagementPage";
 import AdminNotificationManagementPage from "./components/AdminNotificationManagementPage";
 import AdminContentManagementPage from "./components/AdminContentManagementPage";
+import AdminCouponManagement from "./components/AdminCouponManagement";
 import AdminFeedbackManagementPage from "./components/AdminFeedbackManagementPage";
 import AdminReviewManagementPage from "./components/AdminReviewManagementPage";
 import AdminAccessPage from "./components/AdminAccessPage";
@@ -50,7 +51,7 @@ import HelpSupportPage from "./components/HelpSupportPage";
 import AboutPage from "./components/AboutPage";
 import FavoritesPage from "./components/FavoritesPage";
 import FeedbackPage from "./components/FeedbackPage";
-import AdminHomeContentEditor from "./components/AdminHomeContentEditor";
+
 import SendEmailPage from "./components/user-management/SendEmailPage";
 import AddLoyaltyPointsPage from "./components/user-management/AddLoyaltyPointsPage";
 import ApplyDiscountPage from "./components/user-management/ApplyDiscountPage";
@@ -181,6 +182,9 @@ const App = () => {
           <Route path="/admin/content-management">
             <AdminLayout><AdminContentManagementPage /></AdminLayout>
           </Route>
+          <Route path="/admin/coupon-management">
+            <AdminLayout><AdminCouponManagement /></AdminLayout>
+          </Route>
           <Route path="/admin/feedback-management">
             <AdminLayout><AdminFeedbackManagementPage /></AdminLayout>
           </Route>
@@ -201,9 +205,7 @@ const App = () => {
           <Route path="/about" component={AboutPage} />
           <Route path="/favorites" component={FavoritesPage} />
           <Route path="/feedback" component={FeedbackPage} />
-          <Route path="/admin/home-content">
-            <AdminLayout><AdminHomeContentEditor /></AdminLayout>
-          </Route>
+
           <Route path="/admin/user-management/send-email">
             <AdminLayout><SendEmailPage /></AdminLayout>
           </Route>
