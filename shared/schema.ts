@@ -140,9 +140,10 @@ export type MediaBanner = {
 export type MaintenanceNotice = {
   id: string;
   title: string;
-  imageFileName: string;
-  imageFileId: string; // GridFS file ID for the maintenance image
+  fileName: string;
+  imageFileId: string; // GridFS file ID for the maintenance media (image/video)
   mimeType: string;
+  mediaType: 'image' | 'video'; // Type of media file
   size: number;
   isActive: boolean;
   uploadedBy: number; // Admin who uploaded
@@ -334,9 +335,10 @@ export const insertPaymentSchema = z.object({
 
 export const insertMaintenanceNoticeSchema = z.object({
   title: z.string().min(1),
-  imageFileName: z.string().min(1),
+  fileName: z.string().min(1),
   imageFileId: z.string().min(1),
   mimeType: z.string().min(1),
+  mediaType: z.enum(['image', 'video']),
   size: z.number().positive(),
   isActive: z.boolean().optional(),
   uploadedBy: z.number().min(1),

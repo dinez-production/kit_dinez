@@ -173,12 +173,25 @@ export default function SplashScreen() {
   if (activeMaintenanceNotice && !maintenanceLoading) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
-        <img
-          src={`/api/maintenance-notices/${activeMaintenanceNotice.imageFileId}/file`}
-          alt={activeMaintenanceNotice.title}
-          className="max-w-full max-h-full object-contain"
-          style={{ width: '100vw', height: '100vh', objectFit: 'cover' }}
-        />
+        {activeMaintenanceNotice.mediaType === 'video' ? (
+          <video
+            src={`/api/maintenance-notices/${activeMaintenanceNotice.imageFileId}/file`}
+            className="max-w-full max-h-full"
+            style={{ width: '100vw', height: '100vh', objectFit: 'cover' }}
+            autoPlay
+            loop
+            muted
+            playsInline
+            controls={false}
+          />
+        ) : (
+          <img
+            src={`/api/maintenance-notices/${activeMaintenanceNotice.imageFileId}/file`}
+            alt={activeMaintenanceNotice.title}
+            className="max-w-full max-h-full object-contain"
+            style={{ width: '100vw', height: '100vh', objectFit: 'cover' }}
+          />
+        )}
       </div>
     );
   }

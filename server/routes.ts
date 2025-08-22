@@ -1391,7 +1391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/maintenance-notices", upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
-        return res.status(400).json({ message: "No image file uploaded" });
+        return res.status(400).json({ message: "No media file uploaded" });
       }
 
       const { originalname, mimetype, buffer } = req.file;
@@ -1401,9 +1401,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Title and uploadedBy are required" });
       }
 
-      // Check if image type
-      if (!mimetype.startsWith('image/')) {
-        return res.status(400).json({ message: "Only image files are allowed for maintenance notices" });
+      // Check if image or video type
+      if (!mimetype.startsWith('image/') && !mimetype.startsWith('video/')) {
+        return res.status(400).json({ message: "Only image and video files are allowed for maintenance notices" });
       }
 
       // Generate unique filename
@@ -1411,14 +1411,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const fileExtension = originalname.split('.').pop();
       const fileName = `maintenance_${timestamp}.${fileExtension}`;
 
+      // Determine media type
+      const mediaType: 'image' | 'video' = mimetype.startsWith('image/') ? 'image' : 'video';
+
       // Upload file to GridFS using mediaService
       const fileId = await mediaService.uploadFile(buffer, fileName, originalname, mimetype, parseInt(uploadedBy));
 
       const notice = await storage.createMaintenanceNotice({
         title,
-        imageFileName: fileName,
+        fileName: fileName,
         imageFileId: fileId,
         mimeType: mimetype,
+        mediaType: mediaType,
         size: buffer.length,
         isActive: false,
         uploadedBy: parseInt(uploadedBy)

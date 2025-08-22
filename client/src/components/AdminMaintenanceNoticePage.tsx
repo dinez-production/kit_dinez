@@ -9,8 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { 
-  ArrowLeft, Image, Plus, Trash2, Eye, Upload, X, Loader2, 
-  CheckCircle, XCircle, Clock, AlertTriangle, Settings
+  ArrowLeft, Image, Video, Plus, Trash2, Eye, Upload, X, Loader2, 
+  CheckCircle, XCircle, Clock, AlertTriangle, Settings, Play
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthSync } from "@/hooks/useDataSync";
@@ -162,10 +162,10 @@ export default function AdminMaintenanceNoticePage() {
     const file = files[0];
     
     // Validate file type
-    if (!file.type.startsWith('image/')) {
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
       toast({
         title: "Invalid File Type",
-        description: "Only image files are allowed for maintenance notices",
+        description: "Only image and video files are allowed for maintenance notices",
         variant: "destructive",
       });
       return;
@@ -262,7 +262,7 @@ export default function AdminMaintenanceNoticePage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,video/*"
             className="hidden"
             onChange={(e) => handleFileUpload(e.target.files)}
             data-testid="input-file-upload"
@@ -325,11 +325,37 @@ export default function AdminMaintenanceNoticePage() {
           notices.map((notice) => (
             <Card key={notice.id} className="overflow-hidden">
               <div className="aspect-video bg-muted relative">
-                <img
-                  src={`/api/maintenance-notices/${notice.imageFileId}/file`}
-                  alt={notice.title}
-                  className="w-full h-full object-cover"
-                />
+                {notice.mediaType === 'video' ? (
+                  <div className="relative w-full h-full">
+                    <video
+                      src={`/api/maintenance-notices/${notice.imageFileId}/file`}
+                      className="w-full h-full object-cover"
+                      muted
+                      preload="metadata"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="bg-black/50 rounded-full p-3">
+                        <Video className="w-6 h-6 text-white" />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <img
+                    src={`/api/maintenance-notices/${notice.imageFileId}/file`}
+                    alt={notice.title}
+                    className="w-full h-full object-cover"
+                  />
+                )}
+                <div className="absolute top-2 right-2">
+                  <Badge variant="secondary" className="bg-black/70 text-white">
+                    {notice.mediaType === 'video' ? (
+                      <Video className="w-3 h-3 mr-1" />
+                    ) : (
+                      <Image className="w-3 h-3 mr-1" />
+                    )}
+                    {notice.mediaType}
+                  </Badge>
+                </div>
                 <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity duration-200 flex items-center justify-center space-x-2">
                   <Button
                     size="sm"
@@ -407,11 +433,21 @@ export default function AdminMaintenanceNoticePage() {
             {selectedNotice && (
               <div className="space-y-4">
                 <div className="aspect-video bg-muted rounded-lg overflow-hidden">
-                  <img
-                    src={`/api/maintenance-notices/${selectedNotice.imageFileId}/file`}
-                    alt={selectedNotice.title}
-                    className="w-full h-full object-contain"
-                  />
+                  {selectedNotice.mediaType === 'video' ? (
+                    <video
+                      src={`/api/maintenance-notices/${selectedNotice.imageFileId}/file`}
+                      className="w-full h-full object-contain"
+                      controls
+                      autoPlay={false}
+                      preload="metadata"
+                    />
+                  ) : (
+                    <img
+                      src={`/api/maintenance-notices/${selectedNotice.imageFileId}/file`}
+                      alt={selectedNotice.title}
+                      className="w-full h-full object-contain"
+                    />
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>

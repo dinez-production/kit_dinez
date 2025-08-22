@@ -362,9 +362,10 @@ export const Coupon = mongoose.model<ICoupon>('Coupon', CouponSchema);
 // MaintenanceNotice Model
 export interface IMaintenanceNotice extends Document {
   title: string;
-  imageFileName: string;
-  imageFileId: mongoose.Types.ObjectId; // GridFS file ID for the maintenance image
+  fileName: string;
+  imageFileId: mongoose.Types.ObjectId; // GridFS file ID for the maintenance media (image/video)
   mimeType: string;
+  mediaType: 'image' | 'video'; // Type of media file
   size: number;
   isActive: boolean;
   uploadedBy: number; // Admin who uploaded
@@ -374,9 +375,14 @@ export interface IMaintenanceNotice extends Document {
 
 const MaintenanceNoticeSchema = new Schema<IMaintenanceNotice>({
   title: { type: String, required: true },
-  imageFileName: { type: String, required: true },
+  fileName: { type: String, required: true },
   imageFileId: { type: Schema.Types.ObjectId, required: true }, // GridFS file reference
   mimeType: { type: String, required: true },
+  mediaType: { 
+    type: String, 
+    required: true, 
+    enum: ['image', 'video'] 
+  },
   size: { type: Number, required: true },
   isActive: { type: Boolean, default: false },
   uploadedBy: { type: Number, required: true }, // References PostgreSQL user ID
