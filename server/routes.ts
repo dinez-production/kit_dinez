@@ -1828,28 +1828,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Try to check with PhonePe for latest status (with fast timeout)
-      const checksum = generateStatusChecksum(merchantTransactionId);
-      const endpoint = `/pg/v1/status/${PHONEPE_CONFIG.MERCHANT_ID}/${merchantTransactionId}`;
-      
+      // Try to check with PhonePe for latest status (using OAuth v2 API)
       console.log(`⚡ Attempting fast PhonePe status check for ${merchantTransactionId}`);
+      
+      // Get OAuth token for v2 API
+      const accessToken = await getOAuthToken();
+      const statusEndpoint = `/order/status/${merchantTransactionId}`;
+      
       const phonePeResponse = await axios.get(
-        `${PHONEPE_CONFIG.API_BASE_URL}${endpoint}`,
+        `${PHONEPE_CONFIG.API_BASE_URL}${statusEndpoint}`,
         {
           headers: {
             'Content-Type': 'application/json',
-            'X-VERIFY': checksum,
-            'X-MERCHANT-ID': PHONEPE_CONFIG.MERCHANT_ID
+            'Authorization': `Bearer ${accessToken}`
           },
-          timeout: 3000 // 3 second timeout for better UX - fail fast and use cache
+          timeout: 5000 // 5 second timeout for better reliability
         }
       );
 
-      if (phonePeResponse.data.success) {
+      if (phonePeResponse.data && phonePeResponse.status === 200) {
         // API call succeeded - reset failure count
         paymentStatusCache.set(cacheKey, { lastAttempt: now, consecutiveFailures: 0, shouldSkipApi: false });
         
-        const { state, responseCode, transactionId, paymentInstrument } = phonePeResponse.data.data;
+        // Handle v2 API response structure
+        const apiResponseData = phonePeResponse.data;
+        const { state, responseCode, orderId: phonePeOrderId } = apiResponseData;
         
         let paymentStatus: string;
         if (state === 'COMPLETED' && responseCode === 'SUCCESS') {
@@ -1862,11 +1865,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Update payment record
         const updatedPayment = await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
-          phonePeTransactionId: transactionId,
+          phonePeTransactionId: phonePeOrderId,
           status: paymentStatus,
-          paymentMethod: paymentInstrument?.type,
+          paymentMethod: apiResponseData.paymentMethod?.type || 'unknown',
           responseCode,
-          responseMessage: phonePeResponse.data.message
+          responseMessage: apiResponseData.message || 'Status updated'
         });
 
         // If payment successful, create order if not already created
@@ -1959,9 +1962,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           data: responseData
         });
       } else {
-        res.status(400).json({
-          success: false,
-          message: phonePeResponse.data.message || "Status check failed"
+        // API returned non-success status - don't fail, return cached data
+        console.log(`⚡ PhonePe API returned non-success status: ${phonePeResponse.status}`);
+        
+        return res.json({
+          success: true,
+          status: payment.status,
+          data: { 
+            ...payment,
+            fromCache: true,
+            reason: 'api_non_success_response',
+            message: 'Payment verification in progress. Status will update automatically.'
+          }
         });
       }
     } catch (error) {
