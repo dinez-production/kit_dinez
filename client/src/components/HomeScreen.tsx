@@ -432,7 +432,7 @@ export default function HomeScreen() {
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-1">
                           <h3 className="font-semibold">{item.name}</h3>
-                          <VegIndicator isVegetarian={menuItems.find(mi => mi.id === itemId)?.isVegetarian ?? true} size="sm" />
+                          <VegIndicator isVegetarian={menuItems.find(mi => mi.id === item.id)?.isVegetarian ?? true} size="sm" />
                           <Badge variant="secondary" className="bg-orange-100 text-orange-700">
                             🔥 Trending
                           </Badge>
@@ -448,15 +448,15 @@ export default function HomeScreen() {
                           onClick={(e) => {
                             e.stopPropagation();
                             addToCart({
-                              id: itemId,
+                              id: item.id,
                               name: item.name,
                               price: item.price,
-                              isVegetarian: menuItems.find(mi => mi.id.toString() === item.id)?.isVegetarian ?? true
+                              isVegetarian: menuItems.find(mi => mi.id === item.id)?.isVegetarian ?? true
                             });
                           }}
                         >
-                          {getCartQuantity(itemId) > 0 
-                            ? `ADD (${getCartQuantity(itemId)})` 
+                          {getCartQuantity(item.id) > 0 
+                            ? `ADD (${getCartQuantity(item.id)})` 
                             : 'ADD'
                           }
                         </Button>
@@ -490,7 +490,7 @@ export default function HomeScreen() {
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-1">
                           <h3 className="font-semibold">{item.name}</h3>
-                          <VegIndicator isVegetarian={menuItems.find(mi => mi.id === itemId)?.isVegetarian ?? true} size="sm" />
+                          <VegIndicator isVegetarian={menuItems.find(mi => mi.id === item.id)?.isVegetarian ?? true} size="sm" />
                         </div>
                         <div className="flex items-center space-x-3">
                           <div className="flex items-center">
@@ -506,15 +506,15 @@ export default function HomeScreen() {
                           onClick={(e) => {
                             e.stopPropagation();
                             addToCart({
-                              id: itemId,
+                              id: item.id,
                               name: item.name,
                               price: item.price,
-                              isVegetarian: menuItems.find(mi => mi.id.toString() === item.id)?.isVegetarian ?? true
+                              isVegetarian: menuItems.find(mi => mi.id === item.id)?.isVegetarian ?? true
                             });
                           }}
                         >
-                          {getCartQuantity(itemId) > 0 
-                            ? `ADD (${getCartQuantity(itemId)})` 
+                          {getCartQuantity(item.id) > 0 
+                            ? `ADD (${getCartQuantity(item.id)})` 
                             : 'ADD'
                           }
                         </Button>
