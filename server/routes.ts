@@ -2053,12 +2053,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
+      const searchQuery = req.query.search as string;
+      const statusFilter = req.query.status as string;
       
-      const paginatedResult = await storage.getPaymentsPaginated(page, limit);
+      // If there's a search query, we need to handle customer name search separately
+      let finalResult;
+      if (searchQuery && searchQuery.trim()) {
+        // First get payments that match payment fields
+        const paymentResult = await storage.getPaymentsPaginated(page, limit, searchQuery, statusFilter);
+        
+        // Also search for payments by customer name via orders
+        const allOrders = await storage.getOrders();
+        const customerSearchRegex = new RegExp(searchQuery.trim(), 'i');
+        const matchingOrderIds = allOrders
+          .filter(order => customerSearchRegex.test(order.customerName || '') || customerSearchRegex.test(order.orderNumber || ''))
+          .map(order => order.id);
+        
+        // Get payments that match these order IDs
+        const allPayments = await storage.getPayments();
+        const customerMatchingPayments = allPayments.filter(payment => 
+          matchingOrderIds.includes(payment.orderId) && 
+          (!statusFilter || statusFilter === 'all' || payment.status?.toLowerCase() === statusFilter.toLowerCase())
+        );
+        
+        // Combine and deduplicate results
+        const combinedPayments = [...paymentResult.payments];
+        customerMatchingPayments.forEach(custPayment => {
+          if (!combinedPayments.find(p => p.id === custPayment.id)) {
+            combinedPayments.push(custPayment);
+          }
+        });
+        
+        // Sort by creation date and paginate the combined results
+        const sortedPayments = combinedPayments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        const startIndex = (page - 1) * limit;
+        const paginatedPayments = sortedPayments.slice(startIndex, startIndex + limit);
+        
+        finalResult = {
+          payments: paginatedPayments,
+          totalCount: sortedPayments.length,
+          totalPages: Math.ceil(sortedPayments.length / limit),
+          currentPage: page
+        };
+      } else {
+        finalResult = await storage.getPaymentsPaginated(page, limit, searchQuery, statusFilter);
+      }
       
       // Enhance payment data with order information
       const enhancedPayments = await Promise.all(
-        paginatedResult.payments.map(async (payment) => {
+        finalResult.payments.map(async (payment) => {
           let orderDetails = null;
           if (payment.orderId) {
             const order = await storage.getOrder(payment.orderId);
@@ -2085,10 +2128,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         success: true, 
         payments: enhancedPayments,
-        totalCount: paginatedResult.totalCount,
-        totalPages: paginatedResult.totalPages,
-        currentPage: paginatedResult.currentPage,
-        hasNextPage: page < paginatedResult.totalPages,
+        totalCount: finalResult.totalCount,
+        totalPages: finalResult.totalPages,
+        currentPage: finalResult.currentPage,
+        hasNextPage: page < finalResult.totalPages,
         hasPrevPage: page > 1
       });
     } catch (error) {

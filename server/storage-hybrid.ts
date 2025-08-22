@@ -168,7 +168,7 @@ export interface IStorage {
   
   // Payments (MongoDB)
   getPayments(): Promise<any[]>;
-  getPaymentsPaginated(page: number, limit: number): Promise<{ payments: any[], totalCount: number, totalPages: number, currentPage: number }>;
+  getPaymentsPaginated(page: number, limit: number, searchQuery?: string, statusFilter?: string): Promise<{ payments: any[], totalCount: number, totalPages: number, currentPage: number }>;
   getPayment(id: string): Promise<any | undefined>;
   getPaymentByMerchantTxnId(merchantTransactionId: string): Promise<any | undefined>;
   createPayment(payment: InsertPayment): Promise<any>;
@@ -560,11 +560,32 @@ export class HybridStorage implements IStorage {
     return mongoToPlain(payments);
   }
 
-  async getPaymentsPaginated(page: number, limit: number): Promise<{ payments: any[], totalCount: number, totalPages: number, currentPage: number }> {
+  async getPaymentsPaginated(page: number, limit: number, searchQuery?: string, statusFilter?: string): Promise<{ payments: any[], totalCount: number, totalPages: number, currentPage: number }> {
     const skip = (page - 1) * limit;
+    
+    // Build search filter
+    let filter: any = {};
+    
+    // Status filter
+    if (statusFilter && statusFilter !== 'all') {
+      filter.status = { $regex: new RegExp(statusFilter, 'i') };
+    }
+    
+    // Search query filter
+    if (searchQuery && searchQuery.trim()) {
+      const searchRegex = new RegExp(searchQuery.trim(), 'i');
+      filter.$or = [
+        { merchantTransactionId: searchRegex },
+        { phonePeTransactionId: searchRegex },
+        { paymentMethod: searchRegex },
+        { responseCode: searchRegex },
+        { responseMessage: searchRegex }
+      ];
+    }
+    
     const [payments, totalCount] = await Promise.all([
-      Payment.find().sort({ createdAt: -1 }).skip(skip).limit(limit),
-      Payment.countDocuments()
+      Payment.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Payment.countDocuments(filter)
     ]);
     
     const totalPages = Math.ceil(totalCount / limit);

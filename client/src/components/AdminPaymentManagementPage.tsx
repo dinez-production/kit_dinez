@@ -24,11 +24,34 @@ export default function AdminPaymentManagementPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
-  // Fetch payments data with pagination
+  // Debounce search term to avoid too many API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Reset to first page when search or filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchTerm, statusFilter]);
+
+  // Fetch payments data with pagination and server-side search
   const { data: paymentsData, isLoading, refetch } = useQuery({
-    queryKey: ['/api/admin/payments', currentPage, itemsPerPage],
-    queryFn: () => apiRequest(`/api/admin/payments?page=${currentPage}&limit=${itemsPerPage}`),
+    queryKey: ['/api/admin/payments', currentPage, itemsPerPage, debouncedSearchTerm, statusFilter],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: itemsPerPage.toString(),
+        ...(debouncedSearchTerm && { search: debouncedSearchTerm }),
+        ...(statusFilter !== 'all' && { status: statusFilter })
+      });
+      return apiRequest(`/api/admin/payments?${params.toString()}`);
+    },
   });
 
   const payments = paymentsData?.payments || [];
@@ -36,15 +59,6 @@ export default function AdminPaymentManagementPage() {
   const totalPages = paymentsData?.totalPages || 0;
   const hasNextPage = paymentsData?.hasNextPage || false;
   const hasPrevPage = paymentsData?.hasPrevPage || false;
-
-  const filteredPayments = payments.filter((payment: any) => {
-    const matchesSearch = payment?.orderDetails?.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         payment?.merchantTransactionId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         payment?.phonePeTransactionId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         payment?.orderDetails?.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || payment?.status?.toLowerCase() === statusFilter.toLowerCase();
-    return matchesSearch && matchesStatus;
-  });
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -85,7 +99,7 @@ export default function AdminPaymentManagementPage() {
     setTimeout(() => {
       const csvContent = [
         ["Payment ID", "Order ID", "User", "Amount", "Method", "Status", "Timestamp", "Transaction ID", "Gateway"],
-        ...filteredPayments.map((payment: any) => [
+        ...payments.map((payment: any) => [
           payment.id,
           payment.orderDetails?.orderNumber || 'N/A',
           payment.orderDetails?.customerName || 'Guest',
@@ -112,7 +126,6 @@ export default function AdminPaymentManagementPage() {
         title: "Export Complete",
         description: "Payment report has been downloaded successfully.",
       });
-      setCurrentPage(1); // Reset to first page when applying filters
     }, 2000);
   };
 
@@ -262,12 +275,12 @@ export default function AdminPaymentManagementPage() {
                 <Loader2 className="h-6 w-6 animate-spin" />
                 <span className="ml-2">Loading payments...</span>
               </div>
-            ) : filteredPayments.length === 0 ? (
+            ) : payments.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 No payment transactions found.
               </div>
             ) : (
-              filteredPayments.map((payment: any) => (
+              payments.map((payment: any) => (
                 <div key={payment.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                   <div className="flex items-center space-x-4">
                     <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center">
