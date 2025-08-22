@@ -1840,22 +1840,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
+            'Authorization': `O-Bearer ${accessToken}`
           },
           timeout: 5000 // 5 second timeout for better reliability
         }
       );
 
-      if (phonePeResponse.data && phonePeResponse.status === 200) {
+      if (phonePeResponse.status === 200 && phonePeResponse.data) {
         // API call succeeded - reset failure count
         paymentStatusCache.set(cacheKey, { lastAttempt: now, consecutiveFailures: 0, shouldSkipApi: false });
         
-        // Handle v2 API response structure
+        // Handle v2 API response structure as per PhonePe docs
         const apiResponseData = phonePeResponse.data;
-        const { state, responseCode, orderId: phonePeOrderId } = apiResponseData;
+        const { state, orderId: phonePeOrderId, paymentDetails } = apiResponseData;
         
         let paymentStatus: string;
-        if (state === 'COMPLETED' && responseCode === 'SUCCESS') {
+        if (state === 'COMPLETED') {
           paymentStatus = PAYMENT_STATUS.SUCCESS;
         } else if (state === 'FAILED') {
           paymentStatus = PAYMENT_STATUS.FAILED;
@@ -1863,13 +1863,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           paymentStatus = PAYMENT_STATUS.PENDING;
         }
 
-        // Update payment record
+        // Update payment record with correct data from PhonePe response
+        const latestTransaction = paymentDetails && paymentDetails.length > 0 ? paymentDetails[0] : null;
         const updatedPayment = await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
           phonePeTransactionId: phonePeOrderId,
           status: paymentStatus,
-          paymentMethod: apiResponseData.paymentMethod?.type || 'unknown',
-          responseCode,
-          responseMessage: apiResponseData.message || 'Status updated'
+          paymentMethod: latestTransaction?.paymentMode || 'unknown',
+          responseCode: latestTransaction?.state || state,
+          responseMessage: `Payment ${state.toLowerCase()}`
         });
 
         // If payment successful, create order if not already created
