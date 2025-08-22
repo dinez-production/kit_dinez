@@ -2724,6 +2724,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get detailed usage information for a coupon (admin only)
+  app.get("/api/coupons/:id/usage", async (req, res) => {
+    try {
+      const result = await storage.getCouponUsageDetails(req.params.id);
+      if (!result.success) {
+        return res.status(404).json({ message: "Coupon not found" });
+      }
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching coupon usage details:", error);
+      res.status(500).json({ message: "Failed to fetch coupon usage details" });
+    }
+  });
+
+  // Assign coupon to specific users (admin only)
+  app.post("/api/coupons/:id/assign", async (req, res) => {
+    try {
+      const { userIds } = req.body;
+      
+      if (!Array.isArray(userIds) || userIds.length === 0) {
+        return res.status(400).json({ message: "User IDs array is required" });
+      }
+
+      const result = await storage.assignCouponToUsers(req.params.id, userIds);
+      if (!result.success) {
+        return res.status(400).json({ message: result.message });
+      }
+      
+      res.json({ message: result.message });
+    } catch (error) {
+      console.error("Error assigning coupon to users:", error);
+      res.status(500).json({ message: "Failed to assign coupon to users" });
+    }
+  });
+
+  // Get available coupons for a specific user
+  app.get("/api/users/:userId/coupons", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
+      const coupons = await storage.getCouponsForUser(userId);
+      res.json(coupons);
+    } catch (error) {
+      console.error("Error fetching user coupons:", error);
+      res.status(500).json({ message: "Failed to fetch user coupons" });
+    }
+  });
+
+  // Get all users for coupon assignment (admin only)
+  app.get("/api/admin/users", async (req, res) => {
+    try {
+      const { search, role } = req.query;
+      let users = [];
+
+      // Get all users from PostgreSQL
+      const allUsers = await storage.getAllUsers();
+      
+      // Filter by search term if provided
+      if (search) {
+        const searchTerm = (search as string).toLowerCase();
+        users = allUsers.filter(user => 
+          user.name.toLowerCase().includes(searchTerm) ||
+          user.email.toLowerCase().includes(searchTerm) ||
+          (user.registerNumber && user.registerNumber.toLowerCase().includes(searchTerm)) ||
+          (user.staffId && user.staffId.toLowerCase().includes(searchTerm))
+        );
+      } else {
+        users = allUsers;
+      }
+
+      // Filter by role if provided
+      if (role && role !== 'all') {
+        users = users.filter(user => user.role === role);
+      }
+
+      // Format users for frontend display
+      const formattedUsers = users.map(user => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        identifier: user.role === 'student' ? user.registerNumber : user.staffId,
+        department: user.department || '',
+        createdAt: user.createdAt
+      }));
+
+      res.json(formattedUsers);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
   // Register Web Push API routes
   app.use('/api/push', webPushRoutes);
 

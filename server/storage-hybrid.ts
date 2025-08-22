@@ -757,6 +757,9 @@ export class HybridStorage implements IStorage {
       ...couponData,
       usedCount: 0,
       usedBy: [],
+      usageHistory: [],
+      assignmentType: (couponData as any).assignmentType || 'all',
+      assignedUsers: (couponData as any).assignedUsers || [],
       isActive: couponData.isActive ?? true
     });
     const saved = await coupon.save();
@@ -801,6 +804,13 @@ export class HybridStorage implements IStorage {
 
       if (!coupon.isActive) {
         return { valid: false, message: 'Coupon is not active' };
+      }
+
+      // Check if coupon is assigned to specific users and user is authorized
+      if (coupon.assignmentType === 'specific' && userId) {
+        if (!coupon.assignedUsers.includes(userId)) {
+          return { valid: false, message: 'This coupon is not assigned to you' };
+        }
       }
 
       const now = new Date();
@@ -852,7 +862,7 @@ export class HybridStorage implements IStorage {
     }
   }
 
-  async applyCoupon(code: string, userId: number, orderAmount: number): Promise<{
+  async applyCoupon(code: string, userId: number, orderAmount: number, orderId?: string, orderNumber?: string): Promise<{
     success: boolean;
     message: string;
     discountAmount?: number;
@@ -873,14 +883,24 @@ export class HybridStorage implements IStorage {
         return { success: false, message: 'Coupon not found' };
       }
 
-      // Update coupon usage
-      await Coupon.findByIdAndUpdate(coupon._id, {
-        $inc: { usedCount: 1 },
-        $addToSet: { usedBy: userId }
-      });
-
       const discountAmount = validation.discountAmount || 0;
       const finalAmount = orderAmount - discountAmount;
+
+      // Prepare usage history entry
+      const usageHistoryEntry = {
+        userId,
+        orderId: orderId ? new mongoose.Types.ObjectId(orderId) : new mongoose.Types.ObjectId(),
+        orderNumber: orderNumber || 'N/A',
+        discountAmount,
+        usedAt: new Date()
+      };
+
+      // Update coupon usage with detailed history
+      await Coupon.findByIdAndUpdate(coupon._id, {
+        $inc: { usedCount: 1 },
+        $addToSet: { usedBy: userId },
+        $push: { usageHistory: usageHistoryEntry }
+      });
 
       return {
         success: true,
@@ -893,6 +913,128 @@ export class HybridStorage implements IStorage {
       return { success: false, message: 'Error applying coupon' };
     }
   }
+
+  // New methods for enhanced coupon management
+  async getCouponUsageDetails(couponId: string): Promise<{
+    success: boolean;
+    coupon?: any;
+    usageDetails?: {
+      totalUsed: number;
+      usersWhoUsed: any[];
+      usageHistory: any[];
+      assignedUsers?: any[];
+    };
+  }> {
+    try {
+      const coupon = await Coupon.findById(couponId);
+      if (!coupon) {
+        return { success: false };
+      }
+
+      // Get user details for users who have used the coupon
+      const usersWhoUsed = [];
+      if (coupon.usedBy.length > 0) {
+        const users = await this.getUsersByIds(coupon.usedBy);
+        usersWhoUsed.push(...users);
+      }
+
+      // Get assigned user details if it's a specific assignment coupon
+      let assignedUsers = [];
+      if (coupon.assignmentType === 'specific' && coupon.assignedUsers.length > 0) {
+        assignedUsers = await this.getUsersByIds(coupon.assignedUsers);
+      }
+
+      return {
+        success: true,
+        coupon: mongoToPlain(coupon),
+        usageDetails: {
+          totalUsed: coupon.usedCount,
+          usersWhoUsed,
+          usageHistory: coupon.usageHistory || [],
+          assignedUsers
+        }
+      };
+    } catch (error) {
+      console.error('Error getting coupon usage details:', error);
+      return { success: false };
+    }
+  }
+
+  async assignCouponToUsers(couponId: string, userIds: number[]): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    try {
+      const coupon = await Coupon.findByIdAndUpdate(
+        couponId,
+        {
+          assignmentType: 'specific',
+          assignedUsers: userIds
+        },
+        { new: true }
+      );
+
+      if (!coupon) {
+        return { success: false, message: 'Coupon not found' };
+      }
+
+      return {
+        success: true,
+        message: `Coupon assigned to ${userIds.length} user(s)`
+      };
+    } catch (error) {
+      console.error('Error assigning coupon to users:', error);
+      return { success: false, message: 'Error assigning coupon' };
+    }
+  }
+
+  async getCouponsForUser(userId: number): Promise<any[]> {
+    try {
+      const now = new Date();
+      
+      // Find coupons assigned to this specific user or available to all
+      const coupons = await Coupon.find({
+        isActive: true,
+        validFrom: { $lte: now },
+        validUntil: { $gte: now },
+        $expr: { $lt: ['$usedCount', '$usageLimit'] },
+        $or: [
+          { assignmentType: 'all' },
+          { assignmentType: 'specific', assignedUsers: userId }
+        ],
+        usedBy: { $ne: userId } // Exclude already used coupons
+      }).sort({ createdAt: -1 });
+      
+      return mongoToPlain(coupons);
+    } catch (error) {
+      console.error('Error getting coupons for user:', error);
+      return [];
+    }
+  }
+
+  async getUsersByIds(userIds: number[]): Promise<any[]> {
+    try {
+      const db = getPostgresDb();
+      const users = await db.user.findMany({
+        where: { id: { in: userIds } },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          registerNumber: true,
+          staffId: true,
+          department: true,
+          createdAt: true
+        }
+      });
+      return users;
+    } catch (error) {
+      console.error('Error getting users by IDs:', error);
+      return [];
+    }
+  }
+
 }
 
 export const storage = new HybridStorage();
