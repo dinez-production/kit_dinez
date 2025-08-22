@@ -1511,8 +1511,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         redirectUrl
       );
 
-      // API endpoint for v2
-      const endpoint = '/pay';
+      // API endpoint for v2 (corrected as per PhonePe docs)
+      const endpoint = '/checkout/v2/pay';
       const apiUrl = `${PHONEPE_CONFIG.API_BASE_URL}${endpoint}`;
 
       // DEBUG: Log detailed information for troubleshooting
@@ -1833,7 +1833,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get OAuth token for v2 API
       const accessToken = await getOAuthToken();
-      const statusEndpoint = `/order/status/${merchantTransactionId}`;
+      const statusEndpoint = `/checkout/v2/order/${merchantTransactionId}/status`;
       
       const phonePeResponse = await axios.get(
         `${PHONEPE_CONFIG.API_BASE_URL}${statusEndpoint}`,
