@@ -137,19 +137,6 @@ export type MediaBanner = {
   updatedAt: Date;
 };
 
-export type MaintenanceNotice = {
-  id: string;
-  title: string;
-  fileName: string;
-  imageFileId: string; // GridFS file ID for the maintenance media (image/video)
-  mimeType: string;
-  mediaType: 'image' | 'video'; // Type of media file
-  size: number;
-  isActive: boolean;
-  uploadedBy: number; // Admin who uploaded
-  createdAt: Date;
-  updatedAt: Date;
-};
 
 export type CouponUsageHistory = {
   userId: number;
@@ -185,7 +172,6 @@ export type InsertCategory = Omit<Category, 'id' | 'createdAt'>;
 export type InsertMenuItem = Omit<MenuItem, 'id' | 'createdAt'>;
 export type InsertOrder = Omit<Order, 'id' | 'createdAt'>;
 export type InsertMediaBanner = Omit<MediaBanner, 'id' | 'createdAt' | 'updatedAt'>;
-export type InsertMaintenanceNotice = Omit<MaintenanceNotice, 'id' | 'createdAt' | 'updatedAt'>;
 export type InsertOrderItem = Omit<OrderItem, 'id'>;
 export type InsertNotification = Omit<Notification, 'id' | 'createdAt'>;
 export type InsertLoginIssue = Omit<LoginIssue, 'id' | 'createdAt'>;
@@ -333,16 +319,6 @@ export const insertPaymentSchema = z.object({
   metadata: z.string().optional(),
 });
 
-export const insertMaintenanceNoticeSchema = z.object({
-  title: z.string().min(1),
-  fileName: z.string().min(1),
-  imageFileId: z.string().min(1),
-  mimeType: z.string().min(1),
-  mediaType: z.enum(['image', 'video']),
-  size: z.number().positive(),
-  isActive: z.boolean().optional(),
-  uploadedBy: z.number().min(1),
-});
 
 // Import Prisma namespace for type inference
 import type { Prisma } from '@prisma/client';

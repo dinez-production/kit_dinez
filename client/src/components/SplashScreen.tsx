@@ -5,20 +5,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { isPWAInstalled, getPWAAuthState } from "@/utils/pwaAuth";
 import { serverRestartDetector } from "@/utils/devUpdateDetector";
 import NotificationPermissionDialog from "@/components/NotificationPermissionDialog";
-import type { MaintenanceNotice } from "@shared/schema";
 
 export default function SplashScreen() {
   const [, setLocation] = useLocation();
   const { user, isLoading } = useAuth();
   const [showNotificationDialog, setShowNotificationDialog] = useState(false);
 
-  // Fetch active maintenance notices
-  const { data: activeMaintenanceNotice, isLoading: maintenanceLoading } = useQuery<MaintenanceNotice>({
-    queryKey: ['/api/maintenance-notices/active'],
-    staleTime: 1000 * 10, // Refresh every 10 seconds
-    refetchInterval: 1000 * 10, // Poll for changes
-    retry: false, // Don't retry if it fails
-  });
   
   const checkNotificationPermission = () => {
     // Check if browser supports notifications
@@ -79,17 +71,6 @@ export default function SplashScreen() {
     });
 
     const timer = setTimeout(() => {
-      // If maintenance notice is loading, wait
-      if (maintenanceLoading) {
-        console.log('Waiting for maintenance notice check...');
-        return;
-      }
-
-      // If there's an active maintenance notice, don't proceed with navigation
-      if (activeMaintenanceNotice) {
-        console.log('Active maintenance notice detected, staying on splash screen');
-        return;
-      }
       
       // Trigger server restart detection once after splash screen
       console.log('🚀 Splash screen complete - checking for server restart...');
@@ -167,34 +148,8 @@ export default function SplashScreen() {
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [setLocation, user, isLoading, activeMaintenanceNotice, maintenanceLoading]);
+  }, [setLocation, user, isLoading]);
 
-  // If there's an active maintenance notice, display it full-screen
-  if (activeMaintenanceNotice && !maintenanceLoading) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
-        {activeMaintenanceNotice.mediaType === 'video' ? (
-          <video
-            src={`/api/maintenance-notices/${activeMaintenanceNotice.imageFileId}/file`}
-            className="max-w-full max-h-full"
-            style={{ width: '100vw', height: '100vh', objectFit: 'cover' }}
-            autoPlay
-            loop
-            muted
-            playsInline
-            controls={false}
-          />
-        ) : (
-          <img
-            src={`/api/maintenance-notices/${activeMaintenanceNotice.imageFileId}/file`}
-            alt={activeMaintenanceNotice.title}
-            className="max-w-full max-h-full object-contain"
-            style={{ width: '100vw', height: '100vh', objectFit: 'cover' }}
-          />
-        )}
-      </div>
-    );
-  }
 
   return (
     <>

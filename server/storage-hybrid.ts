@@ -2,9 +2,9 @@ import { PrismaClient } from '@prisma/client';
 import type { User, Prisma } from '@prisma/client';
 import { connectToMongoDB } from './mongodb';
 import { 
-  Category, MenuItem, Order, OrderItem, Notification, LoginIssue, QuickOrder, Payment, Complaint, Coupon, MaintenanceNotice,
+  Category, MenuItem, Order, OrderItem, Notification, LoginIssue, QuickOrder, Payment, Complaint, Coupon,
   type ICategory, type IMenuItem, type IOrder, type IOrderItem, 
-  type INotification, type ILoginIssue, type IQuickOrder, type IPayment, type IComplaint, type ICoupon, type IMaintenanceNotice
+  type INotification, type ILoginIssue, type IQuickOrder, type IPayment, type IComplaint, type ICoupon
 } from './models/mongodb-models';
 import { db as getPostgresDb } from "./db";
 import mongoose from 'mongoose';
@@ -204,11 +204,6 @@ export interface IStorage {
   }>;
 
   // Maintenance Notice operations (MongoDB)
-  getMaintenanceNotices(): Promise<any[]>;
-  getActiveMaintenanceNotice(): Promise<any | null>;
-  createMaintenanceNotice(notice: any): Promise<any>;
-  updateMaintenanceNotice(id: string, notice: Partial<any>): Promise<any>;
-  deleteMaintenanceNotice(id: string): Promise<void>;
 }
 
 export class HybridStorage implements IStorage {
@@ -1043,34 +1038,6 @@ export class HybridStorage implements IStorage {
   }
 
   // MAINTENANCE NOTICE OPERATIONS (MongoDB)
-  async getMaintenanceNotices(): Promise<any[]> {
-    const notices = await MaintenanceNotice.find().sort({ createdAt: -1 });
-    return mongoToPlain(notices);
-  }
-
-  async getActiveMaintenanceNotice(): Promise<any | null> {
-    const activeNotice = await MaintenanceNotice.findOne({ isActive: true }).sort({ createdAt: -1 });
-    return activeNotice ? mongoToPlain(activeNotice) : null;
-  }
-
-  async createMaintenanceNotice(notice: any): Promise<any> {
-    const newNotice = new MaintenanceNotice(notice);
-    const saved = await newNotice.save();
-    return mongoToPlain(saved);
-  }
-
-  async updateMaintenanceNotice(id: string, notice: Partial<any>): Promise<any> {
-    const updatedNotice = await MaintenanceNotice.findByIdAndUpdate(
-      id, 
-      { ...notice, updatedAt: new Date() }, 
-      { new: true }
-    );
-    return mongoToPlain(updatedNotice);
-  }
-
-  async deleteMaintenanceNotice(id: string): Promise<void> {
-    await MaintenanceNotice.findByIdAndDelete(id);
-  }
 
 }
 
