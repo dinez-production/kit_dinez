@@ -32,7 +32,6 @@ import { stockService } from "./stock-service";
 import { webPushService } from "./services/webPushService.js";
 import webPushRoutes from "./routes/webPush.js";
 import { mediaService } from "./services/mediaService.js";
-import multer from "multer";
 import axios from "axios";
 
 // Store SSE connections for real-time notifications
@@ -49,22 +48,6 @@ const paymentStatusCache = new Map<string, {
 }>();
 const API_RETRY_INTERVAL = 30000; // 30 seconds before retrying failed API calls
 const MAX_CONSECUTIVE_FAILURES = 3; // Skip API after 3 consecutive failures
-
-// Configure multer for file uploads (memory storage for GridFS)
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    // Accept images and videos
-    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image and video files are allowed'));
-    }
-  }
-});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint with comprehensive database status
@@ -1173,7 +1156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/media-banners", upload.single('file'), async (req, res) => {
+  app.post("/api/media-banners", async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -1388,7 +1371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/maintenance-notices", upload.single('file'), async (req, res) => {
+  app.post("/api/maintenance-notices", async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No media file uploaded" });
@@ -1401,9 +1384,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Title and uploadedBy are required" });
       }
 
-      // Check if image or video type
-      if (!mimetype.startsWith('image/') && !mimetype.startsWith('video/')) {
-        return res.status(400).json({ message: "Only image and video files are allowed for maintenance notices" });
+      // Check if image type only
+      if (!mimetype.startsWith('image/')) {
+        return res.status(400).json({ message: "Only image files are allowed for maintenance notices" });
       }
 
       // Generate unique filename
@@ -1411,8 +1394,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const fileExtension = originalname.split('.').pop();
       const fileName = `maintenance_${timestamp}.${fileExtension}`;
 
-      // Determine media type
-      const mediaType: 'image' | 'video' = mimetype.startsWith('image/') ? 'image' : 'video';
+      // Media type is always image now
+      const mediaType: 'image' = 'image';
 
       // Upload file to GridFS using mediaService
       const fileId = await mediaService.uploadFile(buffer, fileName, originalname, mimetype, parseInt(uploadedBy));
