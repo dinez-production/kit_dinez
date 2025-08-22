@@ -13,7 +13,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { 
   ArrowLeft, Search, Filter, CreditCard, DollarSign, 
   TrendingUp, AlertTriangle, CheckCircle, Clock, 
-  RefreshCw, Download, Eye, Loader2
+  RefreshCw, Download, Eye, Loader2, ChevronLeft, ChevronRight
 } from "lucide-react";
 
 export default function AdminPaymentManagementPage() {
@@ -22,14 +22,20 @@ export default function AdminPaymentManagementPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
-  // Fetch payments data
+  // Fetch payments data with pagination
   const { data: paymentsData, isLoading, refetch } = useQuery({
-    queryKey: ['/api/admin/payments'],
-    queryFn: () => apiRequest('/api/admin/payments'),
+    queryKey: ['/api/admin/payments', currentPage, itemsPerPage],
+    queryFn: () => apiRequest(`/api/admin/payments?page=${currentPage}&limit=${itemsPerPage}`),
   });
 
   const payments = paymentsData?.payments || [];
+  const totalCount = paymentsData?.totalCount || 0;
+  const totalPages = paymentsData?.totalPages || 0;
+  const hasNextPage = paymentsData?.hasNextPage || false;
+  const hasPrevPage = paymentsData?.hasPrevPage || false;
 
   const filteredPayments = payments.filter((payment: any) => {
     const matchesSearch = payment?.orderDetails?.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -106,6 +112,7 @@ export default function AdminPaymentManagementPage() {
         title: "Export Complete",
         description: "Payment report has been downloaded successfully.",
       });
+      setCurrentPage(1); // Reset to first page when applying filters
     }, 2000);
   };
 
@@ -120,6 +127,10 @@ export default function AdminPaymentManagementPage() {
       description: `Initiating retry for failed payment ${payment.merchantTransactionId}`,
     });
     // In a real app, this would trigger the payment retry process
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
   };
 
   return (
@@ -313,6 +324,67 @@ export default function AdminPaymentManagementPage() {
               ))
             )}
           </div>
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t">
+              <div className="flex items-center text-sm text-muted-foreground">
+                <span>Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} payments</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={!hasPrevPage}
+                  data-testid="button-prev-page"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                
+                {/* Page numbers */}
+                <div className="flex space-x-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handlePageChange(pageNum)}
+                        data-testid={`button-page-${pageNum}`}
+                        className="w-8 h-8 p-0"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+                
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={!hasNextPage}
+                  data-testid="button-next-page"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

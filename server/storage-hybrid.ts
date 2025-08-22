@@ -168,6 +168,7 @@ export interface IStorage {
   
   // Payments (MongoDB)
   getPayments(): Promise<any[]>;
+  getPaymentsPaginated(page: number, limit: number): Promise<{ payments: any[], totalCount: number, totalPages: number, currentPage: number }>;
   getPayment(id: string): Promise<any | undefined>;
   getPaymentByMerchantTxnId(merchantTransactionId: string): Promise<any | undefined>;
   createPayment(payment: InsertPayment): Promise<any>;
@@ -557,6 +558,23 @@ export class HybridStorage implements IStorage {
   async getPayments(): Promise<any[]> {
     const payments = await Payment.find().sort({ createdAt: -1 });
     return mongoToPlain(payments);
+  }
+
+  async getPaymentsPaginated(page: number, limit: number): Promise<{ payments: any[], totalCount: number, totalPages: number, currentPage: number }> {
+    const skip = (page - 1) * limit;
+    const [payments, totalCount] = await Promise.all([
+      Payment.find().sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Payment.countDocuments()
+    ]);
+    
+    const totalPages = Math.ceil(totalCount / limit);
+    
+    return {
+      payments: mongoToPlain(payments),
+      totalCount,
+      totalPages,
+      currentPage: page
+    };
   }
 
   async getPayment(id: string): Promise<any | undefined> {

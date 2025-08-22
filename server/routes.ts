@@ -2051,11 +2051,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin get all payments with detailed information
   app.get("/api/admin/payments", async (req, res) => {
     try {
-      const allPayments = await storage.getPayments();
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      
+      const paginatedResult = await storage.getPaymentsPaginated(page, limit);
       
       // Enhance payment data with order information
       const enhancedPayments = await Promise.all(
-        allPayments.map(async (payment) => {
+        paginatedResult.payments.map(async (payment) => {
           let orderDetails = null;
           if (payment.orderId) {
             const order = await storage.getOrder(payment.orderId);
@@ -2081,7 +2084,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ 
         success: true, 
-        payments: enhancedPayments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        payments: enhancedPayments,
+        totalCount: paginatedResult.totalCount,
+        totalPages: paginatedResult.totalPages,
+        currentPage: paginatedResult.currentPage,
+        hasNextPage: page < paginatedResult.totalPages,
+        hasPrevPage: page > 1
       });
     } catch (error) {
       console.error('Error fetching payments:', error);
