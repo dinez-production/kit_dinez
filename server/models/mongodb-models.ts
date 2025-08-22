@@ -358,3 +358,36 @@ const CouponSchema = new Schema<ICoupon>({
 });
 
 export const Coupon = mongoose.model<ICoupon>('Coupon', CouponSchema);
+
+// MaintenanceNotice Model
+export interface IMaintenanceNotice extends Document {
+  title: string;
+  imageFileName: string;
+  imageFileId: mongoose.Types.ObjectId; // GridFS file ID for the maintenance image
+  mimeType: string;
+  size: number;
+  isActive: boolean;
+  uploadedBy: number; // Admin who uploaded
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const MaintenanceNoticeSchema = new Schema<IMaintenanceNotice>({
+  title: { type: String, required: true },
+  imageFileName: { type: String, required: true },
+  imageFileId: { type: Schema.Types.ObjectId, required: true }, // GridFS file reference
+  mimeType: { type: String, required: true },
+  size: { type: Number, required: true },
+  isActive: { type: Boolean, default: false },
+  uploadedBy: { type: Number, required: true }, // References PostgreSQL user ID
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+// Update the updatedAt field on save
+MaintenanceNoticeSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+export const MaintenanceNotice = mongoose.model<IMaintenanceNotice>('MaintenanceNotice', MaintenanceNoticeSchema);

@@ -39,6 +39,7 @@ import AdminSystemSettingsPage from "./components/AdminSystemSettingsPage";
 import AdminPaymentManagementPage from "./components/AdminPaymentManagementPage";
 import AdminNotificationManagementPage from "./components/AdminNotificationManagementPage";
 import AdminContentManagementPage from "./components/AdminContentManagementPage";
+import AdminMaintenanceNoticePage from "./components/AdminMaintenanceNoticePage";
 import AdminCouponManagement from "./components/AdminCouponManagement";
 import AdminFeedbackManagementPage from "./components/AdminFeedbackManagementPage";
 import AdminReviewManagementPage from "./components/AdminReviewManagementPage";
@@ -181,6 +182,9 @@ const App = () => {
           </Route>
           <Route path="/admin/content-management">
             <AdminLayout><AdminContentManagementPage /></AdminLayout>
+          </Route>
+          <Route path="/admin/maintenance-notice">
+            <AdminLayout><AdminMaintenanceNoticePage /></AdminLayout>
           </Route>
           <Route path="/admin/coupon-management">
             <AdminLayout><AdminCouponManagement /></AdminLayout>

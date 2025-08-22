@@ -1367,6 +1367,228 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Maintenance Notice Management endpoints
+  app.get("/api/maintenance-notices", async (req, res) => {
+    try {
+      const notices = await storage.getMaintenanceNotices();
+      res.json(notices);
+    } catch (error) {
+      console.error("Error fetching maintenance notices:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/maintenance-notices/active", async (req, res) => {
+    try {
+      const activeNotice = await storage.getActiveMaintenanceNotice();
+      res.json(activeNotice);
+    } catch (error) {
+      console.error("Error fetching active maintenance notice:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/maintenance-notices", upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No image file uploaded" });
+      }
+
+      const { originalname, mimetype, buffer } = req.file;
+      const { title, uploadedBy } = req.body;
+
+      if (!title || !uploadedBy) {
+        return res.status(400).json({ message: "Title and uploadedBy are required" });
+      }
+
+      // Check if image type
+      if (!mimetype.startsWith('image/')) {
+        return res.status(400).json({ message: "Only image files are allowed for maintenance notices" });
+      }
+
+      // Generate unique filename
+      const timestamp = Date.now();
+      const fileExtension = originalname.split('.').pop();
+      const fileName = `maintenance_${timestamp}.${fileExtension}`;
+
+      // Upload file to GridFS using mediaService
+      const fileId = await mediaService.uploadFile(buffer, fileName, originalname, mimetype, parseInt(uploadedBy));
+
+      const notice = await storage.createMaintenanceNotice({
+        title,
+        imageFileName: fileName,
+        imageFileId: fileId,
+        mimeType: mimetype,
+        size: buffer.length,
+        isActive: false,
+        uploadedBy: parseInt(uploadedBy)
+      });
+
+      // Send SSE notification about new maintenance notice
+      if (sseConnections.size > 0) {
+        const message = `data: ${JSON.stringify({
+          type: 'maintenance_notice_updated',
+          data: { action: 'created', notice }
+        })}\n\n`;
+        
+        sseConnections.forEach((connection) => {
+          try {
+            if (connection.writable && !connection.destroyed) {
+              connection.write(message);
+            }
+          } catch (error) {
+            console.warn('SSE connection error:', error);
+          }
+        });
+      }
+
+      res.status(201).json(notice);
+    } catch (error) {
+      console.error("Error uploading maintenance notice:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Upload failed" });
+    }
+  });
+
+  app.get("/api/maintenance-notices/:fileId/file", async (req, res) => {
+    try {
+      const { fileId } = req.params;
+      const { stream, metadata } = await mediaService.getFile(fileId);
+
+      res.set({
+        'Content-Type': metadata.contentType,
+        'Content-Length': metadata.length.toString(),
+        'Cache-Control': 'public, max-age=86400', // 24 hours
+      });
+
+      stream.pipe(res);
+    } catch (error) {
+      console.error("Error serving maintenance notice file:", error);
+      res.status(404).json({ message: "File not found" });
+    }
+  });
+
+  app.patch("/api/maintenance-notices/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const updatedNotice = await storage.updateMaintenanceNotice(id, updates);
+
+      // Send SSE notification about maintenance notice update
+      if (sseConnections.size > 0) {
+        const message = `data: ${JSON.stringify({
+          type: 'maintenance_notice_updated',
+          data: { action: 'updated', notice: updatedNotice }
+        })}\n\n`;
+        
+        sseConnections.forEach((connection) => {
+          try {
+            if (connection.writable && !connection.destroyed) {
+              connection.write(message);
+            }
+          } catch (error) {
+            console.warn('SSE connection error:', error);
+          }
+        });
+      }
+
+      res.json(updatedNotice);
+    } catch (error) {
+      console.error("Error updating maintenance notice:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Update failed" });
+    }
+  });
+
+  app.patch("/api/maintenance-notices/:id/toggle", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Get current notice first
+      const notices = await storage.getMaintenanceNotices();
+      const currentNotice = notices.find(n => n.id === id);
+      
+      if (!currentNotice) {
+        return res.status(404).json({ message: "Maintenance notice not found" });
+      }
+
+      // If activating this notice, deactivate all others first
+      if (!currentNotice.isActive) {
+        for (const notice of notices) {
+          if (notice.isActive && notice.id !== id) {
+            await storage.updateMaintenanceNotice(notice.id, { isActive: false });
+          }
+        }
+      }
+
+      const updatedNotice = await storage.updateMaintenanceNotice(id, { 
+        isActive: !currentNotice.isActive 
+      });
+
+      // Send SSE notification about status toggle
+      if (sseConnections.size > 0) {
+        const message = `data: ${JSON.stringify({
+          type: 'maintenance_notice_updated',
+          data: { action: 'toggled', notice: updatedNotice }
+        })}\n\n`;
+        
+        sseConnections.forEach((connection) => {
+          try {
+            if (connection.writable && !connection.destroyed) {
+              connection.write(message);
+            }
+          } catch (error) {
+            console.warn('SSE connection error:', error);
+          }
+        });
+      }
+
+      res.json(updatedNotice);
+    } catch (error) {
+      console.error("Error toggling maintenance notice status:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Toggle failed" });
+    }
+  });
+
+  app.delete("/api/maintenance-notices/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Get the notice first to find the file ID
+      const notices = await storage.getMaintenanceNotices();
+      const notice = notices.find(n => n.id === id);
+      
+      if (notice) {
+        // Delete the file from GridFS
+        await mediaService.deleteFile(notice.imageFileId);
+      }
+
+      await storage.deleteMaintenanceNotice(id);
+
+      // Send SSE notification about maintenance notice deletion
+      if (sseConnections.size > 0) {
+        const message = `data: ${JSON.stringify({
+          type: 'maintenance_notice_updated',
+          data: { action: 'deleted', noticeId: id }
+        })}\n\n`;
+        
+        sseConnections.forEach((connection) => {
+          try {
+            if (connection.writable && !connection.destroyed) {
+              connection.write(message);
+            }
+          } catch (error) {
+            console.warn('SSE connection error:', error);
+          }
+        });
+      }
+
+      res.json({ message: "Maintenance notice deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting maintenance notice:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Delete failed" });
+    }
+  });
+
   // Login Issues endpoints
   app.get("/api/login-issues", async (req, res) => {
     try {
