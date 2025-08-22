@@ -97,8 +97,34 @@ export default function MenuListingPage() {
           </Button>
         </div>
 
-        {/* Filters */}
-        <div className="flex space-x-2 mt-4">
+        {/* Categories - Horizontal Scrollable */}
+        <div className="mt-4">
+          <div className="flex space-x-2 overflow-x-auto scrollbar-hide pb-2">
+            <Button
+              key="all"
+              variant={category === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setLocation("/menu/all")}
+              className="flex-shrink-0"
+            >
+              All
+            </Button>
+            {categories.map((cat) => (
+              <Button
+                key={cat.id}
+                variant={category?.toLowerCase() === cat.name.toLowerCase() ? "default" : "outline"}
+                size="sm"
+                onClick={() => setLocation(`/menu/${cat.name.toLowerCase()}`)}
+                className="flex-shrink-0"
+              >
+                {cat.name}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* Veg/Non-Veg Filters */}
+        <div className="flex space-x-2 mt-3">
           {[
             { id: "all", label: "All" },
             { id: "veg", label: "Veg" },
