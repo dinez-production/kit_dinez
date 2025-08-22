@@ -4,7 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Filter, Star, Plus, Loader2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, Filter, Star, Plus, Loader2, Leaf } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { VegIndicator } from "@/components/ui/VegIndicator";
 import BottomNavigation from "./BottomNavigation";
@@ -16,7 +18,7 @@ export default function MenuListingPage() {
   const [, setLocation] = useLocation();
   const [match, params] = useRoute("/menu/:category");
   const category = params?.category;
-  const [filter, setFilter] = useState<"all" | "veg" | "non-veg">("all");
+  const [vegOnly, setVegOnly] = useState(false);
   const { addToCart, getCartQuantity, decreaseQuantity } = useCart();
   const isMobile = useIsMobile();
 
@@ -59,10 +61,8 @@ export default function MenuListingPage() {
     // First filter out items with 0 stock and unavailable items
     if (!item.available || item.stock <= 0) return false;
     
-    // Then apply vegetarian filters
-    if (filter === "all") return true;
-    if (filter === "veg") return item.isVegetarian;
-    if (filter === "non-veg") return !item.isVegetarian;
+    // Then apply vegetarian filter
+    if (vegOnly) return item.isVegetarian;
     return true;
   });
 
@@ -123,22 +123,17 @@ export default function MenuListingPage() {
           </div>
         </div>
 
-        {/* Veg/Non-Veg Filters */}
-        <div className="flex space-x-2 mt-3">
-          {[
-            { id: "all", label: "All" },
-            { id: "veg", label: "Veg" },
-            { id: "non-veg", label: "Non-Veg" }
-          ].map((filterOption) => (
-            <Button
-              key={filterOption.id}
-              variant={filter === filterOption.id ? "default" : "outline"}
-              size="sm"
-              onClick={() => setFilter(filterOption.id as any)}
-            >
-              {filterOption.label}
-            </Button>
-          ))}
+        {/* Veg Toggle */}
+        <div className="flex items-center space-x-2 mt-3">
+          <Switch
+            id="veg-toggle"
+            checked={vegOnly}
+            onCheckedChange={setVegOnly}
+          />
+          <Label htmlFor="veg-toggle" className="flex items-center space-x-1 cursor-pointer">
+            <Leaf className="w-4 h-4 text-green-600" />
+            <span>Veg Only</span>
+          </Label>
         </div>
       </div>
 
