@@ -62,9 +62,11 @@ export default function AdminPaymentManagementPage() {
 
   const stats = {
     totalTransactions: payments.length,
-    totalAmount: payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0),
-    successRate: payments.length > 0 ? ((payments.filter((p: any) => p.status === 'success').length / payments.length) * 100) : 0,
-    pendingAmount: payments.filter((p: any) => p.status === 'pending').reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
+    // Amount is stored in paise, so divide by 100 for rupees
+    totalAmount: payments.reduce((sum: number, p: any) => sum + ((p.amount || 0) / 100), 0),
+    successRate: payments.length > 0 ? Math.round(((payments.filter((p: any) => p.status === 'success').length / payments.length) * 100)) : 0,
+    // Pending amount also needs to be converted from paise to rupees
+    pendingAmount: payments.filter((p: any) => p.status === 'pending').reduce((sum: number, p: any) => sum + ((p.amount || 0) / 100), 0)
   };
 
   const handleExportReport = () => {
