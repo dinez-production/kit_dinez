@@ -43,8 +43,8 @@ export async function getSchemaHealthStatus(): Promise<{
   details: any;
 }> {
   try {
-    const validator = new SchemaValidator();
-    await validator.initialize();
+    const validator = new SimpleSchemaValidator();
+    const status = await validator.getSchemaStatus();
     
     // Get current schema version from MongoDB
     const mongoose = await import('mongoose');
@@ -57,7 +57,7 @@ export async function getSchemaHealthStatus(): Promise<{
     
     const currentVersion = await SchemaVersionModel.findOne().sort({ timestamp: -1 });
     
-    await validator.disconnect();
+    // Status already includes all necessary info
     
     return {
       status: 'healthy',

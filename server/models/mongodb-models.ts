@@ -51,6 +51,9 @@ export interface IOrder extends Document {
   customerName: string;
   items: string; // JSON string
   amount: number;
+  originalAmount?: number; // Amount before discount
+  discountAmount?: number; // Discount applied
+  appliedCoupon?: string; // Coupon code used
   status: string;
   estimatedTime: number;
   barcode: string;
@@ -66,6 +69,9 @@ const OrderSchema = new Schema<IOrder>({
   customerName: { type: String, required: true },
   items: { type: String, required: true },
   amount: { type: Number, required: true },
+  originalAmount: { type: Number }, // Amount before discount
+  discountAmount: { type: Number }, // Discount applied
+  appliedCoupon: { type: String }, // Coupon code used
   status: { type: String, default: 'preparing' },
   estimatedTime: { type: Number, default: 15 },
   barcode: { type: String, required: true, unique: true },
@@ -293,6 +299,15 @@ MediaBannerSchema.pre('save', function(next) {
 
 export const MediaBanner = mongoose.model<IMediaBanner>('MediaBanner', MediaBannerSchema);
 
+// Coupon Usage History Interface
+export interface ICouponUsageHistory {
+  userId: number;
+  orderId: mongoose.Types.ObjectId;
+  orderNumber: string;
+  discountAmount: number;
+  usedAt: Date;
+}
+
 // Discount Coupon Model
 export interface ICoupon extends Document {
   code: string;
@@ -304,12 +319,23 @@ export interface ICoupon extends Document {
   usageLimit: number;
   usedCount: number;
   usedBy: number[]; // Array of user IDs who have used this coupon
+  assignmentType: 'all' | 'specific'; // Whether coupon is for all users or specific users
+  assignedUsers: number[]; // Array of user IDs the coupon is assigned to (only for specific assignment)
+  usageHistory: ICouponUsageHistory[]; // Detailed usage history
   isActive: boolean;
   validFrom: Date;
   validUntil: Date;
   createdBy: number; // Admin user ID
   createdAt: Date;
 }
+
+const CouponUsageHistorySchema = new Schema<ICouponUsageHistory>({
+  userId: { type: Number, required: true },
+  orderId: { type: Schema.Types.ObjectId, ref: 'Order', required: true },
+  orderNumber: { type: String, required: true },
+  discountAmount: { type: Number, required: true },
+  usedAt: { type: Date, default: Date.now }
+}, { _id: false });
 
 const CouponSchema = new Schema<ICoupon>({
   code: { type: String, required: true, unique: true, uppercase: true },
@@ -321,6 +347,9 @@ const CouponSchema = new Schema<ICoupon>({
   usageLimit: { type: Number, required: true },
   usedCount: { type: Number, default: 0 },
   usedBy: { type: [Number], default: [] },
+  assignmentType: { type: String, enum: ['all', 'specific'], default: 'all' },
+  assignedUsers: { type: [Number], default: [] },
+  usageHistory: { type: [CouponUsageHistorySchema], default: [] },
   isActive: { type: Boolean, default: true },
   validFrom: { type: Date, required: true },
   validUntil: { type: Date, required: true },
@@ -329,3 +358,4 @@ const CouponSchema = new Schema<ICoupon>({
 });
 
 export const Coupon = mongoose.model<ICoupon>('Coupon', CouponSchema);
+

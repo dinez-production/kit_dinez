@@ -50,18 +50,17 @@ const paymentStatusCache = new Map<string, {
 const API_RETRY_INTERVAL = 30000; // 30 seconds before retrying failed API calls
 const MAX_CONSECUTIVE_FAILURES = 3; // Skip API after 3 consecutive failures
 
-// Configure multer for file uploads (memory storage for GridFS)
+// Configure multer for file uploads - same as banners
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
+    fileSize: 10 * 1024 * 1024, // 10MB limit
   },
   fileFilter: (req, file, cb) => {
-    // Accept images and videos
-    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
+    if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
-      cb(new Error('Only image and video files are allowed'));
+      cb(new Error('Only image files are allowed'));
     }
   }
 });
@@ -1367,6 +1366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
   // Login Issues endpoints
   app.get("/api/login-issues", async (req, res) => {
     try {
@@ -1511,8 +1511,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         redirectUrl
       );
 
-      // API endpoint for v2
-      const endpoint = '/pay';
+      // API endpoint for v2 (corrected as per PhonePe docs)
+      const endpoint = '/checkout/v2/pay';
       const apiUrl = `${PHONEPE_CONFIG.API_BASE_URL}${endpoint}`;
 
       // DEBUG: Log detailed information for troubleshooting
@@ -1828,31 +1828,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Try to check with PhonePe for latest status (with fast timeout)
-      const checksum = generateStatusChecksum(merchantTransactionId);
-      const endpoint = `/pg/v1/status/${PHONEPE_CONFIG.MERCHANT_ID}/${merchantTransactionId}`;
-      
+      // Try to check with PhonePe for latest status (using OAuth v2 API)
       console.log(`⚡ Attempting fast PhonePe status check for ${merchantTransactionId}`);
+      
+      // Get OAuth token for v2 API
+      const accessToken = await getOAuthToken();
+      const statusEndpoint = `/checkout/v2/order/${merchantTransactionId}/status`;
+      
       const phonePeResponse = await axios.get(
-        `${PHONEPE_CONFIG.API_BASE_URL}${endpoint}`,
+        `${PHONEPE_CONFIG.API_BASE_URL}${statusEndpoint}`,
         {
           headers: {
             'Content-Type': 'application/json',
-            'X-VERIFY': checksum,
-            'X-MERCHANT-ID': PHONEPE_CONFIG.MERCHANT_ID
+            'Authorization': `O-Bearer ${accessToken}`
           },
-          timeout: 3000 // 3 second timeout for better UX - fail fast and use cache
+          timeout: 5000 // 5 second timeout for better reliability
         }
       );
 
-      if (phonePeResponse.data.success) {
+      if (phonePeResponse.status === 200 && phonePeResponse.data) {
         // API call succeeded - reset failure count
         paymentStatusCache.set(cacheKey, { lastAttempt: now, consecutiveFailures: 0, shouldSkipApi: false });
         
-        const { state, responseCode, transactionId, paymentInstrument } = phonePeResponse.data.data;
+        // Handle v2 API response structure as per PhonePe docs
+        const apiResponseData = phonePeResponse.data;
+        const { state, orderId: phonePeOrderId, paymentDetails } = apiResponseData;
         
         let paymentStatus: string;
-        if (state === 'COMPLETED' && responseCode === 'SUCCESS') {
+        if (state === 'COMPLETED') {
           paymentStatus = PAYMENT_STATUS.SUCCESS;
         } else if (state === 'FAILED') {
           paymentStatus = PAYMENT_STATUS.FAILED;
@@ -1860,13 +1863,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           paymentStatus = PAYMENT_STATUS.PENDING;
         }
 
-        // Update payment record
+        // Update payment record with correct data from PhonePe response
+        const latestTransaction = paymentDetails && paymentDetails.length > 0 ? paymentDetails[0] : null;
         const updatedPayment = await storage.updatePaymentByMerchantTxnId(merchantTransactionId, {
-          phonePeTransactionId: transactionId,
+          phonePeTransactionId: phonePeOrderId,
           status: paymentStatus,
-          paymentMethod: paymentInstrument?.type,
-          responseCode,
-          responseMessage: phonePeResponse.data.message
+          paymentMethod: latestTransaction?.paymentMode || 'unknown',
+          responseCode: latestTransaction?.state || state,
+          responseMessage: `Payment ${state.toLowerCase()}`
         });
 
         // If payment successful, create order if not already created
@@ -1959,9 +1963,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           data: responseData
         });
       } else {
-        res.status(400).json({
-          success: false,
-          message: phonePeResponse.data.message || "Status check failed"
+        // API returned non-success status - don't fail, return cached data
+        console.log(`⚡ PhonePe API returned non-success status: ${phonePeResponse.status}`);
+        
+        return res.json({
+          success: true,
+          status: payment.status,
+          data: { 
+            ...payment,
+            fromCache: true,
+            reason: 'api_non_success_response',
+            message: 'Payment verification in progress. Status will update automatically.'
+          }
         });
       }
     } catch (error) {
@@ -2038,11 +2051,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin get all payments with detailed information
   app.get("/api/admin/payments", async (req, res) => {
     try {
-      const allPayments = await storage.getPayments();
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const searchQuery = req.query.search as string;
+      const statusFilter = req.query.status as string;
+      
+      // If there's a search query, we need to handle customer name search separately
+      let finalResult;
+      if (searchQuery && searchQuery.trim()) {
+        // First get payments that match payment fields
+        const paymentResult = await storage.getPaymentsPaginated(page, limit, searchQuery, statusFilter);
+        
+        // Also search for payments by customer name via orders
+        const allOrders = await storage.getOrders();
+        const customerSearchRegex = new RegExp(searchQuery.trim(), 'i');
+        const matchingOrderIds = allOrders
+          .filter(order => customerSearchRegex.test(order.customerName || '') || customerSearchRegex.test(order.orderNumber || ''))
+          .map(order => order.id);
+        
+        // Get payments that match these order IDs
+        const allPayments = await storage.getPayments();
+        const customerMatchingPayments = allPayments.filter(payment => 
+          matchingOrderIds.includes(payment.orderId) && 
+          (!statusFilter || statusFilter === 'all' || payment.status?.toLowerCase() === statusFilter.toLowerCase())
+        );
+        
+        // Combine and deduplicate results
+        const combinedPayments = [...paymentResult.payments];
+        customerMatchingPayments.forEach(custPayment => {
+          if (!combinedPayments.find(p => p.id === custPayment.id)) {
+            combinedPayments.push(custPayment);
+          }
+        });
+        
+        // Sort by creation date and paginate the combined results
+        const sortedPayments = combinedPayments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        const startIndex = (page - 1) * limit;
+        const paginatedPayments = sortedPayments.slice(startIndex, startIndex + limit);
+        
+        finalResult = {
+          payments: paginatedPayments,
+          totalCount: sortedPayments.length,
+          totalPages: Math.ceil(sortedPayments.length / limit),
+          currentPage: page
+        };
+      } else {
+        finalResult = await storage.getPaymentsPaginated(page, limit, searchQuery, statusFilter);
+      }
       
       // Enhance payment data with order information
       const enhancedPayments = await Promise.all(
-        allPayments.map(async (payment) => {
+        finalResult.payments.map(async (payment) => {
           let orderDetails = null;
           if (payment.orderId) {
             const order = await storage.getOrder(payment.orderId);
@@ -2068,7 +2127,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ 
         success: true, 
-        payments: enhancedPayments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        payments: enhancedPayments,
+        totalCount: finalResult.totalCount,
+        totalPages: finalResult.totalPages,
+        currentPage: finalResult.currentPage,
+        hasNextPage: page < finalResult.totalPages,
+        hasPrevPage: page > 1
       });
     } catch (error) {
       console.error('Error fetching payments:', error);
@@ -2657,6 +2721,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error toggling coupon status:", error);
       res.status(500).json({ message: "Failed to toggle coupon status" });
+    }
+  });
+
+  // Get detailed usage information for a coupon (admin only)
+  app.get("/api/coupons/:id/usage", async (req, res) => {
+    try {
+      const result = await storage.getCouponUsageDetails(req.params.id);
+      if (!result.success) {
+        return res.status(404).json({ message: "Coupon not found" });
+      }
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching coupon usage details:", error);
+      res.status(500).json({ message: "Failed to fetch coupon usage details" });
+    }
+  });
+
+  // Assign coupon to specific users (admin only)
+  app.post("/api/coupons/:id/assign", async (req, res) => {
+    try {
+      const { userIds } = req.body;
+      
+      if (!Array.isArray(userIds) || userIds.length === 0) {
+        return res.status(400).json({ message: "User IDs array is required" });
+      }
+
+      const result = await storage.assignCouponToUsers(req.params.id, userIds);
+      if (!result.success) {
+        return res.status(400).json({ message: result.message });
+      }
+      
+      res.json({ message: result.message });
+    } catch (error) {
+      console.error("Error assigning coupon to users:", error);
+      res.status(500).json({ message: "Failed to assign coupon to users" });
+    }
+  });
+
+  // Get available coupons for a specific user
+  app.get("/api/users/:userId/coupons", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
+      const coupons = await storage.getCouponsForUser(userId);
+      res.json(coupons);
+    } catch (error) {
+      console.error("Error fetching user coupons:", error);
+      res.status(500).json({ message: "Failed to fetch user coupons" });
+    }
+  });
+
+  // Get all users for coupon assignment (admin only)
+  app.get("/api/admin/users", async (req, res) => {
+    try {
+      const { search, role } = req.query;
+      let users = [];
+
+      // Get all users from PostgreSQL
+      const allUsers = await storage.getAllUsers();
+      
+      // Filter by search term if provided
+      if (search) {
+        const searchTerm = (search as string).toLowerCase();
+        users = allUsers.filter(user => 
+          user.name.toLowerCase().includes(searchTerm) ||
+          user.email.toLowerCase().includes(searchTerm) ||
+          (user.registerNumber && user.registerNumber.toLowerCase().includes(searchTerm)) ||
+          (user.staffId && user.staffId.toLowerCase().includes(searchTerm))
+        );
+      } else {
+        users = allUsers;
+      }
+
+      // Filter by role if provided
+      if (role && role !== 'all') {
+        users = users.filter(user => user.role === role);
+      }
+
+      // Format users for frontend display
+      const formattedUsers = users.map(user => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        identifier: user.role === 'student' ? user.registerNumber : user.staffId,
+        department: user.department || '',
+        createdAt: user.createdAt
+      }));
+
+      res.json(formattedUsers);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
     }
   });
 

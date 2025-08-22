@@ -1,0 +1,32 @@
+ | 10:17:55 PM [express] POST /api/push/subscribe 200 in 1ms :: {"success":true,"subscriptionId":"38d942…
+0|kit-dinez  | 💰 Payment URLs generated: https://kit.dinez.store
+0|kit-dinez  | 🔐 Obtaining OAuth access token...
+0|kit-dinez  | 🔑 Generating new PhonePe OAuth token...
+0|kit-dinez  | ✅ PhonePe OAuth token generated successfully
+0|kit-dinez  | 🔍 PhonePe OAuth DEBUG Information:
+0|kit-dinez  | 📋 Payload: {
+0|kit-dinez  |   "merchantOrderId": "TXN_1755881277930_lbt1hyzjr",
+0|kit-dinez  |   "amount": 100,
+0|kit-dinez  |   "paymentFlow": {
+0|kit-dinez  |     "type": "PG_CHECKOUT",
+0|kit-dinez  |     "merchantUrls": {
+0|kit-dinez  |       "redirectUrl": "https://kit.dinez.store/payment-callback"
+0|kit-dinez  |     }
+0|kit-dinez  |   }
+0|kit-dinez  | }
+0|kit-dinez  | 🔑 Client ID: SU2508221930112180112316
+0|kit-dinez  | 🌐 API URL: https://api.phonepe.com/apis/pg/checkout/v2/pay
+0|kit-dinez  | ✅ OAuth Token (first 20 chars): eyJ0eXAiOiJKV1QiLCJh...
+0|kit-dinez  | 💰 Making PhonePe OAuth API request to: https://api.phonepe.com/apis/pg/checkout/v2/pay
+0|kit-dinez  | 💰 PhonePe API response status: 200
+0|kit-dinez  | 📊 PhonePe API response data: {
+0|kit-dinez  |   "orderId": "OMO2508222217582894445549",
+0|kit-dinez  |   "state": "PENDING",
+0|kit-dinez  |   "redirectUrl": "https://mercury-t2.phonepe.com/transact/pgv2?token=hq4wOGdzX31IuPyyh7/7AYOLiipO42P8QtgmusudZHta7zUAMbV5uMV5f6kF1hmvheryrLtNiVZYSlNOReHqVQdCzR3vAOP07S015VAgiT0WDriaZ6VwQHl128wNkt9JDe9lsvpDnI7/2EN9FEq1k1wrlqbHPKAX9jlzjI+n4kpMILsisUMKZOyi089QJy5uu3/HaTzDGOpFqBRXF2PtbxhawQle1nVSpOroXZ6Mo/PncCeCte19znoqJ1vFF/rEI04fUucby10uroHJygiMWHHDPGc4/7ap1fNpEze0ClJ9YMzoG4QyZZG6p+x6e0/m0m+wBAGBd+aQs3O7n1R7BRaVWnEVpbdDbomi/9BrjlvQOIp6nZsaqz3Xl3rNaNO9TaAxb6uhPth0cpNJ6u76DEEESZVZ/U1rwKg7xXX6FuGtDInpzzJB4QXk9NHqxPBCPFFcatCs2Mi+O9Ke+eKLx4I0R7KDWv3T982TncN28IHvnNhFPwcW7xgHJoEPcBRyY2GE3xMv7vngn0c9O3Ei/LNyhiu8iA==",
+0|kit-dinez  |   "expireAt": 1755882178289
+0|kit-dinez  | }
+0|kit-dinez  | 10:17:58 PM [express] POST /api/payments/initiate 200 in 445ms :: {"success":true,"merchantTransactio…
+0|kit-dinez  | 10:18:26 PM [express] GET /api/users/16/validate 304 in 5ms :: {"userExists":true,"user":{"id":16,"na…
+0|kit-dinez  | ⚡ Attempting fast PhonePe status check for TXN_1755881277930_lbt1hyzjr
+0|kit-dinez  | ⚡ PhonePe API failed (1/3) for TXN_1755881277930_lbt1hyzjr
+0|kit-dinez  | 10:18:26 PM [express] GET /api/payments/status/TXN_1755881277930_lbt1hyzjr 500 in 143ms :: {"success"…

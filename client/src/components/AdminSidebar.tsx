@@ -19,7 +19,8 @@ import {
   Clock,
   DollarSign,
   AlertTriangle,
-  Ticket
+  Ticket,
+  AlertOctagon
 } from "lucide-react";
 
 import {

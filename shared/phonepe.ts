@@ -8,9 +8,9 @@ export const PHONEPE_CONFIG = {
   CLIENT_VERSION: process.env.PHONEPE_CLIENT_VERSION || '1',
   MERCHANT_ID: process.env.PHONEPE_MERCHANT_ID || '', // Still needed for some requests
   
-  // OAuth and API URLs
-  AUTH_BASE_URL: process.env.PHONEPE_AUTH_BASE_URL || 'https://api.phonepe.com/apis/identity-manager/v1',
-  API_BASE_URL: process.env.PHONEPE_API_BASE_URL || 'https://api.phonepe.com/apis/pg/checkout/v2',
+  // OAuth and API URLs (corrected as per PhonePe docs)
+  AUTH_BASE_URL: process.env.PHONEPE_AUTH_BASE_URL || 'https://api.phonepe.com/apis/identity-manager',
+  API_BASE_URL: process.env.PHONEPE_API_BASE_URL || 'https://api.phonepe.com/apis/pg',
   
   // Legacy support (keeping for backward compatibility)
   SALT_KEY: process.env.PHONEPE_SALT_KEY || '',
@@ -35,7 +35,7 @@ export async function getOAuthToken(): Promise<string> {
     console.log('🔑 Generating new PhonePe OAuth token...');
     
     const tokenResponse = await axios.post(
-      `${PHONEPE_CONFIG.AUTH_BASE_URL}/oauth/token`,
+      `${PHONEPE_CONFIG.AUTH_BASE_URL}/v1/oauth/token`,
       new URLSearchParams({
         client_id: PHONEPE_CONFIG.CLIENT_ID,
         client_secret: PHONEPE_CONFIG.CLIENT_SECRET,

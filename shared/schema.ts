@@ -36,6 +36,9 @@ export type Order = {
   customerName: string;
   items: string;
   amount: number;
+  originalAmount?: number; // Amount before discount
+  discountAmount?: number; // Discount applied
+  appliedCoupon?: string; // Coupon code used
   status: string;
   estimatedTime: number;
   barcode: string;
@@ -134,6 +137,15 @@ export type MediaBanner = {
   updatedAt: Date;
 };
 
+
+export type CouponUsageHistory = {
+  userId: number;
+  orderId: string;
+  orderNumber: string;
+  discountAmount: number;
+  usedAt: Date;
+};
+
 export type Coupon = {
   id: string;
   code: string;
@@ -145,6 +157,9 @@ export type Coupon = {
   usageLimit: number;
   usedCount: number;
   usedBy: number[];
+  assignmentType: 'all' | 'specific'; // Whether coupon is for all users or specific users
+  assignedUsers: number[]; // Array of user IDs the coupon is assigned to (only for specific assignment)
+  usageHistory: CouponUsageHistory[]; // Detailed usage history
   isActive: boolean;
   validFrom: Date;
   validUntil: Date;
@@ -163,7 +178,10 @@ export type InsertLoginIssue = Omit<LoginIssue, 'id' | 'createdAt'>;
 export type InsertQuickOrder = Omit<QuickOrder, 'id' | 'createdAt'>;
 export type InsertPayment = Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>;
 export type InsertComplaint = Omit<Complaint, 'id' | 'createdAt' | 'updatedAt'>;
-export type InsertCoupon = Omit<Coupon, 'id' | 'createdAt' | 'usedCount' | 'usedBy'>;
+export type InsertCoupon = Omit<Coupon, 'id' | 'createdAt' | 'usedCount' | 'usedBy' | 'usageHistory'> & {
+  assignmentType?: 'all' | 'specific';
+  assignedUsers?: number[];
+};
 
 // Keep validation schemas using Zod for form validation
 import { z } from "zod";
@@ -300,6 +318,7 @@ export const insertPaymentSchema = z.object({
   checksum: z.string().optional(),
   metadata: z.string().optional(),
 });
+
 
 // Import Prisma namespace for type inference
 import type { Prisma } from '@prisma/client';

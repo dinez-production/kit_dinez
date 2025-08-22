@@ -12,10 +12,20 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Edit, Trash2, ToggleLeft, ToggleRight, Calendar, Users, Percent, IndianRupee, Clock } from "lucide-react";
+import { Plus, Edit, Trash2, ToggleLeft, ToggleRight, Calendar, Users, Percent, IndianRupee, Clock, Eye, UserPlus, History, Search, Filter } from "lucide-react";
 import { format } from "date-fns";
+
+interface CouponUsageHistory {
+  userId: number;
+  orderId: string;
+  orderNumber: string;
+  discountAmount: number;
+  usedAt: string;
+}
 
 interface Coupon {
   id: string;
@@ -28,11 +38,31 @@ interface Coupon {
   usageLimit: number;
   usedCount: number;
   usedBy: number[];
+  assignmentType?: 'all' | 'specific';
+  assignedUsers?: number[];
+  usageHistory?: CouponUsageHistory[];
   isActive: boolean;
   validFrom: string;
   validUntil: string;
   createdBy: number;
   createdAt: string;
+}
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  identifier?: string;
+  department?: string;
+  createdAt: string;
+}
+
+interface UsageDetails {
+  totalUsed: number;
+  usersWhoUsed: User[];
+  usageHistory: CouponUsageHistory[];
+  assignedUsers?: User[];
 }
 
 interface CouponForm {
@@ -45,11 +75,18 @@ interface CouponForm {
   usageLimit: number;
   validFrom: string;
   validUntil: string;
+  assignmentType: 'all' | 'specific';
+  assignedUsers: number[];
 }
 
 export default function AdminCouponManagement() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
+  const [showUsageDialog, setShowUsageDialog] = useState<string | null>(null);
+  const [showAssignDialog, setShowAssignDialog] = useState<string | null>(null);
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [selectedRole, setSelectedRole] = useState<string>('all');
+  const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
   const [formData, setFormData] = useState<CouponForm>({
     code: '',
     description: '',
@@ -59,7 +96,9 @@ export default function AdminCouponManagement() {
     maxDiscountAmount: 0,
     usageLimit: 100,
     validFrom: new Date().toISOString().slice(0, 16),
-    validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16) // 30 days from now
+    validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16), // 30 days from now
+    assignmentType: 'all',
+    assignedUsers: []
   });
 
   const queryClient = useQueryClient();
@@ -81,6 +120,25 @@ export default function AdminCouponManagement() {
     queryFn: () => fetch('/api/coupons').then(res => res.json())
   });
 
+  // Fetch users for assignment
+  const { data: users = [], isLoading: isLoadingUsers } = useQuery({
+    queryKey: ['/api/admin/users', { search: userSearchTerm, role: selectedRole }],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (userSearchTerm) params.set('search', userSearchTerm);
+      if (selectedRole && selectedRole !== 'all') params.set('role', selectedRole);
+      return fetch(`/api/admin/users?${params.toString()}`).then(res => res.json());
+    },
+    enabled: showAssignDialog !== null
+  });
+
+  // Fetch coupon usage details
+  const { data: usageData, isLoading: isLoadingUsage } = useQuery({
+    queryKey: ['/api/coupons', showUsageDialog, 'usage'],
+    queryFn: () => fetch(`/api/coupons/${showUsageDialog}/usage`).then(res => res.json()),
+    enabled: !!showUsageDialog
+  });
+
   // Create coupon mutation
   const createCouponMutation = useMutation({
     mutationFn: (data: CouponForm) => apiRequest('/api/coupons', {
@@ -91,7 +149,9 @@ export default function AdminCouponManagement() {
         validUntil: new Date(data.validUntil),
         createdBy: getCurrentUserId(),
         minimumOrderAmount: data.minimumOrderAmount || undefined,
-        maxDiscountAmount: data.maxDiscountAmount || undefined
+        maxDiscountAmount: data.maxDiscountAmount || undefined,
+        assignmentType: data.assignmentType || 'all',
+        assignedUsers: data.assignedUsers || []
       })
     }),
     onSuccess: () => {
@@ -122,7 +182,9 @@ export default function AdminCouponManagement() {
           validFrom: data.validFrom ? new Date(data.validFrom) : undefined,
           validUntil: data.validUntil ? new Date(data.validUntil) : undefined,
           minimumOrderAmount: data.minimumOrderAmount || undefined,
-          maxDiscountAmount: data.maxDiscountAmount || undefined
+          maxDiscountAmount: data.maxDiscountAmount || undefined,
+          assignmentType: data.assignmentType || 'all',
+          assignedUsers: data.assignedUsers || []
         })
       }),
     onSuccess: () => {
@@ -191,7 +253,9 @@ export default function AdminCouponManagement() {
       maxDiscountAmount: 0,
       usageLimit: 100,
       validFrom: new Date().toISOString().slice(0, 16),
-      validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16)
+      validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
+      assignmentType: 'all',
+      assignedUsers: []
     });
   };
 
@@ -236,7 +300,9 @@ export default function AdminCouponManagement() {
       maxDiscountAmount: coupon.maxDiscountAmount || 0,
       usageLimit: coupon.usageLimit,
       validFrom: new Date(coupon.validFrom).toISOString().slice(0, 16),
-      validUntil: new Date(coupon.validUntil).toISOString().slice(0, 16)
+      validUntil: new Date(coupon.validUntil).toISOString().slice(0, 16),
+      assignmentType: coupon.assignmentType || 'all',
+      assignedUsers: coupon.assignedUsers || []
     });
   };
 
@@ -270,6 +336,48 @@ export default function AdminCouponManagement() {
     if (coupon.usedCount >= coupon.usageLimit) return 'Limit Reached';
     
     return 'Active';
+  };
+
+  // Assign coupon to users mutation
+  const assignCouponMutation = useMutation({
+    mutationFn: ({ couponId, userIds }: { couponId: string; userIds: number[] }) => 
+      apiRequest(`/api/coupons/${couponId}/assign`, {
+        method: 'POST',
+        body: JSON.stringify({ userIds })
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/coupons'] });
+      setShowAssignDialog(null);
+      setSelectedUsers([]);
+      toast({
+        title: "Success",
+        description: "Coupon assigned successfully"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to assign coupon",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Handle user selection for assignment
+  const handleUserSelection = (userId: number, checked: boolean) => {
+    setSelectedUsers(prev => 
+      checked ? [...prev, userId] : prev.filter(id => id !== userId)
+    );
+  };
+
+  // Handle assign all selected users
+  const handleAssignUsers = () => {
+    if (showAssignDialog && selectedUsers.length > 0) {
+      assignCouponMutation.mutate({ 
+        couponId: showAssignDialog, 
+        userIds: selectedUsers 
+      });
+    }
   };
 
   return (
@@ -413,6 +521,24 @@ export default function AdminCouponManagement() {
                     />
                   </div>
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="assignmentType">Assignment Type *</Label>
+                  <Select value={formData.assignmentType} onValueChange={(value: 'all' | 'specific') => handleInputChange('assignmentType', value)}>
+                    <SelectTrigger data-testid="select-assignment-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Available to All Users</SelectItem>
+                      <SelectItem value="specific">Assign to Specific Users</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {formData.assignmentType === 'specific' && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Note: You can assign users to this coupon after creating it
+                    </p>
+                  )}
+                </div>
               </div>
             </ScrollArea>
 
@@ -520,62 +646,355 @@ export default function AdminCouponManagement() {
                   Valid until {format(new Date(coupon.validUntil), "MMM dd, yyyy")}
                 </div>
 
-                <div className="flex items-center justify-between pt-2">
-                  <div className="flex items-center space-x-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(coupon)}
-                      disabled={updateCouponMutation.isPending}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toggleStatusMutation.mutate(coupon.id)}
-                      disabled={toggleStatusMutation.isPending}
-                    >
-                      {coupon.isActive ? (
-                        <ToggleRight className="w-4 h-4 text-green-600" />
-                      ) : (
-                        <ToggleLeft className="w-4 h-4 text-gray-400" />
-                      )}
-                    </Button>
+                {/* Assignment type display */}
+                {coupon.assignmentType === 'specific' && (
+                  <div className="text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
+                    Assigned to {coupon.assignedUsers?.length || 0} specific user(s)
                   </div>
+                )}
 
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button 
-                        variant="outline" 
+                <div className="flex flex-col space-y-2 pt-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-1">
+                      <Button
+                        variant="outline"
                         size="sm"
-                        disabled={deleteCouponMutation.isPending}
+                        onClick={() => setShowUsageDialog(coupon.id)}
+                        data-testid={`button-view-usage-${coupon.id}`}
+                        title="View detailed usage information"
                       >
-                        <Trash2 className="w-4 h-4 text-red-600" />
+                        <Eye className="w-4 h-4" />
                       </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Coupon</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete the coupon "{coupon.code}"? This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => deleteCouponMutation.mutate(coupon.id)}>
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setShowAssignDialog(coupon.id);
+                          // Pre-select currently assigned users
+                          setSelectedUsers(coupon.assignedUsers || []);
+                        }}
+                        data-testid={`button-assign-users-${coupon.id}`}
+                        title="Assign to specific users"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(coupon)}
+                        disabled={updateCouponMutation.isPending}
+                        data-testid={`button-edit-${coupon.id}`}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleStatusMutation.mutate(coupon.id)}
+                        disabled={toggleStatusMutation.isPending}
+                        data-testid={`button-toggle-${coupon.id}`}
+                      >
+                        {coupon.isActive ? (
+                          <ToggleRight className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <ToggleLeft className="w-4 h-4 text-gray-400" />
+                        )}
+                      </Button>
+                    </div>
+
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          disabled={deleteCouponMutation.isPending}
+                          data-testid={`button-delete-${coupon.id}`}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Coupon</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete the coupon "{coupon.code}"? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => deleteCouponMutation.mutate(coupon.id)}>
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      {/* Usage Details Dialog */}
+      <Dialog open={!!showUsageDialog} onOpenChange={() => setShowUsageDialog(null)}>
+        <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="w-5 h-5" />
+              Coupon Usage Details
+            </DialogTitle>
+            <DialogDescription>
+              {showUsageDialog && coupons.find((c: Coupon) => c.id === showUsageDialog)?.code && 
+                `Detailed usage information for coupon "${coupons.find((c: Coupon) => c.id === showUsageDialog)?.code}"`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          {isLoadingUsage ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : usageData && (
+            <ScrollArea className="max-h-[60vh] pr-4">
+              <Tabs defaultValue="summary" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="summary">Summary</TabsTrigger>
+                  <TabsTrigger value="users">Users Who Used</TabsTrigger>
+                  <TabsTrigger value="history">Usage History</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="summary" className="space-y-4 mt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="text-2xl font-bold text-green-600">{usageData.usageDetails?.totalUsed || 0}</div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Total Uses</div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="text-2xl font-bold text-blue-600">{usageData.usageDetails?.usersWhoUsed?.length || 0}</div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Unique Users</div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                  
+                  {usageData.coupon?.assignmentType === 'specific' && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Assignment Details</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          <div className="text-sm">
+                            <span className="font-medium">Assignment Type:</span> Specific Users Only
+                          </div>
+                          <div className="text-sm">
+                            <span className="font-medium">Assigned Users:</span> {usageData.usageDetails?.assignedUsers?.length || 0}
+                          </div>
+                          <div className="text-sm">
+                            <span className="font-medium">Users Who Used:</span> {usageData.usageDetails?.usersWhoUsed?.length || 0} of {usageData.usageDetails?.assignedUsers?.length || 0} assigned
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </TabsContent>
+                
+                <TabsContent value="users" className="mt-4">
+                  {usageData.usageDetails?.usersWhoUsed?.length ? (
+                    <div className="space-y-2">
+                      {usageData.usageDetails.usersWhoUsed.map((user: User) => (
+                        <Card key={user.id}>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="font-medium">{user.name}</div>
+                                <div className="text-sm text-gray-600 dark:text-gray-400">{user.email}</div>
+                                <div className="text-xs text-gray-500">
+                                  {user.role === 'student' ? `Student • ${user.identifier}` : `Staff • ${user.identifier}`}
+                                  {user.department && ` • ${user.department}`}
+                                </div>
+                              </div>
+                              <Badge variant="secondary">{user.role}</Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      No users have used this coupon yet
+                    </div>
+                  )}
+                </TabsContent>
+                
+                <TabsContent value="history" className="mt-4">
+                  {usageData.usageDetails?.usageHistory?.length ? (
+                    <div className="space-y-3">
+                      {usageData.usageDetails.usageHistory.map((usage: CouponUsageHistory, index: number) => (
+                        <Card key={index}>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="space-y-1">
+                                <div className="font-medium">Order #{usage.orderNumber}</div>
+                                <div className="text-sm text-gray-600 dark:text-gray-400">
+                                  User ID: {usage.userId}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {format(new Date(usage.usedAt), "MMM dd, yyyy 'at' HH:mm")}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="font-bold text-green-600">-₹{usage.discountAmount}</div>
+                                <div className="text-xs text-gray-500">Discount Applied</div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      No usage history available
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </ScrollArea>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* User Assignment Dialog */}
+      <Dialog open={!!showAssignDialog} onOpenChange={() => {
+        setShowAssignDialog(null);
+        setSelectedUsers([]);
+        setUserSearchTerm('');
+        setSelectedRole('all');
+      }}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5" />
+              Assign Coupon to Users
+            </DialogTitle>
+            <DialogDescription>
+              {showAssignDialog && coupons.find((c: Coupon) => c.id === showAssignDialog)?.code && 
+                `Select users to assign the coupon "${coupons.find((c: Coupon) => c.id === showAssignDialog)?.code}" to`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          {/* Search and Filter Controls */}
+          <div className="space-y-4">
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search by name, email, register number..."
+                    value={userSearchTerm}
+                    onChange={(e) => setUserSearchTerm(e.target.value)}
+                    className="pl-10"
+                    data-testid="input-user-search"
+                  />
+                </div>
+              </div>
+              <div className="w-32">
+                <Select value={selectedRole} onValueChange={setSelectedRole}>
+                  <SelectTrigger data-testid="select-role-filter">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Roles</SelectItem>
+                    <SelectItem value="student">Students</SelectItem>
+                    <SelectItem value="staff">Staff</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {selectedUsers.length > 0 && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                <div className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                  {selectedUsers.length} user(s) selected for assignment
+                </div>
+                {showAssignDialog && coupons.find((c: Coupon) => c.id === showAssignDialog)?.assignedUsers?.length && (
+                  <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                    ({coupons.find((c: Coupon) => c.id === showAssignDialog)?.assignedUsers?.length || 0} currently assigned)
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          
+          <ScrollArea className="max-h-[50vh] pr-4">
+            {isLoadingUsers ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : users.length ? (
+              <div className="space-y-2">
+                {users.map((user: User) => (
+                  <Card key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <Checkbox
+                            id={`user-${user.id}`}
+                            checked={selectedUsers.includes(user.id)}
+                            onCheckedChange={(checked) => handleUserSelection(user.id, !!checked)}
+                            data-testid={`checkbox-user-${user.id}`}
+                          />
+                          <div>
+                            <div className="font-medium">{user.name}</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">{user.email}</div>
+                            <div className="text-xs text-gray-500">
+                              {user.role === 'student' ? `Student • ${user.identifier}` : `Staff • ${user.identifier}`}
+                              {user.department && ` • ${user.department}`}
+                            </div>
+                          </div>
+                        </div>
+                        <Badge variant="secondary">{user.role}</Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                No users found matching your search criteria
+              </div>
+            )}
+          </ScrollArea>
+
+          <div className="flex justify-between items-center pt-4 border-t">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowAssignDialog(null);
+                setSelectedUsers([]);
+                setUserSearchTerm('');
+                setSelectedRole('all');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleAssignUsers}
+              disabled={selectedUsers.length === 0 || assignCouponMutation.isPending}
+              data-testid="button-confirm-assign"
+            >
+              {assignCouponMutation.isPending ? 'Assigning...' : `Assign to ${selectedUsers.length} user(s)`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

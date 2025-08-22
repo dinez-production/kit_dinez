@@ -42,15 +42,14 @@ export function QuickOrders() {
   });
 
   const handleQuickOrder = async (quickOrder: QuickOrder) => {
-    // Add items to cart based on quantity
-    for (let i = 0; i < quantity; i++) {
-      addToCart({
-        id: quickOrder.menuItem.id,
-        name: quickOrder.menuItem.name,
-        price: quickOrder.menuItem.price,
-        isVegetarian: quickOrder.menuItem.isVegetarian
-      });
-    }
+    // Add items to cart with the specified quantity
+    addToCart({
+      id: quickOrder.menuItem.id,
+      name: quickOrder.menuItem.name,
+      price: quickOrder.menuItem.price,
+      isVegetarian: quickOrder.menuItem.isVegetarian
+    }, quantity);
+    
     setSelectedQuickOrder(null);
     setQuantity(1);
     

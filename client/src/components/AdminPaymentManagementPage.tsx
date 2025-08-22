@@ -13,7 +13,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { 
   ArrowLeft, Search, Filter, CreditCard, DollarSign, 
   TrendingUp, AlertTriangle, CheckCircle, Clock, 
-  RefreshCw, Download, Eye, Loader2
+  RefreshCw, Download, Eye, Loader2, ChevronLeft, ChevronRight
 } from "lucide-react";
 
 export default function AdminPaymentManagementPage() {
@@ -22,23 +22,43 @@ export default function AdminPaymentManagementPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
-  // Fetch payments data
+  // Debounce search term to avoid too many API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Reset to first page when search or filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchTerm, statusFilter]);
+
+  // Fetch payments data with pagination and server-side search
   const { data: paymentsData, isLoading, refetch } = useQuery({
-    queryKey: ['/api/admin/payments'],
-    queryFn: () => apiRequest('/api/admin/payments'),
+    queryKey: ['/api/admin/payments', currentPage, itemsPerPage, debouncedSearchTerm, statusFilter],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: itemsPerPage.toString(),
+        ...(debouncedSearchTerm && { search: debouncedSearchTerm }),
+        ...(statusFilter !== 'all' && { status: statusFilter })
+      });
+      return apiRequest(`/api/admin/payments?${params.toString()}`);
+    },
   });
 
   const payments = paymentsData?.payments || [];
-
-  const filteredPayments = payments.filter((payment: any) => {
-    const matchesSearch = payment?.orderDetails?.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         payment?.merchantTransactionId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         payment?.phonePeTransactionId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         payment?.orderDetails?.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || payment?.status?.toLowerCase() === statusFilter.toLowerCase();
-    return matchesSearch && matchesStatus;
-  });
+  const totalCount = paymentsData?.totalCount || 0;
+  const totalPages = paymentsData?.totalPages || 0;
+  const hasNextPage = paymentsData?.hasNextPage || false;
+  const hasPrevPage = paymentsData?.hasPrevPage || false;
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -62,9 +82,11 @@ export default function AdminPaymentManagementPage() {
 
   const stats = {
     totalTransactions: payments.length,
-    totalAmount: payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0),
-    successRate: payments.length > 0 ? ((payments.filter((p: any) => p.status === 'success').length / payments.length) * 100) : 0,
-    pendingAmount: payments.filter((p: any) => p.status === 'pending').reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
+    // Amount is stored in paise, so divide by 100 for rupees
+    totalAmount: payments.reduce((sum: number, p: any) => sum + ((p.amount || 0) / 100), 0),
+    successRate: payments.length > 0 ? Math.round(((payments.filter((p: any) => p.status === 'success').length / payments.length) * 100)) : 0,
+    // Pending amount also needs to be converted from paise to rupees
+    pendingAmount: payments.filter((p: any) => p.status === 'pending').reduce((sum: number, p: any) => sum + ((p.amount || 0) / 100), 0)
   };
 
   const handleExportReport = () => {
@@ -77,7 +99,7 @@ export default function AdminPaymentManagementPage() {
     setTimeout(() => {
       const csvContent = [
         ["Payment ID", "Order ID", "User", "Amount", "Method", "Status", "Timestamp", "Transaction ID", "Gateway"],
-        ...filteredPayments.map((payment: any) => [
+        ...payments.map((payment: any) => [
           payment.id,
           payment.orderDetails?.orderNumber || 'N/A',
           payment.orderDetails?.customerName || 'Guest',
@@ -118,6 +140,10 @@ export default function AdminPaymentManagementPage() {
       description: `Initiating retry for failed payment ${payment.merchantTransactionId}`,
     });
     // In a real app, this would trigger the payment retry process
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
   };
 
   return (
@@ -249,12 +275,12 @@ export default function AdminPaymentManagementPage() {
                 <Loader2 className="h-6 w-6 animate-spin" />
                 <span className="ml-2">Loading payments...</span>
               </div>
-            ) : filteredPayments.length === 0 ? (
+            ) : payments.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 No payment transactions found.
               </div>
             ) : (
-              filteredPayments.map((payment: any) => (
+              payments.map((payment: any) => (
                 <div key={payment.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                   <div className="flex items-center space-x-4">
                     <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center">
@@ -311,6 +337,67 @@ export default function AdminPaymentManagementPage() {
               ))
             )}
           </div>
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t">
+              <div className="flex items-center text-sm text-muted-foreground">
+                <span>Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} payments</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={!hasPrevPage}
+                  data-testid="button-prev-page"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                
+                {/* Page numbers */}
+                <div className="flex space-x-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handlePageChange(pageNum)}
+                        data-testid={`button-page-${pageNum}`}
+                        className="w-8 h-8 p-0"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+                
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={!hasNextPage}
+                  data-testid="button-next-page"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

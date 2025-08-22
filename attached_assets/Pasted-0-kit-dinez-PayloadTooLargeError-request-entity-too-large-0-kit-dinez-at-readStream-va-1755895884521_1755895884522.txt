@@ -1,0 +1,44 @@
+0|kit-dinez  | PayloadTooLargeError: request entity too large
+0|kit-dinez  |     at readStream (/var/www/kit_dinez/node_modules/raw-body/index.js:163:17)
+0|kit-dinez  |     at getRawBody (/var/www/kit_dinez/node_modules/raw-body/index.js:116:12)
+0|kit-dinez  |     at read (/var/www/kit_dinez/node_modules/body-parser/lib/read.js:79:3)
+0|kit-dinez  |     at jsonParser (/var/www/kit_dinez/node_modules/body-parser/lib/types/json.js:138:5)
+0|kit-dinez  |     at Layer.handle [as handle_request] (/var/www/kit_dinez/node_modules/express/lib/router/layer.js:95:5)
+0|kit-dinez  |     at trim_prefix (/var/www/kit_dinez/node_modules/express/lib/router/index.js:328:13)
+0|kit-dinez  |     at /var/www/kit_dinez/node_modules/express/lib/router/index.js:286:9
+0|kit-dinez  |     at Function.process_params (/var/www/kit_dinez/node_modules/express/lib/router/index.js:346:12)
+0|kit-dinez  |     at next (/var/www/kit_dinez/node_modules/express/lib/router/index.js:280:10)
+0|kit-dinez  |     at expressInit (/var/www/kit_dinez/node_modules/express/lib/middleware/init.js:40:5)
+0|kit-dinez  | PayloadTooLargeError: request entity too large
+0|kit-dinez  |     at readStream (/var/www/kit_dinez/node_modules/raw-body/index.js:163:17)
+0|kit-dinez  |     at getRawBody (/var/www/kit_dinez/node_modules/raw-body/index.js:116:12)
+0|kit-dinez  |     at read (/var/www/kit_dinez/node_modules/body-parser/lib/read.js:79:3)
+0|kit-dinez  |     at jsonParser (/var/www/kit_dinez/node_modules/body-parser/lib/types/json.js:138:5)
+0|kit-dinez  |     at Layer.handle [as handle_request] (/var/www/kit_dinez/node_modules/express/lib/router/layer.js:95:5)
+0|kit-dinez  |     at trim_prefix (/var/www/kit_dinez/node_modules/express/lib/router/index.js:328:13)
+0|kit-dinez  |     at /var/www/kit_dinez/node_modules/express/lib/router/index.js:286:9
+0|kit-dinez  |     at Function.process_params (/var/www/kit_dinez/node_modules/express/lib/router/index.js:346:12)
+0|kit-dinez  |     at next (/var/www/kit_dinez/node_modules/express/lib/router/index.js:280:10)
+0|kit-dinez  |     at expressInit (/var/www/kit_dinez/node_modules/express/lib/middleware/init.js:40:5)
+0|kit-dinez  | SyntaxError: Unexpected token '-', "------WebK"... is not valid JSON
+0|kit-dinez  |     at JSON.parse (<anonymous>)
+0|kit-dinez  |     at createStrictSyntaxError (/var/www/kit_dinez/node_modules/body-parser/lib/types/json.js:169:10)
+0|kit-dinez  |     at parse (/var/www/kit_dinez/node_modules/body-parser/lib/types/json.js:86:15)
+0|kit-dinez  |     at /var/www/kit_dinez/node_modules/body-parser/lib/read.js:128:18
+0|kit-dinez  |     at AsyncResource.runInAsyncScope (node:async_hooks:214:14)
+0|kit-dinez  |     at invokeCallback (/var/www/kit_dinez/node_modules/raw-body/index.js:238:16)
+0|kit-dinez  |     at done (/var/www/kit_dinez/node_modules/raw-body/index.js:227:7)
+0|kit-dinez  |     at IncomingMessage.onEnd (/var/www/kit_dinez/node_modules/raw-body/index.js:287:7)
+0|kit-dinez  |     at IncomingMessage.emit (node:events:518:28)
+0|kit-dinez  |     at endReadableNT (node:internal/streams/readable:1698:12)
+0|kit-dinez  | SyntaxError: Unexpected token '-', "------WebK"... is not valid JSON
+0|kit-dinez  |     at JSON.parse (<anonymous>)
+0|kit-dinez  |     at createStrictSyntaxError (/var/www/kit_dinez/node_modules/body-parser/lib/types/json.js:169:10)
+0|kit-dinez  |     at parse (/var/www/kit_dinez/node_modules/body-parser/lib/types/json.js:86:15)
+0|kit-dinez  |     at /var/www/kit_dinez/node_modules/body-parser/lib/read.js:128:18
+0|kit-dinez  |     at AsyncResource.runInAsyncScope (node:async_hooks:214:14)
+0|kit-dinez  |     at invokeCallback (/var/www/kit_dinez/node_modules/raw-body/index.js:238:16)
+0|kit-dinez  |     at done (/var/www/kit_dinez/node_modules/raw-body/index.js:227:7)
+0|kit-dinez  |     at IncomingMessage.onEnd (/var/www/kit_dinez/node_modules/raw-body/index.js:287:7)
+0|kit-dinez  |     at IncomingMessage.emit (node:events:518:28)
+0|kit-dinez  |     at endReadableNT (node:internal/streams/readable:1698:12)

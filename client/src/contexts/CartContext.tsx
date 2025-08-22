@@ -11,11 +11,11 @@ export interface CartItem {
 
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (item: { id: string; name: string; price: number; isVegetarian: boolean }) => void;
+  addToCart: (item: { id: string | number; name: string; price: number; isVegetarian: boolean }, quantity?: number) => void;
   removeFromCart: (itemId: string) => void;
   updateQuantity: (itemId: string, newQuantity: number) => void;
-  decreaseQuantity: (itemId: string) => void;
-  getCartQuantity: (itemId: string) => number;
+  decreaseQuantity: (itemId: string | number) => void;
+  getCartQuantity: (itemId: string | number) => number;
   getTotalItems: () => number;
   getTotalPrice: () => number;
   clearCart: () => void;
@@ -60,21 +60,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
   }, [cart]);
 
-  const addToCart = useCallback((item: { id: string; name: string; price: number; isVegetarian: boolean }) => {
+  const addToCart = useCallback((item: { id: string | number; name: string; price: number; isVegetarian: boolean }, quantity = 1) => {
     setCart(currentCart => {
-      const existingItemIndex = currentCart.findIndex(cartItem => cartItem.id === item.id);
+      const itemId = item.id.toString(); // Ensure string ID
+      const existingItemIndex = currentCart.findIndex(cartItem => cartItem.id === itemId);
       
       let newCart: CartItem[];
       if (existingItemIndex >= 0) {
-        // Item exists, increment quantity
+        // Item exists, increase quantity
         newCart = currentCart.map((cartItem, index) =>
           index === existingItemIndex
-            ? { ...cartItem, quantity: cartItem.quantity + 1 }
+            ? { ...cartItem, quantity: cartItem.quantity + quantity }
             : cartItem
         );
       } else {
         // New item, add to cart
-        newCart = [...currentCart, { ...item, quantity: 1 }];
+        newCart = [...currentCart, { ...item, id: itemId, quantity }];
       }
       
       return newCart;
@@ -82,7 +83,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     toast({
       title: "Added to Cart",
-      description: `${item.name} added to your cart`,
+      description: `${item.name} ${quantity > 1 ? `(×${quantity})` : ''} added to your cart`,
     });
   }, [toast]);
 
@@ -109,26 +110,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   }, [removeFromCart]);
 
-  const decreaseQuantity = useCallback((itemId: string) => {
+  const decreaseQuantity = useCallback((itemId: string | number) => {
+    const id = itemId.toString();
     setCart(currentCart => {
-      const item = currentCart.find(cartItem => cartItem.id === itemId);
+      const item = currentCart.find(cartItem => cartItem.id === id);
       if (item) {
         if (item.quantity > 1) {
           return currentCart.map(cartItem =>
-            cartItem.id === itemId
+            cartItem.id === id
               ? { ...cartItem, quantity: cartItem.quantity - 1 }
               : cartItem
           );
         } else {
-          return currentCart.filter(cartItem => cartItem.id !== itemId);
+          return currentCart.filter(cartItem => cartItem.id !== id);
         }
       }
       return currentCart;
     });
   }, []);
 
-  const getCartQuantity = useCallback((itemId: string) => {
-    const item = cart.find(cartItem => cartItem.id === itemId);
+  const getCartQuantity = useCallback((itemId: string | number) => {
+    const id = itemId.toString();
+    const item = cart.find(cartItem => cartItem.id === id);
     return item ? item.quantity : 0;
   }, [cart]);
 

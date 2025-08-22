@@ -32,8 +32,8 @@ export class MediaService {
       readableStream.push(fileBuffer);
       readableStream.push(null);
 
-      // Determine file type based on MIME type
-      const type: 'image' | 'video' = mimeType.startsWith('image/') ? 'image' : 'video';
+      // Only support images now
+      const type: 'image' = 'image';
 
       // Get the next display order
       const lastBanner = await MediaBanner.findOne().sort({ displayOrder: -1 });
