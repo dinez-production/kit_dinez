@@ -90,13 +90,23 @@ export default function AdminOrderManagementPage() {
   const getOrderItemDetails = (orderItemsString: string) => {
     const orderItems = parseOrderItems(orderItemsString);
     return orderItems.map((item: any) => {
-      const menuItem = menuItems.find((mi: any) => mi.id === item.menuItemId);
+      // Try multiple matching strategies for menu item ID
+      const menuItem = menuItems.find((mi: any) => 
+        mi.id === item.menuItemId || 
+        mi._id === item.menuItemId ||
+        mi.id === item.id ||
+        mi._id === item.id ||
+        String(mi.id) === String(item.menuItemId) ||
+        String(mi._id) === String(item.menuItemId)
+      );
+      
       return {
         ...item,
-        name: menuItem?.name || 'Unknown Item',
-        description: menuItem?.description || '',
-        image: menuItem?.image || '',
-        subtotal: (item.price || 0) * (item.quantity || 1)
+        name: menuItem?.name || item.name || 'Unknown Item',
+        description: menuItem?.description || item.description || '',
+        image: menuItem?.image || item.image || '',
+        price: item.price || menuItem?.price || 0,
+        subtotal: (item.price || menuItem?.price || 0) * (item.quantity || 1)
       };
     });
   };
