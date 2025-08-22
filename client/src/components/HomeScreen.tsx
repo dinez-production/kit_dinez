@@ -261,7 +261,7 @@ export default function HomeScreen() {
 
       {/* Media Banner - Show only when not searching, outside padding container */}
       {!searchQuery.trim() && (
-        <div className="animate-fade-in mt-4">
+        <div className="animate-fade-in">
           <MediaBanner />
         </div>
       )}
