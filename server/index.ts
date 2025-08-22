@@ -3,43 +3,10 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { performStartupCheck } from "./startup-check";
 import { performStartupSchemaCheck } from "./startup-schema-check";
-import multer from "multer";
 
 const app = express();
-
-// Create a separate multer instance for file uploads
-const fileUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit for images
-  },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed'));
-    }
-  }
-});
-
-// Apply file upload middleware to specific routes BEFORE any body parsing
-app.use('/api/maintenance-notices', (req, res, next) => {
-  if (req.method === 'POST') {
-    return fileUpload.single('file')(req, res, next);
-  }
-  next();
-});
-
-app.use('/api/media-banners', (req, res, next) => {
-  if (req.method === 'POST') {
-    return fileUpload.single('file')(req, res, next);
-  }
-  next();
-});
-
-// Apply body parsing for non-upload routes
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: false, limit: '50mb' }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
 app.use((req, res, next) => {
   const start = Date.now();
