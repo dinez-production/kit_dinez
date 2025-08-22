@@ -136,6 +136,9 @@ export default function MediaBanner() {
 
   // Ensure type safety for banners array
   const banners: MediaBannerType[] = data || [];
+  
+  // Check if there's only one banner for static behavior
+  const isSingleBanner = banners.length === 1;
 
   // Set up SSE connection for real-time banner updates
   useEffect(() => {
@@ -240,7 +243,7 @@ export default function MediaBanner() {
   };
 
   const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
-    if (isTransitioning) return;
+    if (isTransitioning || isSingleBanner) return; // Disable for single banner
     
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     startXRef.current = clientX;
@@ -254,7 +257,7 @@ export default function MediaBanner() {
   };
 
   const handleTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
-    if (!isDragging || isTransitioning) return;
+    if (!isDragging || isTransitioning || isSingleBanner) return; // Disable for single banner
     e.preventDefault();
     
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -263,11 +266,10 @@ export default function MediaBanner() {
   };
 
   const handleTouchEnd = () => {
-    if (!isDragging || isTransitioning) return;
+    if (!isDragging || isTransitioning || isSingleBanner) return; // Disable for single banner
     
     console.log('Touch end - dragOffset:', dragOffset, 'threshold: 80');
     
-    setIsDragging(false);
     const threshold = 80; // Minimum swipe distance
     
     if (Math.abs(dragOffset) > threshold) {
@@ -286,7 +288,8 @@ export default function MediaBanner() {
       console.log('Swipe too short, staying on current slide');
     }
     
-    // Always reset drag offset
+    // Always reset drag offset and dragging state
+    setIsDragging(false);
     setDragOffset(0);
   };
 
@@ -325,12 +328,12 @@ export default function MediaBanner() {
 
   // Reset when banners change
   useEffect(() => {
-    setCurrentIndex(1); // Start at first real image
+    setCurrentIndex(isSingleBanner ? 0 : 1); // For single banner, start at 0; for multiple, start at 1 (first real image)
     setIsTransitioning(false);
     setImagesLoaded({});
     setDragOffset(0);
     setIsDragging(false);
-  }, [banners.length]);
+  }, [banners.length, isSingleBanner]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -359,12 +362,12 @@ export default function MediaBanner() {
     return null;
   }
 
-  // Create extended array with cloned elements for infinite scroll
-  const extendedBanners = banners.length > 0 ? [
+  // Create extended array with cloned elements for infinite scroll only if multiple banners
+  const extendedBanners = isSingleBanner ? banners : (banners.length > 0 ? [
     banners[banners.length - 1], // Clone of last image at start
     ...banners,                  // All real images
     banners[0]                   // Clone of first image at end
-  ] : [];
+  ] : []);
 
   const totalSlides = extendedBanners.length;
   
@@ -380,26 +383,28 @@ export default function MediaBanner() {
       <div className="relative w-full aspect-[2/1] overflow-hidden">
         <div 
           ref={containerRef}
-          className="relative w-full h-full cursor-grab active:cursor-grabbing"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onMouseDown={handleTouchStart}
-          onMouseMove={handleTouchMove}
-          onMouseUp={handleTouchEnd}
-          onMouseLeave={handleTouchEnd}
+          className={`relative w-full h-full ${isSingleBanner ? '' : 'cursor-grab active:cursor-grabbing'}`}
+          onTouchStart={isSingleBanner ? undefined : handleTouchStart}
+          onTouchMove={isSingleBanner ? undefined : handleTouchMove}
+          onTouchEnd={isSingleBanner ? undefined : handleTouchEnd}
+          onMouseDown={isSingleBanner ? undefined : handleTouchStart}
+          onMouseMove={isSingleBanner ? undefined : handleTouchMove}
+          onMouseUp={isSingleBanner ? undefined : handleTouchEnd}
+          onMouseLeave={isSingleBanner ? undefined : handleTouchEnd}
         >
           {/* Card slides container */}
           <div 
             ref={slidesRef}
             className="flex h-full"
             style={{
-              transform: `translate3d(-${currentIndex * effectiveSlideWidth}px, 0, 0)${
-                isDragging ? ` translateX(${dragOffset}px)` : ''
-              }`,
-              transition: isDragging ? 'none' : 'transform 300ms ease-out',
-              willChange: 'transform',
-              width: `${totalSlides * effectiveSlideWidth}px`
+              transform: isSingleBanner 
+                ? 'translate3d(0px, 0, 0)' 
+                : `translate3d(-${currentIndex * effectiveSlideWidth}px, 0, 0)${
+                    isDragging ? ` translateX(${dragOffset}px)` : ''
+                  }`,
+              transition: isDragging || isSingleBanner ? 'none' : 'transform 300ms ease-out',
+              willChange: isSingleBanner ? 'auto' : 'transform',
+              width: isSingleBanner ? '100%' : `${totalSlides * effectiveSlideWidth}px`
             }}
             onTransitionEnd={handleTransitionEnd}
           >
@@ -418,7 +423,7 @@ export default function MediaBanner() {
               <div
                 key={uniqueKey}
                 className="h-full flex-shrink-0 flex items-center justify-center"
-                style={{ width: `${effectiveSlideWidth}px` }}
+                style={{ width: isSingleBanner ? '100%' : `${effectiveSlideWidth}px` }}
                 data-testid={`banner-card-${index}`}
               >
                 {/* Image card with full size */}
