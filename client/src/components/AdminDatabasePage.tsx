@@ -77,24 +77,25 @@ export default function AdminDatabasePage() {
   // Fetch database metrics
   const { data: metrics, isLoading: metricsLoading, refetch: refetchMetrics } = useQuery({
     queryKey: ['/api/database/metrics'],
-    refetchInterval: 10000, // Refresh every 10 seconds
+    enabled: false, // Only fetch when manually triggered
   });
 
   // Fetch database stats
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
     queryKey: ['/api/database/stats'],
-    refetchInterval: 30000, // Refresh every 30 seconds
+    enabled: false, // Only fetch when manually triggered
   });
 
   // Fetch collections/tables
-  const { data: collections, isLoading: collectionsLoading } = useQuery({
+  const { data: collections, isLoading: collectionsLoading, refetch: refetchCollections } = useQuery({
     queryKey: ['/api/database/collections'],
+    enabled: false, // Only fetch when manually triggered
   });
 
   // Fetch alerts
   const { data: alertsData, refetch: refetchAlerts } = useQuery({
     queryKey: ['/api/database/alerts'],
-    refetchInterval: 15000, // Refresh every 15 seconds
+    enabled: false, // Only fetch when manually triggered
   });
 
   // Maintenance operations mutation
@@ -214,18 +215,30 @@ export default function AdminDatabasePage() {
     );
   };
 
-  if (metricsLoading || statsLoading) {
+  // Show initial load state only when no data exists yet
+  if ((metricsLoading || statsLoading) && !metrics && !stats) {
     return (
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-center h-64">
-          <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="text-center space-y-4">
+            <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground mx-auto" />
+            <p className="text-muted-foreground">Loading database information...</p>
+            <Button onClick={() => {
+              refetchMetrics();
+              refetchStats();
+              refetchCollections();
+              refetchAlerts();
+            }} variant="outline">
+              Load Database Data
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
-  const dbMetrics = metrics as DatabaseMetrics;
-  const overallStats = stats?.overall || {};
+  const dbMetrics = metrics as DatabaseMetrics | undefined;
+  const overallStats = (stats as any)?.overall || {};
 
   return (
     <div className="p-6 space-y-6" data-testid="admin-database-page">
@@ -248,11 +261,17 @@ export default function AdminDatabasePage() {
         <div className="flex space-x-2">
           <Button 
             variant="outline" 
-            onClick={() => refetchMetrics()}
+            onClick={() => {
+              refetchMetrics();
+              refetchStats();
+              refetchCollections();
+              refetchAlerts();
+            }}
+            disabled={metricsLoading || statsLoading || collectionsLoading}
             data-testid="button-refresh"
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+            <RefreshCw className={`h-4 w-4 mr-2 ${(metricsLoading || statsLoading || collectionsLoading) ? 'animate-spin' : ''}`} />
+            {(metricsLoading || statsLoading || collectionsLoading) ? 'Refreshing...' : 'Refresh'}
           </Button>
         </div>
       </div>
@@ -282,7 +301,7 @@ export default function AdminDatabasePage() {
           <TabsTrigger value="postgresql" data-testid="tab-postgresql">PostgreSQL</TabsTrigger>
           <TabsTrigger value="mongodb" data-testid="tab-mongodb">MongoDB</TabsTrigger>
           <TabsTrigger value="maintenance" data-testid="tab-maintenance">Maintenance</TabsTrigger>
-          <TabsTrigger value="alerts" data-testid="tab-alerts">Alerts ({alertsData?.count || 0})</TabsTrigger>
+          <TabsTrigger value="alerts" data-testid="tab-alerts">Alerts ({(alertsData as any)?.count || 0})</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -353,8 +372,8 @@ export default function AdminDatabasePage() {
                 <CardTitle className="flex items-center space-x-2">
                   <Database className="h-5 w-5 text-blue-500" />
                   <span>PostgreSQL</span>
-                  <Badge className={getStatusColor(dbMetrics?.postgresql.connected ? 'healthy' : 'critical')}>
-                    {dbMetrics?.postgresql.connected ? 'Connected' : 'Disconnected'}
+                  <Badge className={getStatusColor(dbMetrics?.postgresql?.connected ? 'healthy' : 'critical')}>
+                    {dbMetrics?.postgresql?.connected ? 'Connected' : 'Disconnected'}
                   </Badge>
                 </CardTitle>
               </CardHeader>
@@ -385,8 +404,8 @@ export default function AdminDatabasePage() {
                 <CardTitle className="flex items-center space-x-2">
                   <Database className="h-5 w-5 text-green-500" />
                   <span>MongoDB</span>
-                  <Badge className={getStatusColor(dbMetrics?.mongodb.connected ? 'healthy' : 'critical')}>
-                    {dbMetrics?.mongodb.connected ? 'Connected' : 'Disconnected'}
+                  <Badge className={getStatusColor(dbMetrics?.mongodb?.connected ? 'healthy' : 'critical')}>
+                    {dbMetrics?.mongodb?.connected ? 'Connected' : 'Disconnected'}
                   </Badge>
                 </CardTitle>
               </CardHeader>
@@ -440,10 +459,10 @@ export default function AdminDatabasePage() {
                   </div>
                 </div>
                 
-                {collections?.postgresql?.tables && (
+                {(collections as any)?.postgresql?.tables && (
                   <div className="space-y-2">
                     <h4 className="font-semibold">Tables</h4>
-                    {collections.postgresql.tables.map((table: any) => (
+                    {(collections as any).postgresql.tables.map((table: any) => (
                       <div key={table.name} className="flex items-center justify-between p-2 border rounded">
                         <span className="font-medium">{table.name}</span>
                         <div className="text-sm text-muted-foreground">
@@ -534,10 +553,10 @@ export default function AdminDatabasePage() {
                   </div>
                 </div>
                 
-                {collections?.mongodb?.collections && (
+                {(collections as any)?.mongodb?.collections && (
                   <div className="space-y-2">
                     <h4 className="font-semibold">Collections</h4>
-                    {collections.mongodb.collections.map((collection: any) => (
+                    {(collections as any).mongodb.collections.map((collection: any) => (
                       <div key={collection.name} className="flex items-center justify-between p-2 border rounded">
                         <span className="font-medium">{collection.name}</span>
                         <div className="text-sm text-muted-foreground">
@@ -690,9 +709,9 @@ export default function AdminDatabasePage() {
               <CardTitle>Database Alerts & Notifications</CardTitle>
             </CardHeader>
             <CardContent>
-              {alertsData?.alerts && alertsData.alerts.length > 0 ? (
+              {(alertsData as any)?.alerts && (alertsData as any).alerts.length > 0 ? (
                 <div className="space-y-3">
-                  {alertsData.alerts.map((alert: any, index: number) => (
+                  {(alertsData as any).alerts.map((alert: any, index: number) => (
                     <Alert key={index} className={`${
                       alert.type === 'error' ? 'border-destructive' :
                       alert.type === 'warning' ? 'border-warning' : 'border-info'
