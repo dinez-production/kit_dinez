@@ -1,5 +1,6 @@
 import webPush from 'web-push';
 import crypto from 'crypto';
+import { NotificationTemplate, INotificationTemplate } from '../models/mongodb-models.js';
 
 interface PushSubscription {
   endpoint: string;
@@ -60,7 +61,10 @@ export class WebPushService {
 
   constructor() {
     this.initializeVAPID();
-    this.initializeDefaultTemplates();
+    // Initialize templates asynchronously
+    this.initializeDefaultTemplates().catch(error => {
+      console.error('Failed to initialize templates:', error);
+    });
   }
 
   private initializeVAPID() {
@@ -123,65 +127,111 @@ export class WebPushService {
     return !!this.vapidKeys?.publicKey && !!this.vapidKeys?.privateKey;
   }
 
-  private initializeDefaultTemplates() {
-    const defaultTemplates: OrderStatusTemplate[] = [
-      {
-        id: 'confirmed',
-        status: 'confirmed',
-        title: 'Order Confirmed!',
-        message: 'Your order #{orderNumber} has been confirmed and is being prepared.',
-        icon: '✅',
-        priority: 'normal',
-        requireInteraction: false,
-        enabled: true
-      },
-      {
-        id: 'preparing',
-        status: 'preparing',
-        title: 'Being Prepared',
-        message: 'Your order #{orderNumber} is now being prepared in the kitchen.',
-        icon: '👨‍🍳',
-        priority: 'normal',
-        requireInteraction: false,
-        enabled: true
-      },
-      {
-        id: 'ready',
-        status: 'ready',
-        title: 'Ready for Pickup!',
-        message: 'Your order #{orderNumber} is ready for collection at the counter.',
-        icon: '🔔',
-        priority: 'high',
-        requireInteraction: true,
-        enabled: true
-      },
-      {
-        id: 'completed',
-        status: 'completed',
-        title: 'Order Completed',
-        message: 'Your order #{orderNumber} has been completed. Thank you for your order!',
-        icon: '🎉',
-        priority: 'normal',
-        requireInteraction: false,
-        enabled: true
-      },
-      {
-        id: 'cancelled',
-        status: 'cancelled',
-        title: 'Order Cancelled',
-        message: 'Your order #{orderNumber} has been cancelled. Contact support for details.',
-        icon: '❌',
-        priority: 'high',
-        requireInteraction: true,
-        enabled: true
+  private async initializeDefaultTemplates() {
+    try {
+      // Check if templates already exist in database
+      const existingTemplates = await NotificationTemplate.find();
+      
+      if (existingTemplates.length > 0) {
+        // Load existing templates from database
+        existingTemplates.forEach(template => {
+          this.notificationTemplates.set(template.status, {
+            id: template.id,
+            status: template.status,
+            title: template.title,
+            message: template.message,
+            icon: template.icon,
+            priority: template.priority,
+            requireInteraction: template.requireInteraction,
+            enabled: template.enabled
+          });
+        });
+        console.log(`✅ Loaded ${existingTemplates.length} notification templates from database`);
+        return;
       }
-    ];
-
-    defaultTemplates.forEach(template => {
-      this.notificationTemplates.set(template.status, template);
-    });
-    
-    console.log('✅ Notification templates initialized');
+      
+      // Create default templates if none exist
+      const defaultTemplates: OrderStatusTemplate[] = [
+        {
+          id: 'pending',
+          status: 'pending',
+          title: 'Order Received!',
+          message: 'Your order #{orderNumber} has been received and will be prepared shortly.',
+          icon: '📋',
+          priority: 'normal',
+          requireInteraction: false,
+          enabled: true
+        },
+        {
+          id: 'preparing',
+          status: 'preparing',
+          title: 'Being Prepared',
+          message: 'Your order #{orderNumber} is now being prepared in the kitchen.',
+          icon: '👨‍🍳',
+          priority: 'normal',
+          requireInteraction: false,
+          enabled: true
+        },
+        {
+          id: 'ready',
+          status: 'ready',
+          title: 'Ready for Pickup!',
+          message: 'Your order #{orderNumber} is ready for collection at the counter.',
+          icon: '🔔',
+          priority: 'high',
+          requireInteraction: true,
+          enabled: true
+        },
+        {
+          id: 'completed',
+          status: 'completed',
+          title: 'Order Completed',
+          message: 'Your order #{orderNumber} has been completed. Thank you for your order!',
+          icon: '🎉',
+          priority: 'normal',
+          requireInteraction: false,
+          enabled: true
+        },
+        {
+          id: 'cancelled',
+          status: 'cancelled',
+          title: 'Order Cancelled',
+          message: 'Your order #{orderNumber} has been cancelled. Contact support for details.',
+          icon: '❌',
+          priority: 'high',
+          requireInteraction: true,
+          enabled: true
+        }
+      ];
+      
+      // Save default templates to database and memory
+      for (const template of defaultTemplates) {
+        const dbTemplate = new NotificationTemplate(template);
+        await dbTemplate.save();
+        this.notificationTemplates.set(template.status, template);
+      }
+      
+      console.log('✅ Created and saved default notification templates to database');
+    } catch (error) {
+      console.error('❌ Failed to initialize notification templates:', error);
+      // Fallback to memory-only templates
+      const fallbackTemplates: OrderStatusTemplate[] = [
+        {
+          id: 'preparing',
+          status: 'preparing',
+          title: 'Being Prepared',
+          message: 'Your order #{orderNumber} is being prepared.',
+          icon: '👨‍🍳',
+          priority: 'normal',
+          requireInteraction: false,
+          enabled: true
+        }
+      ];
+      fallbackTemplates.forEach(template => {
+        this.notificationTemplates.set(template.status, template);
+      });
+      console.log('⚠️ Using fallback notification templates');
+    }
   }
 
   /**
@@ -511,30 +561,64 @@ export class WebPushService {
     return this.notificationTemplates.get(status);
   }
 
-  updateNotificationTemplate(template: OrderStatusTemplate): boolean {
-    if (this.notificationTemplates.has(template.status)) {
-      this.notificationTemplates.set(template.status, template);
-      console.log(`📝 Updated notification template for status: ${template.status}`);
-      return true;
+  async updateNotificationTemplate(template: OrderStatusTemplate): Promise<boolean> {
+    try {
+      if (this.notificationTemplates.has(template.status)) {
+        // Update in database
+        await NotificationTemplate.findOneAndUpdate(
+          { status: template.status },
+          template,
+          { upsert: true, new: true }
+        );
+        
+        // Update in memory
+        this.notificationTemplates.set(template.status, template);
+        console.log(`📝 Updated notification template for status: ${template.status}`);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error(`❌ Failed to update template for status ${template.status}:`, error);
+      return false;
     }
-    return false;
   }
 
-  addNotificationTemplate(template: OrderStatusTemplate): boolean {
-    if (!this.notificationTemplates.has(template.status)) {
-      this.notificationTemplates.set(template.status, template);
-      console.log(`➕ Added notification template for status: ${template.status}`);
-      return true;
+  async addNotificationTemplate(template: OrderStatusTemplate): Promise<boolean> {
+    try {
+      if (!this.notificationTemplates.has(template.status)) {
+        // Save to database
+        const dbTemplate = new NotificationTemplate(template);
+        await dbTemplate.save();
+        
+        // Add to memory
+        this.notificationTemplates.set(template.status, template);
+        console.log(`➕ Added notification template for status: ${template.status}`);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error(`❌ Failed to add template for status ${template.status}:`, error);
+      return false;
     }
-    return false;
   }
 
-  deleteNotificationTemplate(status: string): boolean {
-    const deleted = this.notificationTemplates.delete(status);
-    if (deleted) {
-      console.log(`🗑️ Deleted notification template for status: ${status}`);
+  async deleteNotificationTemplate(status: string): Promise<boolean> {
+    try {
+      // Delete from database
+      const result = await NotificationTemplate.deleteOne({ status });
+      
+      // Delete from memory
+      const deleted = this.notificationTemplates.delete(status);
+      
+      if (deleted && result.deletedCount > 0) {
+        console.log(`🗑️ Deleted notification template for status: ${status}`);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error(`❌ Failed to delete template for status ${status}:`, error);
+      return false;
     }
-    return deleted;
   }
 }
 

@@ -329,7 +329,7 @@ router.get('/templates/:status', (req, res) => {
 /**
  * Update notification template
  */
-router.put('/templates/:status', (req, res) => {
+router.put('/templates/:status', async (req, res) => {
   try {
     const { status } = req.params;
     const template = req.body;
@@ -341,7 +341,7 @@ router.put('/templates/:status', (req, res) => {
       });
     }
     
-    const updated = webPushService.updateNotificationTemplate(template);
+    const updated = await webPushService.updateNotificationTemplate(template);
     
     if (!updated) {
       return res.status(404).json({ 
@@ -364,7 +364,7 @@ router.put('/templates/:status', (req, res) => {
 /**
  * Create new notification template
  */
-router.post('/templates', (req, res) => {
+router.post('/templates', async (req, res) => {
   try {
     const template = req.body;
     
@@ -375,7 +375,7 @@ router.post('/templates', (req, res) => {
       });
     }
     
-    const created = webPushService.addNotificationTemplate(template);
+    const created = await webPushService.addNotificationTemplate(template);
     
     if (!created) {
       return res.status(409).json({ 
@@ -398,10 +398,10 @@ router.post('/templates', (req, res) => {
 /**
  * Delete notification template
  */
-router.delete('/templates/:status', (req, res) => {
+router.delete('/templates/:status', async (req, res) => {
   try {
     const { status } = req.params;
-    const deleted = webPushService.deleteNotificationTemplate(status);
+    const deleted = await webPushService.deleteNotificationTemplate(status);
     
     if (!deleted) {
       return res.status(404).json({ 

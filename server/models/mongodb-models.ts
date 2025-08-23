@@ -117,6 +117,41 @@ const NotificationSchema = new Schema<INotification>({
 
 export const Notification = mongoose.model<INotification>('Notification', NotificationSchema);
 
+// Notification Template Schema for customizable push notification templates
+export interface INotificationTemplate extends Document {
+  id: string;
+  status: string;
+  title: string;
+  message: string;
+  icon: string;
+  priority: 'normal' | 'high';
+  requireInteraction: boolean;
+  enabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const NotificationTemplateSchema = new Schema<INotificationTemplate>({
+  id: { type: String, required: true, unique: true },
+  status: { type: String, required: true, unique: true },
+  title: { type: String, required: true },
+  message: { type: String, required: true },
+  icon: { type: String, required: true },
+  priority: { type: String, enum: ['normal', 'high'], default: 'normal' },
+  requireInteraction: { type: Boolean, default: false },
+  enabled: { type: Boolean, default: true },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+// Update the updatedAt field before saving
+NotificationTemplateSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+export const NotificationTemplate = mongoose.model<INotificationTemplate>('NotificationTemplate', NotificationTemplateSchema);
+
 // LoginIssue Model
 export interface ILoginIssue extends Document {
   name: string;
