@@ -176,6 +176,27 @@ export default function CheckoutPage() {
   };
 
   const proceedWithOrder = async () => {
+    // Check if the amount is 0 or very close to 0 (due to coupon discount)
+    if (total <= 1) {
+      // For free orders, directly create the order without payment
+      toast({
+        title: "Processing Free Order",
+        description: "Your order is free thanks to the coupon! Creating order...",
+      });
+      
+      // Reset payment states
+      setIsTimerActive(false);
+      setPaymentInProgress(false);
+      paymentValidRef.current = false;
+      
+      // Clean up any pending order data
+      localStorage.removeItem('pendingOrderData');
+      
+      // Create order directly
+      await createOrderDirectly();
+      return;
+    }
+
     // Show immediate feedback to user
     setPaymentInProgress(true);
     
