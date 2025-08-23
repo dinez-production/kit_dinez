@@ -921,9 +921,9 @@ export default function AdminNotificationManagementPage() {
                   <div className="space-y-2">
                     <Label htmlFor="templateSelect">Use Custom Template (Optional)</Label>
                     <Select 
-                      value={selectedCustomTemplate?.id || ""} 
+                      value={selectedCustomTemplate?.id || "new"} 
                       onValueChange={(value) => {
-                        if (value) {
+                        if (value && value !== "new") {
                           const template = customTemplates.find(t => t.id === value);
                           if (template) {
                             setSelectedCustomTemplate(template);
@@ -944,7 +944,7 @@ export default function AdminNotificationManagementPage() {
                         <SelectValue placeholder="Choose a template or create new" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Create New Notification</SelectItem>
+                        <SelectItem value="new">Create New Notification</SelectItem>
                         {customTemplates.map((template) => (
                           <SelectItem key={template.id} value={template.id}>
                             {template.icon} {template.name}
