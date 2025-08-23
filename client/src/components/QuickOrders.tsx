@@ -167,7 +167,7 @@ export function QuickOrders() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="quantity">Quantity</Label>
+                  <Label>Quantity</Label>
                   <div className="flex items-center space-x-2">
                     <Button
                       variant="outline"
@@ -177,14 +177,9 @@ export function QuickOrders() {
                     >
                       <Minus className="w-4 h-4" />
                     </Button>
-                    <Input
-                      id="quantity"
-                      type="number"
-                      value={quantity}
-                      onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-20 text-center"
-                      min="1"
-                    />
+                    <div className="w-20 h-10 border border-input bg-background rounded-md flex items-center justify-center text-sm font-medium">
+                      {quantity}
+                    </div>
                     <Button
                       variant="outline"
                       size="icon"
