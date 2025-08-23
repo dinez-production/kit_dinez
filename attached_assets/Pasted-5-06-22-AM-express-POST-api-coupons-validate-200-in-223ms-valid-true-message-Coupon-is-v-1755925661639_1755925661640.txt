@@ -1,0 +1,98 @@
+5:06:22 AM [express] POST /api/coupons/validate 200 in 223ms :: {"valid":true,"message":"Coupon is v…
+Error creating order: ZodError: [
+  {
+    "code": "too_small",
+    "minimum": 0,
+    "type": "number",
+    "inclusive": false,
+    "exact": false,
+    "message": "Number must be greater than 0",
+    "path": [
+      "amount"
+    ]
+  }
+]
+    at get error (file:///opt/render/project/src/node_modules/zod/lib/index.mjs:587:31)
+    at ZodObject.parse (file:///opt/render/project/src/node_modules/zod/lib/index.mjs:663:22)
+    at file:///opt/render/project/src/dist/index.js:3342:47
+    at Layer.handle [as handle_request] (/opt/render/project/src/node_modules/express/lib/router/layer.js:95:5)
+    at next (/opt/render/project/src/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/opt/render/project/src/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/opt/render/project/src/node_modules/express/lib/router/layer.js:95:5)
+    at /opt/render/project/src/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/opt/render/project/src/node_modules/express/lib/router/index.js:346:12)
+    at next (/opt/render/project/src/node_modules/express/lib/router/index.js:280:10) {
+  issues: [
+    {
+      code: 'too_small',
+      minimum: 0,
+      type: 'number',
+      inclusive: false,
+      exact: false,
+      message: 'Number must be greater than 0',
+      path: [Array]
+    }
+  ],
+  addIssue: [Function (anonymous)],
+  addIssues: [Function (anonymous)],
+  errors: [
+    {
+      code: 'too_small',
+      minimum: 0,
+      type: 'number',
+      inclusive: false,
+      exact: false,
+      message: 'Number must be greater than 0',
+      path: [Array]
+    }
+  ]
+}
+5:06:23 AM [express] POST /api/orders 500 in 8ms :: {"message":"Internal server error"}
+Error creating order: ZodError: [
+  {
+    "code": "too_small",
+    "minimum": 0,
+    "type": "number",
+    "inclusive": false,
+    "exact": false,
+    "message": "Number must be greater than 0",
+    "path": [
+      "amount"
+    ]
+  }
+]
+    at get error (file:///opt/render/project/src/node_modules/zod/lib/index.mjs:587:31)
+    at ZodObject.parse (file:///opt/render/project/src/node_modules/zod/lib/index.mjs:663:22)
+    at file:///opt/render/project/src/dist/index.js:3342:47
+    at Layer.handle [as handle_request] (/opt/render/project/src/node_modules/express/lib/router/layer.js:95:5)
+    at next (/opt/render/project/src/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/opt/render/project/src/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/opt/render/project/src/node_modules/express/lib/router/layer.js:95:5)
+    at /opt/render/project/src/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/opt/render/project/src/node_modules/express/lib/router/index.js:346:12)
+    at next (/opt/render/project/src/node_modules/express/lib/router/index.js:280:10) {
+  issues: [
+    {
+      code: 'too_small',
+      minimum: 0,
+      type: 'number',
+      inclusive: false,
+      exact: false,
+      message: 'Number must be greater than 0',
+      path: [Array]
+    }
+  ],
+  addIssue: [Function (anonymous)],
+  addIssues: [Function (anonymous)],
+  errors: [
+    {
+      code: 'too_small',
+      minimum: 0,
+      type: 'number',
+      inclusive: false,
+      exact: false,
+      message: 'Number must be greater than 0',
+      path: [Array]
+    }
+  ]
+}
