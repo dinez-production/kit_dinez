@@ -1362,7 +1362,7 @@ export class HybridStorage implements IStorage {
         // This is a basic cleanup - in a real app you'd have specific cleanup rules
         const result = await collectionObj.deleteMany({
           $or: [
-            { _id: null },
+            { _id: { $type: 10 } }, // BSON null type
             { _id: { $exists: false } }
           ]
         });

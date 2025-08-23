@@ -192,7 +192,7 @@ export async function getMongoFeatures(): Promise<{
   try {
     const mongoose = await import('mongoose');
     
-    if (mongoose.connection.readyState !== 1) {
+    if (!mongoose.connection || mongoose.connection.readyState !== 1) {
       throw new Error('MongoDB not connected');
     }
     

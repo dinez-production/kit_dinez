@@ -134,11 +134,13 @@ export class DatabaseMonitor {
         
         activeQueries = Number(activeQueriesResult[0]?.count || 0);
         
-        // Get cache hit ratio
+        // Get cache hit ratio (fixed for PostgreSQL compatibility)
         const cacheResult = await pgDb.$queryRaw`
           SELECT 
-            round(
-              (blks_hit::float / (blks_hit + blks_read)) * 100, 2
+            CAST(
+              ROUND(
+                CAST((blks_hit::float / NULLIF(blks_hit + blks_read, 0)) * 100 AS numeric), 2
+              ) AS float
             ) as cache_hit_ratio
           FROM pg_stat_database 
           WHERE datname = current_database()
@@ -195,41 +197,48 @@ export class DatabaseMonitor {
       
       try {
         if (mongoose.connection.db) {
-          // Get connection count from server status
           const admin = mongoose.connection.db.admin();
-          const serverStatus = await admin.serverStatus();
           
-          connectionCount = serverStatus.connections?.current || 0;
-          
-          // Get current operations count (simplified for compatibility)
-          currentOp = serverStatus.opcounters?.query || 0;
-          
-          // Check replication lag if in replica set
-          if (serverStatus.repl) {
-            try {
-              const replStatus = await admin.replSetGetStatus();
-              if (replStatus.members) {
-                const primary = replStatus.members.find((m: any) => m.stateStr === 'PRIMARY');
-                const secondary = replStatus.members.find((m: any) => m.stateStr === 'SECONDARY');
-                
-                if (primary && secondary) {
-                  replicationLag = Math.abs(
-                    new Date(secondary.optimeDate).getTime() - 
-                    new Date(primary.optimeDate).getTime()
-                  );
+          try {
+            // Try to get connection count from server status
+            const serverStatus = await admin.serverStatus();
+            connectionCount = serverStatus.connections?.current || 0;
+            currentOp = serverStatus.opcounters?.query || 0;
+            
+            // Check replication lag if in replica set
+            if (serverStatus.repl) {
+              try {
+                const replStatus = await admin.replSetGetStatus();
+                if (replStatus.members) {
+                  const primary = replStatus.members.find((m: any) => m.stateStr === 'PRIMARY');
+                  const secondary = replStatus.members.find((m: any) => m.stateStr === 'SECONDARY');
+                  
+                  if (primary && secondary) {
+                    replicationLag = Math.abs(
+                      new Date(secondary.optimeDate).getTime() - 
+                      new Date(primary.optimeDate).getTime()
+                    );
+                  }
                 }
+              } catch (replError) {
+                console.warn('Could not get replication status:', replError instanceof Error ? replError.message : String(replError));
               }
-            } catch (replError) {
-              console.warn('Could not get replication status:', replError instanceof Error ? replError.message : String(replError));
             }
+          } catch (serverStatusError) {
+            // If serverStatus fails due to permissions, try alternative methods
+            console.warn('Could not get extended MongoDB metrics:', serverStatusError instanceof Error ? serverStatusError.message : String(serverStatusError));
+            
+            // Fallback: estimate connection count from our own connection
+            connectionCount = 1; // At least our connection
+            currentOp = 0;
           }
         }
       } catch (error) {
-        console.warn('Could not get extended MongoDB metrics:', error instanceof Error ? error.message : String(error));
+        console.warn('Could not access MongoDB admin:', error instanceof Error ? error.message : String(error));
       }
       
       return {
-        connected: mongoose.connection.readyState === 1,
+        connected: mongoose.connection && mongoose.connection.readyState === 1,
         responseTime,
         connectionCount,
         databaseSize: stats.dataSize,
