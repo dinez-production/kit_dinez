@@ -276,7 +276,7 @@ export const insertOrderSchema = z.object({
   customerId: z.number().optional(),
   customerName: z.string().min(1),
   items: z.string(),
-  amount: z.number().positive(),
+  amount: z.number().min(0),
   status: z.string().optional(),
   estimatedTime: z.number().optional(),
   barcode: z.string(),
