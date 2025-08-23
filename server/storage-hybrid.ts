@@ -1520,7 +1520,8 @@ export class HybridStorage implements IStorage {
         type,
         timestamp,
         status: 'in_progress',
-        data: {}
+        data: {},
+        downloadable: false
       };
       
       if (type === 'mongodb' || type === 'full') {
@@ -1533,10 +1534,16 @@ export class HybridStorage implements IStorage {
         // PostgreSQL backup
         const pgBackup = await this.createPostgreSQLBackup();
         backupData.data.postgresql = pgBackup;
+        backupData.downloadable = true;
+        backupData.filename = `postgresql_backup_${backupId}.sql`;
       }
       
       backupData.status = 'completed';
-      backupData.size = JSON.stringify(backupData.data).length;
+      if (type === 'postgresql') {
+        backupData.size = backupData.data.postgresql.size;
+      } else {
+        backupData.size = JSON.stringify(backupData.data).length;
+      }
       
       // Store backup metadata (in production, you'd store this in a proper backup storage)
       this.backupStorage.set(backupId, backupData);
@@ -1546,7 +1553,9 @@ export class HybridStorage implements IStorage {
         type,
         timestamp,
         status: 'completed',
-        size: backupData.size
+        size: backupData.size,
+        downloadable: backupData.downloadable,
+        filename: backupData.filename
       };
     } catch (error) {
       console.error('Error creating backup:', error);
@@ -1577,18 +1586,70 @@ export class HybridStorage implements IStorage {
   }
   
   /**
-   * Create PostgreSQL backup
+   * Create PostgreSQL backup as SQL dump
    */
   private async createPostgreSQLBackup() {
     const db = getPostgresDb();
-    const backup: any = {};
     
     try {
       // Get all users (this is the main table we have)
       const users = await db.user.findMany();
-      backup.users = users;
       
-      return backup;
+      // Generate SQL dump content
+      let sqlDump = `-- PostgreSQL Database Backup\n-- Generated on: ${new Date().toISOString()}\n\n`;
+      
+      // Add table creation statement
+      sqlDump += `-- Table: users\n`;
+      sqlDump += `DROP TABLE IF EXISTS "users";\n`;
+      sqlDump += `CREATE TABLE "users" (\n`;
+      sqlDump += `  "id" SERIAL PRIMARY KEY,\n`;
+      sqlDump += `  "email" TEXT NOT NULL UNIQUE,\n`;
+      sqlDump += `  "name" TEXT NOT NULL,\n`;
+      sqlDump += `  "phone_number" TEXT,\n`;
+      sqlDump += `  "role" TEXT NOT NULL,\n`;
+      sqlDump += `  "register_number" TEXT UNIQUE,\n`;
+      sqlDump += `  "department" TEXT,\n`;
+      sqlDump += `  "joining_year" INTEGER,\n`;
+      sqlDump += `  "passing_out_year" INTEGER,\n`;
+      sqlDump += `  "current_study_year" INTEGER,\n`;
+      sqlDump += `  "is_passed" BOOLEAN DEFAULT false,\n`;
+      sqlDump += `  "staff_id" TEXT UNIQUE,\n`;
+      sqlDump += `  "is_profile_complete" BOOLEAN DEFAULT false,\n`;
+      sqlDump += `  "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n`;
+      sqlDump += `);\n\n`;
+      
+      // Add data inserts
+      if (users.length > 0) {
+        sqlDump += `-- Data for table: users\n`;
+        for (const user of users) {
+          const values = [
+            user.id,
+            `'${user.email.replace(/'/g, "''")}'`,
+            `'${user.name.replace(/'/g, "''")}'`,
+            user.phoneNumber ? `'${user.phoneNumber.replace(/'/g, "''")}'` : 'NULL',
+            `'${user.role.replace(/'/g, "''")}'`,
+            user.registerNumber ? `'${user.registerNumber.replace(/'/g, "''")}'` : 'NULL',
+            user.department ? `'${user.department.replace(/'/g, "''")}'` : 'NULL',
+            user.joiningYear || 'NULL',
+            user.passingOutYear || 'NULL',
+            user.currentStudyYear || 'NULL',
+            user.isPassed ? 'true' : 'false',
+            user.staffId ? `'${user.staffId.replace(/'/g, "''")}'` : 'NULL',
+            user.isProfileComplete ? 'true' : 'false',
+            `'${user.createdAt.toISOString()}'`
+          ];
+          
+          sqlDump += `INSERT INTO "users" ("id", "email", "name", "phone_number", "role", "register_number", "department", "joining_year", "passing_out_year", "current_study_year", "is_passed", "staff_id", "is_profile_complete", "created_at") VALUES (${values.join(', ')});\n`;
+        }
+      }
+      
+      sqlDump += `\n-- End of backup\n`;
+      
+      return {
+        sql: sqlDump,
+        recordCount: users.length,
+        size: Buffer.byteLength(sqlDump, 'utf8')
+      };
     } catch (error) {
       console.error('Error creating PostgreSQL backup:', error);
       throw error;
@@ -1627,10 +1688,37 @@ export class HybridStorage implements IStorage {
       timestamp: backup.timestamp,
       status: backup.status,
       size: backup.size,
-      filename: `${backup.id}_${backup.type}.json`,
-      filePath: `/tmp/${backup.id}_${backup.type}.json` // Simulated file path
+      downloadable: backup.downloadable || false,
+      filename: backup.filename || `${backup.id}_${backup.type}.json`
     };
   }
+  
+  /**
+   * Get backup content for download
+   */
+  async getBackupContent(backupId: string) {
+    const backup = this.backupStorage.get(backupId);
+    
+    if (!backup) {
+      throw new Error(`Backup ${backupId} not found`);
+    }
+    
+    if (backup.type === 'postgresql' && backup.data.postgresql.sql) {
+      return {
+        content: backup.data.postgresql.sql,
+        filename: backup.filename || `${backupId}_postgresql.sql`,
+        contentType: 'application/sql'
+      };
+    }
+    
+    // For MongoDB or other types, return JSON
+    return {
+      content: JSON.stringify(backup.data, null, 2),
+      filename: backup.filename || `${backupId}_${backup.type}.json`,
+      contentType: 'application/json'
+    };
+  }
+  
   
   /**
    * Restore from backup

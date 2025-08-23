@@ -104,7 +104,7 @@ router.post('/maintenance', async (req, res) => {
 });
 
 /**
- * Create backup metadata (initiate backup)
+ * Create database backup
  */
 router.post('/backup', async (req, res) => {
   try {
@@ -117,17 +117,29 @@ router.post('/backup', async (req, res) => {
       });
     }
     
-    const metadata = await storage.createBackupMetadata(type);
+    const backup = await storage.createBackup(type);
     
-    res.json({
-      success: true,
-      backup: metadata,
-      message: `${type} backup initiated successfully`
-    });
+    // If it's a PostgreSQL backup, return download info
+    if (type === 'postgresql' && backup.downloadable) {
+      res.json({
+        success: true,
+        backup: {
+          ...backup,
+          downloadUrl: `/api/database/backup/${backup.id}/download`
+        },
+        message: 'PostgreSQL backup created and ready for download'
+      });
+    } else {
+      res.json({
+        success: true,
+        backup,
+        message: `${type} backup created successfully`
+      });
+    }
   } catch (error) {
-    console.error('Error creating backup metadata:', error);
+    console.error('Error creating backup:', error);
     res.status(500).json({ 
-      error: 'Failed to initiate backup',
+      error: 'Failed to create backup',
       message: error instanceof Error ? error.message : String(error)
     });
   }
@@ -413,73 +425,23 @@ router.delete('/backups/:backupId', async (req, res) => {
 /**
  * Download backup file
  */
-router.get('/backups/:backupId/download', async (req, res) => {
+router.get('/backup/:backupId/download', async (req, res) => {
   try {
     const { backupId } = req.params;
     
-    if (!backupId) {
-      return res.status(400).json({ error: 'Backup ID is required' });
-    }
+    const backupContent = await storage.getBackupContent(backupId);
     
-    const backupInfo = await storage.getBackupInfo(backupId);
-    
-    if (!backupInfo || !backupInfo.filePath) {
-      return res.status(404).json({ error: 'Backup not found' });
-    }
-    
-    // Set appropriate headers for file download
-    res.setHeader('Content-Disposition', `attachment; filename="${backupInfo.filename}"`);
-    res.setHeader('Content-Type', 'application/octet-stream');
-    
-    // Stream the backup file
-    const fs = await import('fs');
-    const stream = fs.createReadStream(backupInfo.filePath);
-    
-    stream.on('error', (error) => {
-      console.error('Error streaming backup file:', error);
-      if (!res.headersSent) {
-        res.status(500).json({ error: 'Failed to download backup file' });
-      }
-    });
-    
-    stream.pipe(res);
+    res.setHeader('Content-Type', backupContent.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${backupContent.filename}"`);
+    res.send(backupContent.content);
   } catch (error) {
     console.error('Error downloading backup:', error);
-    if (!res.headersSent) {
-      res.status(500).json({ 
-        error: 'Failed to download backup',
-        message: error instanceof Error ? error.message : String(error)
-      });
-    }
-  }
-});
-
-/**
- * Run database maintenance operations
- */
-router.post('/maintenance', async (req, res) => {
-  try {
-    const { operations } = req.body;
-    
-    if (!operations || !Array.isArray(operations)) {
-      return res.status(400).json({ error: 'Operations array is required' });
-    }
-    
-    const results = await storage.runMaintenance(operations);
-    
-    res.json({
-      success: true,
-      message: 'Maintenance operations completed',
-      results,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error('Error running maintenance:', error);
-    res.status(500).json({ 
-      error: 'Failed to run maintenance operations',
+    res.status(404).json({ 
+      error: 'Backup not found or cannot be downloaded',
       message: error instanceof Error ? error.message : String(error)
     });
   }
 });
+
 
 export default router;
