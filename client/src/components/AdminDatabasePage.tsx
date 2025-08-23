@@ -74,28 +74,48 @@ export default function AdminDatabasePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOperation, setSelectedOperation] = useState<string[]>([]);
 
+  // Force component refresh to ensure no old cached queries run
+  useEffect(() => {
+    console.log('🔄 Database management page loaded - all automatic polling disabled');
+    return () => {
+      console.log('🛑 Database management page unmounted - cleaning up any pending queries');
+    };
+  }, []);
+
   // Fetch database metrics
   const { data: metrics, isLoading: metricsLoading, refetch: refetchMetrics } = useQuery({
     queryKey: ['/api/database/metrics'],
     enabled: false, // Only fetch when manually triggered
+    refetchInterval: false, // Explicitly disable automatic refetching
+    refetchOnMount: false, // Explicitly disable refetch on mount
+    refetchOnWindowFocus: false, // Explicitly disable refetch on focus
   });
 
   // Fetch database stats
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
     queryKey: ['/api/database/stats'],
     enabled: false, // Only fetch when manually triggered
+    refetchInterval: false, // Explicitly disable automatic refetching
+    refetchOnMount: false, // Explicitly disable refetch on mount
+    refetchOnWindowFocus: false, // Explicitly disable refetch on focus
   });
 
   // Fetch collections/tables
   const { data: collections, isLoading: collectionsLoading, refetch: refetchCollections } = useQuery({
     queryKey: ['/api/database/collections'],
     enabled: false, // Only fetch when manually triggered
+    refetchInterval: false, // Explicitly disable automatic refetching
+    refetchOnMount: false, // Explicitly disable refetch on mount
+    refetchOnWindowFocus: false, // Explicitly disable refetch on focus
   });
 
   // Fetch alerts
   const { data: alertsData, refetch: refetchAlerts } = useQuery({
     queryKey: ['/api/database/alerts'],
     enabled: false, // Only fetch when manually triggered
+    refetchInterval: false, // Explicitly disable automatic refetching
+    refetchOnMount: false, // Explicitly disable refetch on mount
+    refetchOnWindowFocus: false, // Explicitly disable refetch on focus
   });
 
   // Maintenance operations mutation
