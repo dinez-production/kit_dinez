@@ -42,12 +42,25 @@ interface StoredSubscription {
   subscribedAt: number;
 }
 
+interface OrderStatusTemplate {
+  id: string;
+  status: string;
+  title: string;
+  message: string;
+  icon: string;
+  priority: 'normal' | 'high';
+  requireInteraction: boolean;
+  enabled: boolean;
+}
+
 export class WebPushService {
   private subscriptions = new Map<string, StoredSubscription>();
   private vapidKeys: { publicKey: string; privateKey: string } | null = null;
+  private notificationTemplates = new Map<string, OrderStatusTemplate>();
 
   constructor() {
     this.initializeVAPID();
+    this.initializeDefaultTemplates();
   }
 
   private initializeVAPID() {
@@ -108,6 +121,67 @@ export class WebPushService {
 
   isConfigured(): boolean {
     return !!this.vapidKeys?.publicKey && !!this.vapidKeys?.privateKey;
+  }
+
+  private initializeDefaultTemplates() {
+    const defaultTemplates: OrderStatusTemplate[] = [
+      {
+        id: 'confirmed',
+        status: 'confirmed',
+        title: 'Order Confirmed!',
+        message: 'Your order #{orderNumber} has been confirmed and is being prepared.',
+        icon: '✅',
+        priority: 'normal',
+        requireInteraction: false,
+        enabled: true
+      },
+      {
+        id: 'preparing',
+        status: 'preparing',
+        title: 'Being Prepared',
+        message: 'Your order #{orderNumber} is now being prepared in the kitchen.',
+        icon: '👨‍🍳',
+        priority: 'normal',
+        requireInteraction: false,
+        enabled: true
+      },
+      {
+        id: 'ready',
+        status: 'ready',
+        title: 'Ready for Pickup!',
+        message: 'Your order #{orderNumber} is ready for collection at the counter.',
+        icon: '🔔',
+        priority: 'high',
+        requireInteraction: true,
+        enabled: true
+      },
+      {
+        id: 'completed',
+        status: 'completed',
+        title: 'Order Completed',
+        message: 'Your order #{orderNumber} has been completed. Thank you for your order!',
+        icon: '🎉',
+        priority: 'normal',
+        requireInteraction: false,
+        enabled: true
+      },
+      {
+        id: 'cancelled',
+        status: 'cancelled',
+        title: 'Order Cancelled',
+        message: 'Your order #{orderNumber} has been cancelled. Contact support for details.',
+        icon: '❌',
+        priority: 'high',
+        requireInteraction: true,
+        enabled: true
+      }
+    ];
+
+    defaultTemplates.forEach(template => {
+      this.notificationTemplates.set(template.status, template);
+    });
+    
+    console.log('✅ Notification templates initialized');
   }
 
   /**
@@ -296,7 +370,7 @@ export class WebPushService {
   }
 
   /**
-   * Send order update notification
+   * Send order update notification using customizable templates
    */
   async sendOrderUpdate(
     userId: string,
@@ -304,44 +378,19 @@ export class WebPushService {
     status: string,
     message?: string
   ): Promise<void> {
-    const statusConfig = {
-      'confirmed': {
-        title: 'Order Confirmed!',
-        message: `Your order #${orderNumber} has been confirmed and is being prepared.`,
-        type: 'confirmed'
-      },
-      'preparing': {
-        title: 'Being Prepared',
-        message: `Your order #${orderNumber} is now being prepared in the kitchen.`,
-        type: 'preparing'
-      },
-      'ready': {
-        title: 'Ready for Pickup!',
-        message: `Your order #${orderNumber} is ready for collection at the counter.`,
-        type: 'ready'
-      },
-      'completed': {
-        title: 'Order Completed',
-        message: `Your order #${orderNumber} has been completed. Thank you for your order!`,
-        type: 'completed'
-      },
-      'cancelled': {
-        title: 'Order Cancelled',
-        message: `Your order #${orderNumber} has been cancelled. Contact support for details.`,
-        type: 'cancelled'
-      }
-    };
+    const template = this.notificationTemplates.get(status);
+    
+    if (!template || !template.enabled) {
+      console.warn(`No enabled template found for status: ${status}`);
+      return;
+    }
 
-    const config = statusConfig[status as keyof typeof statusConfig] || {
-      title: 'Order Update',
-      message: `Order #${orderNumber} status updated to ${status}`,
-      type: status
-    };
-
-    const finalMessage = message || config.message;
+    // Replace placeholders in the template message
+    const templateMessage = template.message.replace(/{orderNumber}/g, orderNumber);
+    const finalMessage = message || templateMessage;
 
     await this.sendToUser(userId, {
-      title: config.title,
+      title: template.title,
       body: finalMessage,
       icon: '/icon-192.png',
       badge: '/icon-192.png',
@@ -349,20 +398,21 @@ export class WebPushService {
         type: 'order_update',
         orderNumber,
         status,
-        notificationType: config.type,
-        title: config.title,
+        notificationType: status,
+        title: template.title,
         message: finalMessage,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        icon: template.icon
       },
       url: `/orders/${orderNumber}`,
       tag: `order_${orderNumber}`,
-      requireInteraction: status === 'ready',
+      requireInteraction: template.requireInteraction,
       // Android-specific settings for heads-up notifications
-      priority: status === 'ready' ? 'high' : 'normal',
-      urgency: status === 'ready' ? 'high' : 'normal',
+      priority: template.priority,
+      urgency: template.priority,
       vibrate: [200, 100, 200],
       renotify: true,
-      sticky: status === 'ready',
+      sticky: template.requireInteraction,
     });
   }
 
@@ -448,6 +498,43 @@ export class WebPushService {
       vapidPublicKey: this.getVAPIDPublicKey(),
       lastUpdated: Date.now(),
     };
+  }
+
+  /**
+   * Template management methods
+   */
+  getNotificationTemplates(): OrderStatusTemplate[] {
+    return Array.from(this.notificationTemplates.values());
+  }
+
+  getNotificationTemplate(status: string): OrderStatusTemplate | undefined {
+    return this.notificationTemplates.get(status);
+  }
+
+  updateNotificationTemplate(template: OrderStatusTemplate): boolean {
+    if (this.notificationTemplates.has(template.status)) {
+      this.notificationTemplates.set(template.status, template);
+      console.log(`📝 Updated notification template for status: ${template.status}`);
+      return true;
+    }
+    return false;
+  }
+
+  addNotificationTemplate(template: OrderStatusTemplate): boolean {
+    if (!this.notificationTemplates.has(template.status)) {
+      this.notificationTemplates.set(template.status, template);
+      console.log(`➕ Added notification template for status: ${template.status}`);
+      return true;
+    }
+    return false;
+  }
+
+  deleteNotificationTemplate(status: string): boolean {
+    const deleted = this.notificationTemplates.delete(status);
+    if (deleted) {
+      console.log(`🗑️ Deleted notification template for status: ${status}`);
+    }
+    return deleted;
   }
 }
 

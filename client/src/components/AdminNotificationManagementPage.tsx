@@ -40,58 +40,6 @@ interface OrderStatusTemplate {
   enabled: boolean;
 }
 
-const defaultOrderTemplates: OrderStatusTemplate[] = [
-  {
-    id: 'confirmed',
-    status: 'confirmed',
-    title: 'Order Confirmed!',
-    message: 'Your order has been confirmed and is being prepared.',
-    icon: '✅',
-    priority: 'normal',
-    requireInteraction: false,
-    enabled: true
-  },
-  {
-    id: 'preparing',
-    status: 'preparing',
-    title: 'Being Prepared',
-    message: 'Your order is now being prepared in the kitchen.',
-    icon: '👨‍🍳',
-    priority: 'normal',
-    requireInteraction: false,
-    enabled: true
-  },
-  {
-    id: 'ready',
-    status: 'ready',
-    title: 'Ready for Pickup!',
-    message: 'Your order is ready for collection at the counter.',
-    icon: '🔔',
-    priority: 'high',
-    requireInteraction: true,
-    enabled: true
-  },
-  {
-    id: 'completed',
-    status: 'completed',
-    title: 'Order Completed',
-    message: 'Your order has been completed. Thank you for your order!',
-    icon: '🎉',
-    priority: 'normal',
-    requireInteraction: false,
-    enabled: true
-  },
-  {
-    id: 'cancelled',
-    status: 'cancelled',
-    title: 'Order Cancelled',
-    message: 'Your order has been cancelled. Contact support for details.',
-    icon: '❌',
-    priority: 'high',
-    requireInteraction: true,
-    enabled: true
-  }
-];
 
 export default function AdminNotificationManagementPage() {
   const [, setLocation] = useLocation();
@@ -99,7 +47,6 @@ export default function AdminNotificationManagementPage() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("overview");
   const [notificationEnabled, setNotificationEnabled] = useState(true);
-  const [orderTemplates, setOrderTemplates] = useState<OrderStatusTemplate[]>(defaultOrderTemplates);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<OrderStatusTemplate | null>(null);
   const [testDialogOpen, setTestDialogOpen] = useState(false);
@@ -111,6 +58,12 @@ export default function AdminNotificationManagementPage() {
   const { data: pushStats, isLoading: statsLoading } = useQuery<PushStats>({
     queryKey: ['/api/push/stats'],
     refetchInterval: 10000, // Refresh every 10 seconds
+  });
+
+  // Fetch notification templates
+  const { data: orderTemplates = [], isLoading: templatesLoading } = useQuery<OrderStatusTemplate[]>({
+    queryKey: ['/api/push/templates'],
+    refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   // Send test notification mutation
@@ -183,20 +136,36 @@ export default function AdminNotificationManagementPage() {
     }
   });
 
+  // Update template mutation
+  const updateTemplateMutation = useMutation({
+    mutationFn: async (template: OrderStatusTemplate) => {
+      return apiRequest(`/api/push/templates/${template.status}`, {
+        method: 'PUT',
+        body: JSON.stringify(template),
+      });
+    },
+    onSuccess: (_, template) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/push/templates'] });
+      toast({
+        title: "Template Updated",
+        description: `"${template.title}" has been successfully updated.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update template",
+        variant: "destructive",
+      });
+    }
+  });
+
   const handleToggleTemplate = (templateId: string) => {
-    setOrderTemplates(prev => 
-      prev.map(template => 
-        template.id === templateId 
-          ? { ...template, enabled: !template.enabled }
-          : template
-      )
-    );
-    
     const template = orderTemplates.find(t => t.id === templateId);
-    toast({
-      title: "Template Updated",
-      description: `"${template?.title}" has been ${!template?.enabled ? 'enabled' : 'disabled'}.`,
-    });
+    if (template) {
+      const updatedTemplate = { ...template, enabled: !template.enabled };
+      updateTemplateMutation.mutate(updatedTemplate);
+    }
   };
 
   const handleEditTemplate = (template: OrderStatusTemplate) => {
@@ -206,15 +175,7 @@ export default function AdminNotificationManagementPage() {
 
   const handleSaveTemplate = () => {
     if (selectedTemplate) {
-      setOrderTemplates(prev => 
-        prev.map(template => 
-          template.id === selectedTemplate.id ? selectedTemplate : template
-        )
-      );
-      toast({
-        title: "Template Updated",
-        description: `"${selectedTemplate.title}" has been successfully updated.`,
-      });
+      updateTemplateMutation.mutate(selectedTemplate);
       setEditDialogOpen(false);
       setSelectedTemplate(null);
     }
@@ -447,7 +408,7 @@ export default function AdminNotificationManagementPage() {
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold">Order Status Notification Templates</h2>
             <Badge variant="outline" data-testid="template-count">
-              {orderTemplates.filter(t => t.enabled).length} / {orderTemplates.length} Active
+              {templatesLoading ? "Loading..." : `${orderTemplates.filter(t => t.enabled).length} / ${orderTemplates.length} Active`}
             </Badge>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">

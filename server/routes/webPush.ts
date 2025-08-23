@@ -291,4 +291,133 @@ router.get('/stats', (req, res) => {
   }
 });
 
+/**
+ * Get all notification templates
+ */
+router.get('/templates', (req, res) => {
+  try {
+    const templates = webPushService.getNotificationTemplates();
+    res.json(templates);
+  } catch (error) {
+    console.error('Error getting notification templates:', error);
+    res.status(500).json({ error: 'Failed to get notification templates' });
+  }
+});
+
+/**
+ * Get specific notification template
+ */
+router.get('/templates/:status', (req, res) => {
+  try {
+    const { status } = req.params;
+    const template = webPushService.getNotificationTemplate(status);
+    
+    if (!template) {
+      return res.status(404).json({ 
+        error: 'Template not found',
+        message: `No template found for status: ${status}`
+      });
+    }
+    
+    res.json(template);
+  } catch (error) {
+    console.error('Error getting notification template:', error);
+    res.status(500).json({ error: 'Failed to get notification template' });
+  }
+});
+
+/**
+ * Update notification template
+ */
+router.put('/templates/:status', (req, res) => {
+  try {
+    const { status } = req.params;
+    const template = req.body;
+    
+    if (!template || template.status !== status) {
+      return res.status(400).json({ 
+        error: 'Invalid template data',
+        message: 'Template status must match URL parameter'
+      });
+    }
+    
+    const updated = webPushService.updateNotificationTemplate(template);
+    
+    if (!updated) {
+      return res.status(404).json({ 
+        error: 'Template not found',
+        message: `No template found for status: ${status}`
+      });
+    }
+    
+    res.json({ 
+      success: true,
+      message: 'Template updated successfully',
+      template
+    });
+  } catch (error) {
+    console.error('Error updating notification template:', error);
+    res.status(500).json({ error: 'Failed to update notification template' });
+  }
+});
+
+/**
+ * Create new notification template
+ */
+router.post('/templates', (req, res) => {
+  try {
+    const template = req.body;
+    
+    if (!template || !template.status || !template.title || !template.message) {
+      return res.status(400).json({ 
+        error: 'Invalid template data',
+        message: 'status, title, and message are required'
+      });
+    }
+    
+    const created = webPushService.addNotificationTemplate(template);
+    
+    if (!created) {
+      return res.status(409).json({ 
+        error: 'Template already exists',
+        message: `Template for status ${template.status} already exists`
+      });
+    }
+    
+    res.status(201).json({ 
+      success: true,
+      message: 'Template created successfully',
+      template
+    });
+  } catch (error) {
+    console.error('Error creating notification template:', error);
+    res.status(500).json({ error: 'Failed to create notification template' });
+  }
+});
+
+/**
+ * Delete notification template
+ */
+router.delete('/templates/:status', (req, res) => {
+  try {
+    const { status } = req.params;
+    const deleted = webPushService.deleteNotificationTemplate(status);
+    
+    if (!deleted) {
+      return res.status(404).json({ 
+        error: 'Template not found',
+        message: `No template found for status: ${status}`
+      });
+    }
+    
+    res.json({ 
+      success: true,
+      message: 'Template deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting notification template:', error);
+    res.status(500).json({ error: 'Failed to delete notification template' });
+  }
+});
+
 export default router;
