@@ -157,22 +157,16 @@ export default function AdminDatabasePage() {
       return response.json();
     },
     onSuccess: async (data, type) => {
-      console.log('Backup response:', data, 'Type:', type);
       if (type === 'postgresql' && data.backup?.downloadUrl) {
-        console.log('PostgreSQL backup detected, attempting download...');
         // For PostgreSQL backups, trigger immediate download of SQL file
         try {
-          console.log('Fetching from:', data.backup.downloadUrl);
           const downloadResponse = await fetch(data.backup.downloadUrl);
-          console.log('Download response status:', downloadResponse.status);
           if (downloadResponse.ok) {
             const blob = await downloadResponse.blob();
-            console.log('Blob created, size:', blob.size, 'type:', blob.type);
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             a.download = data.backup.filename || `postgresql_backup_${Date.now()}.sql`;
-            console.log('Triggering download for file:', a.download);
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
@@ -183,11 +177,9 @@ export default function AdminDatabasePage() {
               description: `SQL backup file '${a.download}' has been downloaded successfully!`,
             });
           } else {
-            console.error('Download failed with status:', downloadResponse.status);
             throw new Error('Failed to download backup file');
           }
         } catch (error) {
-          console.error('Download error:', error);
           toast({
             title: "Download Failed",
             description: `Backup created but download failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -195,7 +187,6 @@ export default function AdminDatabasePage() {
           });
         }
       } else {
-        console.log('Not a PostgreSQL backup or no downloadUrl:', { type, downloadUrl: data.backup?.downloadUrl });
         toast({
           title: "Backup Initiated",
           description: "Database backup has been started successfully!",

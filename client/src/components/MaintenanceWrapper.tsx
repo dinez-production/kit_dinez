@@ -13,11 +13,10 @@ export default function MaintenanceWrapper({
 }: MaintenanceWrapperProps) {
   const { user } = useAuth();
   
-  // Query for maintenance status
+  // Query for maintenance status (no polling - relies on cache from SplashScreen)
   const { data: maintenanceStatus } = useQuery({
     queryKey: ['/api/system-settings/maintenance-status'],
-    refetchInterval: 30000, // Check every 30 seconds
-    staleTime: 0, // Always fresh
+    staleTime: 60000, // Use cached data for 1 minute
   });
 
   // Check if maintenance is active
