@@ -352,6 +352,19 @@ export default function AdminNotificationManagementPage() {
     });
   };
 
+  const resetBroadcastForm = () => {
+    setAdvancedBroadcastForm({
+      targetType: "all",
+      values: [],
+      title: "",
+      message: "",
+      priority: "normal",
+      requireInteraction: false
+    });
+    setTargetValues("");
+    setSelectedCustomTemplate(null);
+  };
+
   const handleAdvancedBroadcast = () => {
     if (!advancedBroadcastForm.title || !advancedBroadcastForm.message) {
       toast({
@@ -845,7 +858,19 @@ export default function AdminNotificationManagementPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setAdvancedBroadcastDialogOpen(true)}
+                          onClick={() => {
+                            resetBroadcastForm();
+                            setSelectedCustomTemplate(template);
+                            setAdvancedBroadcastForm({
+                              targetType: "all",
+                              values: [],
+                              title: template.title,
+                              message: template.message,
+                              priority: template.priority,
+                              requireInteraction: template.requireInteraction
+                            });
+                            setAdvancedBroadcastDialogOpen(true);
+                          }}
                           data-testid={`button-send-template-${template.id}`}
                         >
                           <Send className="h-4 w-4 mr-1" />
@@ -878,7 +903,10 @@ export default function AdminNotificationManagementPage() {
               <h2 className="text-xl font-semibold">Advanced Broadcast</h2>
               <p className="text-muted-foreground">Send targeted notifications to specific groups</p>
             </div>
-            <Dialog open={advancedBroadcastDialogOpen} onOpenChange={setAdvancedBroadcastDialogOpen}>
+            <Dialog open={advancedBroadcastDialogOpen} onOpenChange={(open) => {
+              setAdvancedBroadcastDialogOpen(open);
+              if (open) resetBroadcastForm();
+            }}>
               <DialogTrigger asChild>
                 <Button data-testid="button-create-broadcast">
                   <Megaphone className="h-4 w-4 mr-2" />
@@ -890,6 +918,41 @@ export default function AdminNotificationManagementPage() {
                   <DialogTitle>Create Advanced Broadcast</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="templateSelect">Use Custom Template (Optional)</Label>
+                    <Select 
+                      value={selectedCustomTemplate?.id || ""} 
+                      onValueChange={(value) => {
+                        if (value) {
+                          const template = customTemplates.find(t => t.id === value);
+                          if (template) {
+                            setSelectedCustomTemplate(template);
+                            setAdvancedBroadcastForm({
+                              ...advancedBroadcastForm,
+                              title: template.title,
+                              message: template.message,
+                              priority: template.priority,
+                              requireInteraction: template.requireInteraction
+                            });
+                          }
+                        } else {
+                          setSelectedCustomTemplate(null);
+                        }
+                      }}
+                    >
+                      <SelectTrigger data-testid="select-custom-template">
+                        <SelectValue placeholder="Choose a template or create new" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Create New Notification</SelectItem>
+                        {customTemplates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.icon} {template.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="broadcastTitle">Notification Title</Label>
                     <Input
@@ -915,7 +978,10 @@ export default function AdminNotificationManagementPage() {
                     <Label htmlFor="targetType">Target Audience</Label>
                     <Select 
                       value={advancedBroadcastForm.targetType} 
-                      onValueChange={(value: any) => setAdvancedBroadcastForm({ ...advancedBroadcastForm, targetType: value })}
+                      onValueChange={(value: any) => {
+                        setAdvancedBroadcastForm({ ...advancedBroadcastForm, targetType: value });
+                        setTargetValues(""); // Reset target values when changing type
+                      }}
                     >
                       <SelectTrigger data-testid="select-target-type">
                         <SelectValue />
@@ -934,23 +1000,74 @@ export default function AdminNotificationManagementPage() {
                   {advancedBroadcastForm.targetType !== "all" && (
                     <div className="space-y-2">
                       <Label htmlFor="targetValues">Target Values</Label>
-                      <Input
-                        id="targetValues"
-                        value={targetValues}
-                        onChange={(e) => setTargetValues(e.target.value)}
-                        placeholder={
-                          advancedBroadcastForm.targetType === "role" ? "e.g., student, admin" :
-                          advancedBroadcastForm.targetType === "department" ? "e.g., CSE, ECE, MECH" :
-                          advancedBroadcastForm.targetType === "year" ? "e.g., 1, 2, 3, 4" :
-                          advancedBroadcastForm.targetType === "specific_users" ? "e.g., 1, 2, 3" :
-                          advancedBroadcastForm.targetType === "register_numbers" ? "e.g., 7115CSE001, 7115ECE002" :
-                          "e.g., CSE001, ECE002"
-                        }
-                        data-testid="input-target-values"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Enter comma-separated values for targeting
-                      </p>
+                      {advancedBroadcastForm.targetType === "role" ? (
+                        <Select 
+                          value={targetValues} 
+                          onValueChange={(value) => setTargetValues(value)}
+                        >
+                          <SelectTrigger data-testid="select-target-role">
+                            <SelectValue placeholder="Select role" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="student">Student</SelectItem>
+                            <SelectItem value="faculty">Faculty</SelectItem>
+                            <SelectItem value="staff">Staff</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="super_admin">Super Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : advancedBroadcastForm.targetType === "department" ? (
+                        <Select 
+                          value={targetValues} 
+                          onValueChange={(value) => setTargetValues(value)}
+                        >
+                          <SelectTrigger data-testid="select-target-department">
+                            <SelectValue placeholder="Select department" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="CSE">Computer Science Engineering</SelectItem>
+                            <SelectItem value="ECE">Electronics & Communication</SelectItem>
+                            <SelectItem value="MECH">Mechanical Engineering</SelectItem>
+                            <SelectItem value="CIVIL">Civil Engineering</SelectItem>
+                            <SelectItem value="EEE">Electrical & Electronics</SelectItem>
+                            <SelectItem value="IT">Information Technology</SelectItem>
+                            <SelectItem value="MBA">Master of Business Administration</SelectItem>
+                            <SelectItem value="MCA">Master of Computer Applications</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : advancedBroadcastForm.targetType === "year" ? (
+                        <Select 
+                          value={targetValues} 
+                          onValueChange={(value) => setTargetValues(value)}
+                        >
+                          <SelectTrigger data-testid="select-target-year">
+                            <SelectValue placeholder="Select study year" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">1st Year</SelectItem>
+                            <SelectItem value="2">2nd Year</SelectItem>
+                            <SelectItem value="3">3rd Year</SelectItem>
+                            <SelectItem value="4">4th Year</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <>
+                          <Input
+                            id="targetValues"
+                            value={targetValues}
+                            onChange={(e) => setTargetValues(e.target.value)}
+                            placeholder={
+                              advancedBroadcastForm.targetType === "specific_users" ? "e.g., 1, 2, 3" :
+                              advancedBroadcastForm.targetType === "register_numbers" ? "e.g., 7115CSE001, 7115ECE002" :
+                              "e.g., CSE001, ECE002"
+                            }
+                            data-testid="input-target-values"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Enter comma-separated values for targeting
+                          </p>
+                        </>
+                      )}
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-4">
@@ -1002,6 +1119,7 @@ export default function AdminNotificationManagementPage() {
                   variant="outline" 
                   className="h-24 flex-col"
                   onClick={() => {
+                    resetBroadcastForm();
                     setAdvancedBroadcastForm({
                       targetType: "role",
                       values: ["student"],
@@ -1022,6 +1140,7 @@ export default function AdminNotificationManagementPage() {
                   variant="outline" 
                   className="h-24 flex-col"
                   onClick={() => {
+                    resetBroadcastForm();
                     setAdvancedBroadcastForm({
                       targetType: "department",
                       values: [],
@@ -1042,6 +1161,7 @@ export default function AdminNotificationManagementPage() {
                   variant="outline" 
                   className="h-24 flex-col"
                   onClick={() => {
+                    resetBroadcastForm();
                     setAdvancedBroadcastForm({
                       targetType: "year",
                       values: [],
