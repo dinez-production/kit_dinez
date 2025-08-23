@@ -40,8 +40,7 @@ export default function CheckoutPage() {
   
   const orderItems = cart;
   const subtotal = cart.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
-  const tax = Math.round(subtotal * 0.05);
-  const totalBeforeDiscount = subtotal + tax;
+  const totalBeforeDiscount = subtotal;
   const total = appliedCoupon ? appliedCoupon.finalAmount : totalBeforeDiscount;
 
   // Check for pending order data on mount
@@ -317,10 +316,6 @@ export default function CheckoutPage() {
                 <div className="flex justify-between">
                   <span>Subtotal</span>
                   <span>₹{subtotal}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Tax (5%)</span>
-                  <span>₹{tax}</span>
                 </div>
                 {appliedCoupon && (
                   <div className="flex justify-between text-green-600">

@@ -76,9 +76,8 @@ export default function OrderDetailPage() {
     placedAt: "Yesterday, 1:15 PM",
     deliveredAt: "Yesterday, 1:35 PM",
     total: 60,
-    subtotal: 55,
-    tax: 3,
-    deliveryFee: 2,
+    subtotal: 60,
+    deliveryFee: 0,
     items: [
       {
         id: 1,
@@ -240,14 +239,6 @@ export default function OrderDetailPage() {
               <div className="flex justify-between">
                 <span>Subtotal</span>
                 <span>₹{orderDetails.subtotal}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Taxes & Charges</span>
-                <span>₹{orderDetails.tax}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Delivery Fee</span>
-                <span>₹{orderDetails.deliveryFee}</span>
               </div>
               
               <Separator className="my-2" />
