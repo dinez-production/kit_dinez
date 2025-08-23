@@ -194,14 +194,6 @@ export async function getMongoFeatures(): Promise<{
     const mongoose = (await import('mongoose')).default;
     const { isMongoConnected } = await import('../mongodb');
     
-    // Debug logging
-    console.log('MongoDB Connection Debug:', {
-      isConnected: isMongoConnected(),
-      readyState: mongoose.connection.readyState,
-      hasConnection: !!mongoose.connection,
-      hasDb: !!mongoose.connection?.db
-    });
-    
     // Use the centralized connection check
     if (!isMongoConnected()) {
       throw new Error('MongoDB not connected');
@@ -212,7 +204,6 @@ export async function getMongoFeatures(): Promise<{
     while (!mongoose.connection?.db && retries < 20) {
       await new Promise(resolve => setTimeout(resolve, 200));
       retries++;
-      console.log(`Waiting for MongoDB db property... retry ${retries}`);
     }
     
     if (!mongoose.connection?.db) {

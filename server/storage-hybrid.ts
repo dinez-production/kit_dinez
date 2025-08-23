@@ -1085,31 +1085,46 @@ export class HybridStorage implements IStorage {
       const admin = mongoose.connection.db.admin();
       const dbStats = await admin.command({ dbStats: 1 });
       
+      
       // Get collection stats (real-time data only)
       const collections = await mongoose.connection.db.listCollections().toArray();
       const collectionStats = [];
+      let totalDataSize = 0;
+      let totalStorageSize = 0;
       
       for (const collection of collections) {
         try {
           const stats = await mongoose.connection.db.command({ collStats: collection.name });
           const count = await mongoose.connection.db.collection(collection.name).countDocuments();
           
+          const collectionSize = stats.size || 0;
+          const collectionStorageSize = stats.storageSize || 0;
+          
+          totalDataSize += collectionSize;
+          totalStorageSize += collectionStorageSize;
+          
           collectionStats.push({
             name: collection.name,
             count: count,
-            size: stats.size || 0,
-            storageSize: stats.storageSize || 0,
+            size: collectionSize,
+            storageSize: collectionStorageSize,
             avgObjSize: stats.avgObjSize || 0,
             indexes: stats.nindexes || 0
           });
+          
         } catch (err) {
           console.warn(`Could not get stats for collection ${collection.name}:`, err instanceof Error ? err.message : String(err));
         }
       }
       
+      // Use the calculated totals if dbStats shows 0
+      const finalDataSize = dbStats.dataSize || totalDataSize;
+      const finalStorageSize = dbStats.storageSize || totalStorageSize;
+      
+      
       return {
-        dataSize: dbStats.dataSize || 0,
-        storageSize: dbStats.storageSize || 0,
+        dataSize: finalDataSize,
+        storageSize: finalStorageSize,
         indexSize: dbStats.indexSize || 0,
         collections: collectionStats,
         totalCollections: collections.length,
