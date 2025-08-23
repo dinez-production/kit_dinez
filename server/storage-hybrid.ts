@@ -1091,6 +1091,7 @@ export class HybridStorage implements IStorage {
       const collectionStats = [];
       let totalDataSize = 0;
       let totalStorageSize = 0;
+      let totalIndexSize = 0;
       
       for (const collection of collections) {
         try {
@@ -1099,9 +1100,12 @@ export class HybridStorage implements IStorage {
           
           const collectionSize = stats.size || 0;
           const collectionStorageSize = stats.storageSize || 0;
+          const collectionIndexSize = stats.totalIndexSize || 0;
+          
           
           totalDataSize += collectionSize;
           totalStorageSize += collectionStorageSize;
+          totalIndexSize += collectionIndexSize;
           
           collectionStats.push({
             name: collection.name,
@@ -1109,7 +1113,8 @@ export class HybridStorage implements IStorage {
             size: collectionSize,
             storageSize: collectionStorageSize,
             avgObjSize: stats.avgObjSize || 0,
-            indexes: stats.nindexes || 0
+            indexes: stats.nindexes || 0,
+            indexSize: collectionIndexSize
           });
           
         } catch (err) {
@@ -1120,12 +1125,13 @@ export class HybridStorage implements IStorage {
       // Use the calculated totals if dbStats shows 0
       const finalDataSize = dbStats.dataSize || totalDataSize;
       const finalStorageSize = dbStats.storageSize || totalStorageSize;
+      const finalIndexSize = dbStats.indexSize || totalIndexSize;
       
       
       return {
         dataSize: finalDataSize,
         storageSize: finalStorageSize,
-        indexSize: dbStats.indexSize || 0,
+        indexSize: finalIndexSize,
         collections: collectionStats,
         totalCollections: collections.length,
         totalDocuments: collectionStats.reduce((sum, col) => sum + col.count, 0)
