@@ -537,38 +537,6 @@ export default function HomeScreen() {
             <p className="text-muted-foreground mb-4">Check back later for delicious food options!</p>
           </div>
         )}
-
-        {/* Customer Reviews - Hidden when searching */}
-        {!searchQuery.trim() && (
-          <div>
-            <h2 className="text-xl font-bold mb-4 flex items-center">
-              <Heart className="w-5 h-5 mr-2 text-red-500" />
-              What Our Customers Say
-            </h2>
-            <div className="space-y-3">
-              {reviews.map((review, index) => (
-                <Card key={index} className="shadow-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-start space-x-3">
-                      <div className="text-2xl">{review.avatar}</div>
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <h4 className="font-medium">{review.name}</h4>
-                          <div className="flex">
-                            {[...Array(review.rating)].map((_, i) => (
-                              <Star key={i} className="w-4 h-4 text-yellow-500 fill-current" />
-                            ))}
-                          </div>
-                        </div>
-                        <p className="text-sm text-muted-foreground">{review.comment}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       </PullToRefresh>

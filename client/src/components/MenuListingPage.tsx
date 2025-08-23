@@ -99,7 +99,7 @@ export default function MenuListingPage() {
 
         {/* Categories - Horizontal Scrollable */}
         <div className="mt-4">
-          <div className="flex space-x-2 overflow-x-auto scrollbar-hide pb-2">
+          <div className="flex space-x-2 overflow-x-auto scrollbar-hide pb-2 scroll-smooth" style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x' }}>
             <Button
               key="all"
               variant={category === "all" ? "default" : "outline"}

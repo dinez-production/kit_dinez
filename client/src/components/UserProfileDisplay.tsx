@@ -147,26 +147,6 @@ export default function UserProfileDisplay({ user }: UserProfileDisplayProps) {
         </Card>
       )}
 
-      {/* System Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Hash className="w-5 h-5 mr-2" />
-            System Information
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">User ID</span>
-            <span className="font-mono text-sm">{user.id}</span>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Account Type</span>
-            <span className="text-sm capitalize">{user.role.replace('_', ' ')}</span>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
