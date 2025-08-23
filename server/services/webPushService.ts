@@ -150,13 +150,13 @@ export class WebPushService {
         return;
       }
       
-      // Create default templates if none exist
+      // Create default templates if none exist - matching your 4 application statuses
       const defaultTemplates: OrderStatusTemplate[] = [
         {
           id: 'pending',
           status: 'pending',
-          title: 'Order Received!',
-          message: 'Your order #{orderNumber} has been received and will be prepared shortly.',
+          title: 'Order Placed!',
+          message: 'Your order #{orderNumber} has been placed successfully and will be prepared shortly.',
           icon: '📋',
           priority: 'normal',
           requireInteraction: false,
@@ -165,7 +165,7 @@ export class WebPushService {
         {
           id: 'preparing',
           status: 'preparing',
-          title: 'Being Prepared',
+          title: 'Preparing',
           message: 'Your order #{orderNumber} is now being prepared in the kitchen.',
           icon: '👨‍🍳',
           priority: 'normal',
@@ -176,7 +176,7 @@ export class WebPushService {
           id: 'ready',
           status: 'ready',
           title: 'Ready for Pickup!',
-          message: 'Your order #{orderNumber} is ready for collection at the counter.',
+          message: 'Your order #{orderNumber} is ready for pickup at the counter.',
           icon: '🔔',
           priority: 'high',
           requireInteraction: true,
@@ -185,21 +185,11 @@ export class WebPushService {
         {
           id: 'completed',
           status: 'completed',
-          title: 'Order Completed',
-          message: 'Your order #{orderNumber} has been completed. Thank you for your order!',
+          title: 'Order Delivered!',
+          message: 'Your order #{orderNumber} has been delivered successfully. Thank you for choosing us!',
           icon: '🎉',
           priority: 'normal',
           requireInteraction: false,
-          enabled: true
-        },
-        {
-          id: 'cancelled',
-          status: 'cancelled',
-          title: 'Order Cancelled',
-          message: 'Your order #{orderNumber} has been cancelled. Contact support for details.',
-          icon: '❌',
-          priority: 'high',
-          requireInteraction: true,
           enabled: true
         }
       ];
@@ -217,11 +207,41 @@ export class WebPushService {
       // Fallback to memory-only templates
       const fallbackTemplates: OrderStatusTemplate[] = [
         {
+          id: 'pending',
+          status: 'pending',
+          title: 'Order Placed!',
+          message: 'Your order #{orderNumber} has been placed.',
+          icon: '📋',
+          priority: 'normal',
+          requireInteraction: false,
+          enabled: true
+        },
+        {
           id: 'preparing',
           status: 'preparing',
-          title: 'Being Prepared',
+          title: 'Preparing',
           message: 'Your order #{orderNumber} is being prepared.',
           icon: '👨‍🍳',
+          priority: 'normal',
+          requireInteraction: false,
+          enabled: true
+        },
+        {
+          id: 'ready',
+          status: 'ready',
+          title: 'Ready for Pickup!',
+          message: 'Your order #{orderNumber} is ready for pickup.',
+          icon: '🔔',
+          priority: 'high',
+          requireInteraction: true,
+          enabled: true
+        },
+        {
+          id: 'completed',
+          status: 'completed',
+          title: 'Order Delivered!',
+          message: 'Your order #{orderNumber} has been delivered.',
+          icon: '🎉',
           priority: 'normal',
           requireInteraction: false,
           enabled: true

@@ -52,7 +52,7 @@ export default function AdminNotificationManagementPage() {
   const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [testUserId, setTestUserId] = useState("");
   const [testOrderNumber, setTestOrderNumber] = useState("");
-  const [testStatus, setTestStatus] = useState("ready");
+  const [testStatus, setTestStatus] = useState("preparing");
 
   // Fetch push notification statistics
   const { data: pushStats, isLoading: statsLoading } = useQuery<PushStats>({
@@ -636,11 +636,10 @@ export default function AdminNotificationManagementPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-background border shadow-lg z-50">
-                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                  <SelectItem value="pending">Order Placed</SelectItem>
                   <SelectItem value="preparing">Preparing</SelectItem>
-                  <SelectItem value="ready">Ready</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="ready">Ready for Pickup</SelectItem>
+                  <SelectItem value="completed">Order Delivered</SelectItem>
                 </SelectContent>
               </Select>
             </div>
