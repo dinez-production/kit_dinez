@@ -1,24 +1,44 @@
-import { AlertTriangle, Clock, Phone, Mail, RefreshCw } from "lucide-react";
+import { AlertTriangle, Clock, Phone, Mail, RefreshCw, LogIn, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useLocation } from "wouter";
 
 interface MaintenanceScreenProps {
   title?: string;
   message?: string;
   estimatedTime?: string;
   contactInfo?: string;
+  showAuthOptions?: boolean;
+  isAuthenticated?: boolean;
 }
 
 export default function MaintenanceScreen({
   title = "System Maintenance",
   message = "We are currently performing system maintenance. Please check back later.",
   estimatedTime,
-  contactInfo
+  contactInfo,
+  showAuthOptions = true,
+  isAuthenticated = false
 }: MaintenanceScreenProps) {
+  const [, setLocation] = useLocation();
+
   const handleRefresh = () => {
     window.location.reload();
   };
+
+  const handleLogin = () => {
+    setLocation('/login');
+  };
+
+  const handleRegister = () => {
+    setLocation('/login?tab=register');
+  };
+
+  // Different message for authenticated users
+  const displayMessage = isAuthenticated 
+    ? "You are logged in, but most features are currently unavailable due to maintenance. You can still browse basic features once maintenance is complete."
+    : message;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-amber-950 dark:to-orange-950 flex items-center justify-center p-4" data-testid="maintenance-screen">
@@ -46,7 +66,7 @@ export default function MaintenanceScreen({
           
           <CardContent className="text-center space-y-6">
             <CardDescription className="text-base text-gray-600 dark:text-gray-300 leading-relaxed" data-testid="maintenance-message">
-              {message}
+              {displayMessage}
             </CardDescription>
             
             {/* Estimated Time */}
@@ -75,6 +95,37 @@ export default function MaintenanceScreen({
               </div>
             )}
             
+            {/* Authentication Options - Only show if user is not authenticated and showAuthOptions is true */}
+            {showAuthOptions && !isAuthenticated && (
+              <div className="bg-blue-50 dark:bg-blue-950/50 rounded-lg p-4 border border-blue-200 dark:border-blue-800" data-testid="maintenance-auth-options">
+                <div className="space-y-3">
+                  <div className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                    You can still sign in or create an account:
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Button 
+                      onClick={handleLogin}
+                      variant="outline"
+                      className="flex-1 border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/50"
+                      data-testid="button-login"
+                    >
+                      <LogIn className="w-4 h-4 mr-2" />
+                      Sign In
+                    </Button>
+                    <Button 
+                      onClick={handleRegister}
+                      variant="outline"
+                      className="flex-1 border-green-200 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/50"
+                      data-testid="button-register"
+                    >
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Register
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Actions */}
             <div className="space-y-3">
               <Button 
@@ -87,7 +138,10 @@ export default function MaintenanceScreen({
               </Button>
               
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                We apologize for any inconvenience. The system will be back online shortly.
+                {isAuthenticated 
+                  ? "Most features will be available once maintenance is complete."
+                  : "We apologize for any inconvenience. The system will be back online shortly."
+                }
               </p>
             </div>
           </CardContent>

@@ -51,6 +51,7 @@ import HelpSupportPage from "./components/HelpSupportPage";
 import AboutPage from "./components/AboutPage";
 import FavoritesPage from "./components/FavoritesPage";
 import FeedbackPage from "./components/FeedbackPage";
+import NotificationMaintenanceNotice from "./components/NotificationMaintenanceNotice";
 
 import SendEmailPage from "./components/user-management/SendEmailPage";
 import AddLoyaltyPointsPage from "./components/user-management/AddLoyaltyPointsPage";
@@ -65,6 +66,7 @@ import CanteenOrderDetailPage from "./components/CanteenOrderDetailPage";
 import BarcodeScannerPage from "./components/BarcodeScannerPage";
 import PaymentCallbackPage from "./components/PaymentCallbackPage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import MaintenanceWrapper from "./components/MaintenanceWrapper";
 import { InstallPWA } from "./components/InstallPWA";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -97,132 +99,229 @@ const App = () => {
           <Toaster />
           <Sonner />
           <InstallPWA />
+          <NotificationMaintenanceNotice />
           <Router>
         <Switch>
           <Route path="/" component={SplashScreen} />
           <Route path="/login" component={LoginScreen} />
-          <Route path="/home" component={HomeScreen} />
-          <Route path="/menu/:category" component={MenuListingPage} />
-          <Route path="/dish/:dishId" component={DishDetailPage} />
-          <Route path="/cart" component={CartPage} />
-          <Route path="/checkout" component={CheckoutPage} />
+          <Route path="/home">
+            <MaintenanceWrapper>
+              <HomeScreen />
+            </MaintenanceWrapper>
+          </Route>
+          <Route path="/menu/:category">
+            <MaintenanceWrapper>
+              <MenuListingPage />
+            </MaintenanceWrapper>
+          </Route>
+          <Route path="/dish/:dishId">
+            <MaintenanceWrapper>
+              <DishDetailPage />
+            </MaintenanceWrapper>
+          </Route>
+          <Route path="/cart">
+            <MaintenanceWrapper>
+              <CartPage />
+            </MaintenanceWrapper>
+          </Route>
+          <Route path="/checkout">
+            <MaintenanceWrapper>
+              <CheckoutPage />
+            </MaintenanceWrapper>
+          </Route>
           <Route path="/payment-callback" component={PaymentCallbackPage} />
           <Route path="/retry-payment" component={RetryPaymentPage} />
           <Route path="/order-status/:orderId" component={OrderStatusPage} />
           <Route path="/orders">
-            <ProtectedRoute requireAuth={true}>
-              <OrdersPage />
-            </ProtectedRoute>
+            <MaintenanceWrapper>
+              <ProtectedRoute requireAuth={true}>
+                <OrdersPage />
+              </ProtectedRoute>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/order-detail/:orderId">
-            <ProtectedRoute requireAuth={true}>
-              <OrderDetailPage />
-            </ProtectedRoute>
+            <MaintenanceWrapper>
+              <ProtectedRoute requireAuth={true}>
+                <OrderDetailPage />
+              </ProtectedRoute>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/canteen-order-detail/:orderId">
-            <ProtectedRoute requiredRole="canteen_owner">
-              <CanteenOrderDetailPage />
-            </ProtectedRoute>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <ProtectedRoute requiredRole="canteen_owner">
+                <CanteenOrderDetailPage />
+              </ProtectedRoute>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/profile">
-            <ProtectedRoute requireAuth={true}>
-              <ProfilePage />
-            </ProtectedRoute>
+            <MaintenanceWrapper>
+              <ProtectedRoute requireAuth={true}>
+                <ProfilePage />
+              </ProtectedRoute>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/notifications" component={NotificationsPage} />
           <Route path="/payment-methods" component={PaymentMethodsPage} />
-          <Route path="/search" component={SearchPage} />
+          <Route path="/search">
+            <MaintenanceWrapper>
+              <SearchPage />
+            </MaintenanceWrapper>
+          </Route>
           <Route path="/privacy-policy" component={PrivacyPolicyPage} />
           <Route path="/terms-conditions" component={TermsConditionsPage} />
           <Route path="/canteen-owner">
-            <ProtectedRoute requiredRole="canteen_owner">
-              <CanteenOwnerDashboard />
-            </ProtectedRoute>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <ProtectedRoute requiredRole="canteen_owner">
+                <CanteenOwnerDashboard />
+              </ProtectedRoute>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/canteen-owner-dashboard">
-            <ProtectedRoute requiredRole="canteen_owner">
-              <CanteenOwnerDashboard />
-            </ProtectedRoute>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <ProtectedRoute requiredRole="canteen_owner">
+                <CanteenOwnerDashboard />
+              </ProtectedRoute>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin">
-            <ProtectedRoute requiredRoles={["admin", "super_admin"]}>
-              <AdminDashboard />
-            </ProtectedRoute>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <ProtectedRoute requiredRoles={["admin", "super_admin"]}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/edit-admin-access/:userId">
-            <AdminLayout><EditAdminAccessPage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><EditAdminAccessPage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/add-new-admin">
-            <AdminLayout><AddNewAdminPage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><AddNewAdminPage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin/analytics">
-            <AdminLayout><AdminAnalyticsPage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><AdminAnalyticsPage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin/order-management">
-            <AdminLayout><AdminOrderManagementPage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><AdminOrderManagementPage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin/menu-management">
-            <AdminLayout><AdminMenuManagementPage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><AdminMenuManagementPage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin/reports">
-            <AdminLayout><AdminReportsPage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><AdminReportsPage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin/user-management">
-            <AdminLayout><AdminUserManagementPage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><AdminUserManagementPage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin/system-settings">
-            <AdminLayout><AdminSystemSettingsPage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><AdminSystemSettingsPage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin/payment-management">
-            <AdminLayout><AdminPaymentManagementPage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><AdminPaymentManagementPage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin/notification-management">
-            <AdminLayout><AdminNotificationManagementPage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><AdminNotificationManagementPage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin/content-management">
-            <AdminLayout><AdminContentManagementPage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><AdminContentManagementPage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin/coupon-management">
-            <AdminLayout><AdminCouponManagement /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><AdminCouponManagement /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin/feedback-management">
-            <AdminLayout><AdminFeedbackManagementPage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><AdminFeedbackManagementPage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin/review-management">
-            <AdminLayout><AdminReviewManagementPage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><AdminReviewManagementPage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin/admin-access">
-            <AdminLayout><AdminAccessPage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><AdminAccessPage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin/database">
-            <AdminLayout><AdminDatabasePage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><AdminDatabasePage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin/login-issues">
-            <AdminLayout><AdminLoginIssues /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><AdminLoginIssues /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
-          <Route path="/quick-picks" component={ViewAllQuickPicksPage} />
+          <Route path="/quick-picks">
+            <MaintenanceWrapper>
+              <ViewAllQuickPicksPage />
+            </MaintenanceWrapper>
+          </Route>
           <Route path="/help-support" component={HelpSupportPage} />
           <Route path="/about" component={AboutPage} />
-          <Route path="/favorites" component={FavoritesPage} />
-          <Route path="/feedback" component={FeedbackPage} />
+          <Route path="/favorites">
+            <MaintenanceWrapper>
+              <FavoritesPage />
+            </MaintenanceWrapper>
+          </Route>
+          <Route path="/feedback">
+            <MaintenanceWrapper>
+              <FeedbackPage />
+            </MaintenanceWrapper>
+          </Route>
 
           <Route path="/admin/user-management/send-email">
-            <AdminLayout><SendEmailPage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><SendEmailPage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin/user-management/add-loyalty-points">
-            <AdminLayout><AddLoyaltyPointsPage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><AddLoyaltyPointsPage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin/user-management/apply-discount">
-            <AdminLayout><ApplyDiscountPage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><ApplyDiscountPage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin/user-management/send-warning">
-            <AdminLayout><SendWarningPage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><SendWarningPage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin/user-management/export-data">
-            <AdminLayout><ExportUserDataPage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><ExportUserDataPage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/admin/user-management/import-users">
-            <AdminLayout><ImportUsersPage /></AdminLayout>
+            <MaintenanceWrapper allowAdminAccess={true}>
+              <AdminLayout><ImportUsersPage /></AdminLayout>
+            </MaintenanceWrapper>
           </Route>
           <Route path="/reorder" component={ReorderPage} />
           <Route path="/rate-review" component={RateReviewPage} />

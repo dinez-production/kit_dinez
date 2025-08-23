@@ -1,5 +1,7 @@
 import webPush from 'web-push';
 import crypto from 'crypto';
+import { NotificationTemplate, INotificationTemplate, CustomNotificationTemplate, ICustomNotificationTemplate } from '../models/mongodb-models.js';
+import { db } from '../db.js';
 
 interface PushSubscription {
   endpoint: string;
@@ -42,12 +44,45 @@ interface StoredSubscription {
   subscribedAt: number;
 }
 
+interface OrderStatusTemplate {
+  id: string;
+  status: string;
+  title: string;
+  message: string;
+  icon: string;
+  priority: 'normal' | 'high';
+  requireInteraction: boolean;
+  enabled: boolean;
+}
+
+interface CustomTemplate {
+  id: string;
+  name: string;
+  title: string;
+  message: string;
+  icon: string;
+  priority: 'normal' | 'high';
+  requireInteraction: boolean;
+  enabled: boolean;
+  createdBy: number;
+}
+
+interface TargetingCriteria {
+  targetType: 'all' | 'role' | 'department' | 'year' | 'specific_users' | 'register_numbers' | 'staff_ids';
+  values?: string[];
+}
+
 export class WebPushService {
   private subscriptions = new Map<string, StoredSubscription>();
   private vapidKeys: { publicKey: string; privateKey: string } | null = null;
+  private notificationTemplates = new Map<string, OrderStatusTemplate>();
 
   constructor() {
     this.initializeVAPID();
+    // Initialize templates asynchronously
+    this.initializeDefaultTemplates().catch(error => {
+      console.error('Failed to initialize templates:', error);
+    });
   }
 
   private initializeVAPID() {
@@ -108,6 +143,153 @@ export class WebPushService {
 
   isConfigured(): boolean {
     return !!this.vapidKeys?.publicKey && !!this.vapidKeys?.privateKey;
+  }
+
+  private async initializeDefaultTemplates() {
+    try {
+      // Check if templates already exist in database
+      const existingTemplates = await NotificationTemplate.find();
+      
+      if (existingTemplates.length > 0) {
+        // Load existing templates from database
+        existingTemplates.forEach(template => {
+          this.notificationTemplates.set(template.status, {
+            id: template.id,
+            status: template.status,
+            title: template.title,
+            message: template.message,
+            icon: template.icon,
+            priority: template.priority,
+            requireInteraction: template.requireInteraction,
+            enabled: template.enabled
+          });
+        });
+        console.log(`✅ Loaded ${existingTemplates.length} notification templates from database`);
+        return;
+      }
+      
+      // Create default templates if none exist - matching your 4 application statuses
+      const defaultTemplates: OrderStatusTemplate[] = [
+        {
+          id: 'pending',
+          status: 'pending',
+          title: 'Order Placed!',
+          message: 'Your order #{orderNumber} has been placed successfully and will be prepared shortly.',
+          icon: '📋',
+          priority: 'normal',
+          requireInteraction: false,
+          enabled: true
+        },
+        {
+          id: 'preparing',
+          status: 'preparing',
+          title: 'Preparing',
+          message: 'Your order #{orderNumber} is now being prepared in the kitchen.',
+          icon: '👨‍🍳',
+          priority: 'normal',
+          requireInteraction: false,
+          enabled: true
+        },
+        {
+          id: 'ready',
+          status: 'ready',
+          title: 'Ready for Pickup!',
+          message: 'Your order #{orderNumber} is ready for pickup at the counter.',
+          icon: '🔔',
+          priority: 'high',
+          requireInteraction: true,
+          enabled: true
+        },
+        {
+          id: 'completed',
+          status: 'completed',
+          title: 'Order Delivered!',
+          message: 'Your order #{orderNumber} has been delivered successfully. Thank you for choosing us!',
+          icon: '🎉',
+          priority: 'normal',
+          requireInteraction: false,
+          enabled: true
+        },
+        {
+          id: 'delivered',
+          status: 'delivered',
+          title: 'Order Delivered!',
+          message: 'Your order #{orderNumber} has been delivered successfully. Thank you for choosing us!',
+          icon: '🎉',
+          priority: 'normal',
+          requireInteraction: false,
+          enabled: true
+        }
+      ];
+      
+      // Save default templates to database and memory
+      for (const template of defaultTemplates) {
+        const dbTemplate = new NotificationTemplate(template);
+        await dbTemplate.save();
+        this.notificationTemplates.set(template.status, template);
+      }
+      
+      console.log('✅ Created and saved default notification templates to database');
+    } catch (error) {
+      console.error('❌ Failed to initialize notification templates:', error);
+      // Fallback to memory-only templates
+      const fallbackTemplates: OrderStatusTemplate[] = [
+        {
+          id: 'pending',
+          status: 'pending',
+          title: 'Order Placed!',
+          message: 'Your order #{orderNumber} has been placed.',
+          icon: '📋',
+          priority: 'normal',
+          requireInteraction: false,
+          enabled: true
+        },
+        {
+          id: 'preparing',
+          status: 'preparing',
+          title: 'Preparing',
+          message: 'Your order #{orderNumber} is being prepared.',
+          icon: '👨‍🍳',
+          priority: 'normal',
+          requireInteraction: false,
+          enabled: true
+        },
+        {
+          id: 'ready',
+          status: 'ready',
+          title: 'Ready for Pickup!',
+          message: 'Your order #{orderNumber} is ready for pickup.',
+          icon: '🔔',
+          priority: 'high',
+          requireInteraction: true,
+          enabled: true
+        },
+        {
+          id: 'completed',
+          status: 'completed',
+          title: 'Order Delivered!',
+          message: 'Your order #{orderNumber} has been delivered.',
+          icon: '🎉',
+          priority: 'normal',
+          requireInteraction: false,
+          enabled: true
+        },
+        {
+          id: 'delivered',
+          status: 'delivered',
+          title: 'Order Delivered!',
+          message: 'Your order #{orderNumber} has been delivered.',
+          icon: '🎉',
+          priority: 'normal',
+          requireInteraction: false,
+          enabled: true
+        }
+      ];
+      fallbackTemplates.forEach(template => {
+        this.notificationTemplates.set(template.status, template);
+      });
+      console.log('⚠️ Using fallback notification templates');
+    }
   }
 
   /**
@@ -296,7 +478,7 @@ export class WebPushService {
   }
 
   /**
-   * Send order update notification
+   * Send order update notification using customizable templates
    */
   async sendOrderUpdate(
     userId: string,
@@ -304,44 +486,19 @@ export class WebPushService {
     status: string,
     message?: string
   ): Promise<void> {
-    const statusConfig = {
-      'confirmed': {
-        title: 'Order Confirmed!',
-        message: `Your order #${orderNumber} has been confirmed and is being prepared.`,
-        type: 'confirmed'
-      },
-      'preparing': {
-        title: 'Being Prepared',
-        message: `Your order #${orderNumber} is now being prepared in the kitchen.`,
-        type: 'preparing'
-      },
-      'ready': {
-        title: 'Ready for Pickup!',
-        message: `Your order #${orderNumber} is ready for collection at the counter.`,
-        type: 'ready'
-      },
-      'completed': {
-        title: 'Order Completed',
-        message: `Your order #${orderNumber} has been completed. Thank you for your order!`,
-        type: 'completed'
-      },
-      'cancelled': {
-        title: 'Order Cancelled',
-        message: `Your order #${orderNumber} has been cancelled. Contact support for details.`,
-        type: 'cancelled'
-      }
-    };
+    const template = this.notificationTemplates.get(status);
+    
+    if (!template || !template.enabled) {
+      console.warn(`No enabled template found for status: ${status}`);
+      return;
+    }
 
-    const config = statusConfig[status as keyof typeof statusConfig] || {
-      title: 'Order Update',
-      message: `Order #${orderNumber} status updated to ${status}`,
-      type: status
-    };
-
-    const finalMessage = message || config.message;
+    // Replace placeholders in the template message
+    const templateMessage = template.message.replace(/{orderNumber}/g, orderNumber);
+    const finalMessage = message || templateMessage;
 
     await this.sendToUser(userId, {
-      title: config.title,
+      title: template.title,
       body: finalMessage,
       icon: '/icon-192.png',
       badge: '/icon-192.png',
@@ -349,20 +506,21 @@ export class WebPushService {
         type: 'order_update',
         orderNumber,
         status,
-        notificationType: config.type,
-        title: config.title,
+        notificationType: status,
+        title: template.title,
         message: finalMessage,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        icon: template.icon
       },
       url: `/orders/${orderNumber}`,
       tag: `order_${orderNumber}`,
-      requireInteraction: status === 'ready',
+      requireInteraction: template.requireInteraction,
       // Android-specific settings for heads-up notifications
-      priority: status === 'ready' ? 'high' : 'normal',
-      urgency: status === 'ready' ? 'high' : 'normal',
+      priority: template.priority,
+      urgency: template.priority,
       vibrate: [200, 100, 200],
       renotify: true,
-      sticky: status === 'ready',
+      sticky: template.requireInteraction,
     });
   }
 
@@ -448,6 +606,348 @@ export class WebPushService {
       vapidPublicKey: this.getVAPIDPublicKey(),
       lastUpdated: Date.now(),
     };
+  }
+
+  /**
+   * Template management methods
+   */
+  getNotificationTemplates(): OrderStatusTemplate[] {
+    return Array.from(this.notificationTemplates.values());
+  }
+
+  getNotificationTemplate(status: string): OrderStatusTemplate | undefined {
+    return this.notificationTemplates.get(status);
+  }
+
+  async updateNotificationTemplate(template: OrderStatusTemplate): Promise<boolean> {
+    try {
+      if (this.notificationTemplates.has(template.status)) {
+        // Update in database
+        await NotificationTemplate.findOneAndUpdate(
+          { status: template.status },
+          template,
+          { upsert: true, new: true }
+        );
+        
+        // Update in memory
+        this.notificationTemplates.set(template.status, template);
+        console.log(`📝 Updated notification template for status: ${template.status}`);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error(`❌ Failed to update template for status ${template.status}:`, error);
+      return false;
+    }
+  }
+
+  async addNotificationTemplate(template: OrderStatusTemplate): Promise<boolean> {
+    try {
+      if (!this.notificationTemplates.has(template.status)) {
+        // Save to database
+        const dbTemplate = new NotificationTemplate(template);
+        await dbTemplate.save();
+        
+        // Add to memory
+        this.notificationTemplates.set(template.status, template);
+        console.log(`➕ Added notification template for status: ${template.status}`);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error(`❌ Failed to add template for status ${template.status}:`, error);
+      return false;
+    }
+  }
+
+  async deleteNotificationTemplate(status: string): Promise<boolean> {
+    try {
+      // Delete from database
+      const result = await NotificationTemplate.deleteOne({ status });
+      
+      // Delete from memory
+      const deleted = this.notificationTemplates.delete(status);
+      
+      if (deleted && result.deletedCount > 0) {
+        console.log(`🗑️ Deleted notification template for status: ${status}`);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error(`❌ Failed to delete template for status ${status}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Advanced targeting methods
+   */
+  private async getUsersForTargeting(criteria: TargetingCriteria): Promise<number[]> {
+    try {
+      const database = db();
+      let userIds: number[] = [];
+
+      switch (criteria.targetType) {
+        case 'all':
+          const allUsers = await database.user.findMany({ select: { id: true } });
+          userIds = allUsers.map(user => user.id);
+          break;
+
+        case 'role':
+          if (criteria.values && criteria.values.length > 0) {
+            const roleUsers = await database.user.findMany({
+              where: { role: { in: criteria.values } },
+              select: { id: true }
+            });
+            userIds = roleUsers.map(user => user.id);
+          }
+          break;
+
+        case 'department':
+          if (criteria.values && criteria.values.length > 0) {
+            const deptUsers = await database.user.findMany({
+              where: { department: { in: criteria.values } },
+              select: { id: true }
+            });
+            userIds = deptUsers.map(user => user.id);
+          }
+          break;
+
+        case 'year':
+          if (criteria.values && criteria.values.length > 0) {
+            const years = criteria.values.map(year => parseInt(year)).filter(year => !isNaN(year));
+            const yearUsers = await database.user.findMany({
+              where: { currentStudyYear: { in: years } },
+              select: { id: true }
+            });
+            userIds = yearUsers.map(user => user.id);
+          }
+          break;
+
+        case 'specific_users':
+          if (criteria.values && criteria.values.length > 0) {
+            const ids = criteria.values.map(id => parseInt(id)).filter(id => !isNaN(id));
+            userIds = ids;
+          }
+          break;
+
+        case 'register_numbers':
+          if (criteria.values && criteria.values.length > 0) {
+            const regUsers = await database.user.findMany({
+              where: { registerNumber: { in: criteria.values } },
+              select: { id: true }
+            });
+            userIds = regUsers.map(user => user.id);
+          }
+          break;
+
+        case 'staff_ids':
+          if (criteria.values && criteria.values.length > 0) {
+            const staffUsers = await database.user.findMany({
+              where: { staffId: { in: criteria.values } },
+              select: { id: true }
+            });
+            userIds = staffUsers.map(user => user.id);
+          }
+          break;
+      }
+
+      return userIds;
+    } catch (error) {
+      console.error('❌ Failed to get users for targeting:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Send notification using advanced targeting
+   */
+  async sendWithAdvancedTargeting(
+    criteria: TargetingCriteria,
+    payload: NotificationPayload
+  ): Promise<{ success: boolean; sentCount: number; targetCount: number }> {
+    if (!this.isConfigured()) {
+      console.warn('Web Push not configured, skipping notification');
+      return { success: false, sentCount: 0, targetCount: 0 };
+    }
+
+    try {
+      const targetUserIds = await this.getUsersForTargeting(criteria);
+      
+      if (targetUserIds.length === 0) {
+        console.warn('No users found matching targeting criteria');
+        return { success: true, sentCount: 0, targetCount: 0 };
+      }
+
+      // Find subscriptions for target users
+      const targetSubscriptions = Array.from(this.subscriptions.values())
+        .filter(sub => targetUserIds.includes(parseInt(sub.userId)));
+
+      if (targetSubscriptions.length === 0) {
+        console.warn('No active subscriptions found for target users');
+        return { success: true, sentCount: 0, targetCount: targetUserIds.length };
+      }
+
+      // Send notifications
+      const notifications = targetSubscriptions.map(({ subscription }) =>
+        this.sendNotification(subscription, payload)
+      );
+
+      await Promise.allSettled(notifications);
+      
+      console.log(`✅ Sent targeted notification (${targetSubscriptions.length}/${targetUserIds.length} users reached)`);
+      return { 
+        success: true, 
+        sentCount: targetSubscriptions.length, 
+        targetCount: targetUserIds.length 
+      };
+    } catch (error) {
+      console.error('❌ Failed to send targeted notification:', error);
+      return { success: false, sentCount: 0, targetCount: 0 };
+    }
+  }
+
+  /**
+   * Custom notification template management
+   */
+  async getCustomTemplates(): Promise<CustomTemplate[]> {
+    try {
+      const templates = await CustomNotificationTemplate.find({ enabled: true });
+      return templates.map(template => ({
+        id: template.id,
+        name: template.name,
+        title: template.title,
+        message: template.message,
+        icon: template.icon,
+        priority: template.priority,
+        requireInteraction: template.requireInteraction,
+        enabled: template.enabled,
+        createdBy: template.createdBy
+      }));
+    } catch (error) {
+      console.error('❌ Failed to get custom templates:', error);
+      return [];
+    }
+  }
+
+  async getCustomTemplate(id: string): Promise<CustomTemplate | null> {
+    try {
+      const template = await CustomNotificationTemplate.findOne({ id, enabled: true });
+      if (!template) return null;
+
+      return {
+        id: template.id,
+        name: template.name,
+        title: template.title,
+        message: template.message,
+        icon: template.icon,
+        priority: template.priority,
+        requireInteraction: template.requireInteraction,
+        enabled: template.enabled,
+        createdBy: template.createdBy
+      };
+    } catch (error) {
+      console.error('❌ Failed to get custom template:', error);
+      return null;
+    }
+  }
+
+  async createCustomTemplate(template: Omit<CustomTemplate, 'id'>): Promise<{ success: boolean; template?: CustomTemplate }> {
+    try {
+      const id = crypto.randomUUID();
+      const newTemplate = new CustomNotificationTemplate({
+        ...template,
+        id
+      });
+
+      await newTemplate.save();
+      
+      console.log(`➕ Created custom notification template: ${template.name}`);
+      return { 
+        success: true, 
+        template: { ...template, id } 
+      };
+    } catch (error) {
+      console.error('❌ Failed to create custom template:', error);
+      return { success: false };
+    }
+  }
+
+  async updateCustomTemplate(id: string, updates: Partial<CustomTemplate>): Promise<boolean> {
+    try {
+      const result = await CustomNotificationTemplate.findOneAndUpdate(
+        { id },
+        { ...updates, updatedAt: new Date() },
+        { new: true }
+      );
+
+      if (result) {
+        console.log(`📝 Updated custom notification template: ${id}`);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('❌ Failed to update custom template:', error);
+      return false;
+    }
+  }
+
+  async deleteCustomTemplate(id: string): Promise<boolean> {
+    try {
+      const result = await CustomNotificationTemplate.deleteOne({ id });
+      
+      if (result.deletedCount > 0) {
+        console.log(`🗑️ Deleted custom notification template: ${id}`);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('❌ Failed to delete custom template:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Send custom template notification with advanced targeting
+   */
+  async sendCustomTemplateNotification(
+    templateId: string,
+    criteria: TargetingCriteria,
+    customData?: any
+  ): Promise<{ success: boolean; sentCount: number; targetCount: number }> {
+    try {
+      const template = await this.getCustomTemplate(templateId);
+      if (!template) {
+        throw new Error(`Custom template not found: ${templateId}`);
+      }
+
+      const payload: NotificationPayload = {
+        title: template.title,
+        body: template.message,
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        data: {
+          type: 'custom_notification',
+          templateId,
+          templateName: template.name,
+          customData,
+          timestamp: Date.now(),
+          icon: template.icon
+        },
+        tag: `custom_${templateId}`,
+        requireInteraction: template.requireInteraction,
+        priority: template.priority,
+        urgency: template.priority,
+        vibrate: [200, 100, 200],
+        renotify: true,
+        sticky: template.requireInteraction
+      };
+
+      return await this.sendWithAdvancedTargeting(criteria, payload);
+    } catch (error) {
+      console.error('❌ Failed to send custom template notification:', error);
+      return { success: false, sentCount: 0, targetCount: 0 };
+    }
   }
 }
 

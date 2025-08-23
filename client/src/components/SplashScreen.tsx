@@ -212,6 +212,8 @@ export default function SplashScreen() {
         message={maintenanceData.message}
         estimatedTime={maintenanceData.estimatedTime}
         contactInfo={maintenanceData.contactInfo}
+        showAuthOptions={true}
+        isAuthenticated={!!user}
       />
     );
   }

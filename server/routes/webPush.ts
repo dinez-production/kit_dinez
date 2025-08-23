@@ -291,4 +291,338 @@ router.get('/stats', (req, res) => {
   }
 });
 
+/**
+ * Get all notification templates
+ */
+router.get('/templates', (req, res) => {
+  try {
+    const templates = webPushService.getNotificationTemplates();
+    res.json(templates);
+  } catch (error) {
+    console.error('Error getting notification templates:', error);
+    res.status(500).json({ error: 'Failed to get notification templates' });
+  }
+});
+
+/**
+ * Get specific notification template
+ */
+router.get('/templates/:status', (req, res) => {
+  try {
+    const { status } = req.params;
+    const template = webPushService.getNotificationTemplate(status);
+    
+    if (!template) {
+      return res.status(404).json({ 
+        error: 'Template not found',
+        message: `No template found for status: ${status}`
+      });
+    }
+    
+    res.json(template);
+  } catch (error) {
+    console.error('Error getting notification template:', error);
+    res.status(500).json({ error: 'Failed to get notification template' });
+  }
+});
+
+/**
+ * Update notification template
+ */
+router.put('/templates/:status', async (req, res) => {
+  try {
+    const { status } = req.params;
+    const template = req.body;
+    
+    if (!template || template.status !== status) {
+      return res.status(400).json({ 
+        error: 'Invalid template data',
+        message: 'Template status must match URL parameter'
+      });
+    }
+    
+    const updated = await webPushService.updateNotificationTemplate(template);
+    
+    if (!updated) {
+      return res.status(404).json({ 
+        error: 'Template not found',
+        message: `No template found for status: ${status}`
+      });
+    }
+    
+    res.json({ 
+      success: true,
+      message: 'Template updated successfully',
+      template
+    });
+  } catch (error) {
+    console.error('Error updating notification template:', error);
+    res.status(500).json({ error: 'Failed to update notification template' });
+  }
+});
+
+/**
+ * Create new notification template
+ */
+router.post('/templates', async (req, res) => {
+  try {
+    const template = req.body;
+    
+    if (!template || !template.status || !template.title || !template.message) {
+      return res.status(400).json({ 
+        error: 'Invalid template data',
+        message: 'status, title, and message are required'
+      });
+    }
+    
+    const created = await webPushService.addNotificationTemplate(template);
+    
+    if (!created) {
+      return res.status(409).json({ 
+        error: 'Template already exists',
+        message: `Template for status ${template.status} already exists`
+      });
+    }
+    
+    res.status(201).json({ 
+      success: true,
+      message: 'Template created successfully',
+      template
+    });
+  } catch (error) {
+    console.error('Error creating notification template:', error);
+    res.status(500).json({ error: 'Failed to create notification template' });
+  }
+});
+
+/**
+ * Delete notification template
+ */
+router.delete('/templates/:status', async (req, res) => {
+  try {
+    const { status } = req.params;
+    const deleted = await webPushService.deleteNotificationTemplate(status);
+    
+    if (!deleted) {
+      return res.status(404).json({ 
+        error: 'Template not found',
+        message: `No template found for status: ${status}`
+      });
+    }
+    
+    res.json({ 
+      success: true,
+      message: 'Template deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting notification template:', error);
+    res.status(500).json({ error: 'Failed to delete notification template' });
+  }
+});
+
+/**
+ * Custom notification template routes
+ */
+
+/**
+ * Get all custom notification templates
+ */
+router.get('/custom-templates', async (req, res) => {
+  try {
+    const templates = await webPushService.getCustomTemplates();
+    res.json(templates);
+  } catch (error) {
+    console.error('Error getting custom templates:', error);
+    res.status(500).json({ error: 'Failed to get custom templates' });
+  }
+});
+
+/**
+ * Get specific custom notification template
+ */
+router.get('/custom-templates/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const template = await webPushService.getCustomTemplate(id);
+    
+    if (!template) {
+      return res.status(404).json({ 
+        error: 'Template not found',
+        message: `No custom template found with id: ${id}`
+      });
+    }
+    
+    res.json(template);
+  } catch (error) {
+    console.error('Error getting custom template:', error);
+    res.status(500).json({ error: 'Failed to get custom template' });
+  }
+});
+
+/**
+ * Create new custom notification template
+ */
+router.post('/custom-templates', async (req, res) => {
+  try {
+    const { name, title, message, icon, priority, requireInteraction, createdBy } = req.body;
+    
+    if (!name || !title || !message || !createdBy) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        message: 'name, title, message, and createdBy are required'
+      });
+    }
+    
+    const result = await webPushService.createCustomTemplate({
+      name,
+      title,
+      message,
+      icon: icon || '🔔',
+      priority: priority || 'normal',
+      requireInteraction: requireInteraction || false,
+      enabled: true,
+      createdBy: parseInt(createdBy)
+    });
+    
+    if (!result.success) {
+      return res.status(500).json({ 
+        error: 'Failed to create template',
+        message: 'Could not create custom notification template'
+      });
+    }
+    
+    res.status(201).json({ 
+      success: true,
+      message: 'Custom template created successfully',
+      template: result.template
+    });
+  } catch (error) {
+    console.error('Error creating custom template:', error);
+    res.status(500).json({ error: 'Failed to create custom template' });
+  }
+});
+
+/**
+ * Update custom notification template
+ */
+router.put('/custom-templates/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    
+    const updated = await webPushService.updateCustomTemplate(id, updates);
+    
+    if (!updated) {
+      return res.status(404).json({ 
+        error: 'Template not found',
+        message: `No custom template found with id: ${id}`
+      });
+    }
+    
+    res.json({ 
+      success: true,
+      message: 'Custom template updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating custom template:', error);
+    res.status(500).json({ error: 'Failed to update custom template' });
+  }
+});
+
+/**
+ * Delete custom notification template
+ */
+router.delete('/custom-templates/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await webPushService.deleteCustomTemplate(id);
+    
+    if (!deleted) {
+      return res.status(404).json({ 
+        error: 'Template not found',
+        message: `No custom template found with id: ${id}`
+      });
+    }
+    
+    res.json({ 
+      success: true,
+      message: 'Custom template deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting custom template:', error);
+    res.status(500).json({ error: 'Failed to delete custom template' });
+  }
+});
+
+/**
+ * Send notification with advanced targeting
+ */
+router.post('/send-advanced', async (req, res) => {
+  try {
+    const { targetType, values, title, body, data, url } = req.body;
+    
+    if (!targetType || !title || !body) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        message: 'targetType, title, and body are required'
+      });
+    }
+
+    const criteria = { targetType, values };
+    const payload = {
+      title,
+      body,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      data: data || {},
+      url,
+    };
+
+    const result = await webPushService.sendWithAdvancedTargeting(criteria, payload);
+    
+    res.json({ 
+      success: result.success,
+      message: `Notification sent successfully`,
+      sentCount: result.sentCount,
+      targetCount: result.targetCount
+    });
+  } catch (error) {
+    console.error('Error sending advanced notification:', error);
+    res.status(500).json({ error: 'Failed to send notification' });
+  }
+});
+
+/**
+ * Send custom template notification with advanced targeting
+ */
+router.post('/send-custom-template', async (req, res) => {
+  try {
+    const { templateId, targetType, values, customData } = req.body;
+    
+    if (!templateId || !targetType) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        message: 'templateId and targetType are required'
+      });
+    }
+
+    const criteria = { targetType, values };
+    const result = await webPushService.sendCustomTemplateNotification(
+      templateId, 
+      criteria, 
+      customData
+    );
+    
+    res.json({ 
+      success: result.success,
+      message: `Custom template notification sent successfully`,
+      sentCount: result.sentCount,
+      targetCount: result.targetCount
+    });
+  } catch (error) {
+    console.error('Error sending custom template notification:', error);
+    res.status(500).json({ error: 'Failed to send custom template notification' });
+  }
+});
+
 export default router;
