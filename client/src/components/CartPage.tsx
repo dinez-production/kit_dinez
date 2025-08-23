@@ -201,14 +201,10 @@ export default function CartPage() {
                   <span>Delivery Fee</span>
                   <span>₹0</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Taxes</span>
-                  <span>₹{Math.round(getTotalPrice() * 0.05)}</span>
-                </div>
                 <hr />
                 <div className="flex justify-between font-bold text-lg">
                   <span>Total</span>
-                  <span>₹{getTotalPrice() + Math.round(getTotalPrice() * 0.05)}</span>
+                  <span>₹{getTotalPrice()}</span>
                 </div>
                 <Button 
                   className="w-full mt-4" 
