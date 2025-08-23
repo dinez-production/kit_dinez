@@ -190,22 +190,38 @@ export async function getMongoFeatures(): Promise<{
   version: string;
 }> {
   try {
-    const mongoose = await import('mongoose');
+    // Import mongoose globally to ensure we're using the same instance
+    const mongoose = (await import('mongoose')).default;
+    const { isMongoConnected } = await import('../mongodb');
     
-    // Ensure proper connection before proceeding
-    if (!mongoose.connection || mongoose.connection.readyState !== 1) {
-      // Try to reconnect
-      const { connectToMongoDB } = await import('../mongodb');
-      await connectToMongoDB();
+    // Debug logging
+    console.log('MongoDB Connection Debug:', {
+      isConnected: isMongoConnected(),
+      readyState: mongoose.connection.readyState,
+      hasConnection: !!mongoose.connection,
+      hasDb: !!mongoose.connection?.db
+    });
+    
+    // Use the centralized connection check
+    if (!isMongoConnected()) {
+      throw new Error('MongoDB not connected');
     }
     
-    if (!mongoose.connection || mongoose.connection.readyState !== 1) {
-      throw new Error('MongoDB not connected - cannot detect real-time features');
+    // Wait for the db property to be available with more retries
+    let retries = 0;
+    while (!mongoose.connection?.db && retries < 20) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      retries++;
+      console.log(`Waiting for MongoDB db property... retry ${retries}`);
     }
     
-    const admin = mongoose.connection.db?.admin();
+    if (!mongoose.connection?.db) {
+      throw new Error('MongoDB db property not available after waiting');
+    }
+    
+    const admin = mongoose.connection.db.admin();
     if (!admin) {
-      throw new Error('Cannot access MongoDB admin - real-time data unavailable');
+      throw new Error('Cannot access MongoDB admin');
     }
     
     const buildInfo = await admin.buildInfo();
@@ -222,7 +238,6 @@ export async function getMongoFeatures(): Promise<{
     };
   } catch (error) {
     console.warn('Could not detect MongoDB features:', error instanceof Error ? error.message : String(error));
-    // Don't return dummy data - throw error for real-time requirement
     throw new Error(`Cannot detect real-time MongoDB features: ${error instanceof Error ? error.message : String(error)}`);
   }
 }

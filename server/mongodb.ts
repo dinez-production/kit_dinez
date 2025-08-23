@@ -102,6 +102,10 @@ export function getConnectionInfo() {
   };
 }
 
+export function isMongoConnected(): boolean {
+  return isConnected && mongoose.connection.readyState === 1;
+}
+
 // Graceful shutdown handling
 export async function disconnectFromMongoDB() {
   if (isConnected) {

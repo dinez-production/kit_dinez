@@ -240,8 +240,32 @@ router.get('/collections', async (req, res) => {
  */
 router.get('/metrics', async (req, res) => {
   try {
-    const metrics = await databaseMonitor.getMetrics();
-    res.json(metrics);
+    // Try to get only PostgreSQL metrics if MongoDB is having issues
+    try {
+      const metrics = await databaseMonitor.getMetrics();
+      res.json(metrics);
+    } catch (mongoError) {
+      console.warn('MongoDB metrics failed, trying PostgreSQL only:', mongoError instanceof Error ? mongoError.message : String(mongoError));
+      
+      // Return PostgreSQL metrics only with MongoDB error info
+      const pgMetrics = await databaseMonitor.getPostgreSQLMetrics();
+      res.json({
+        postgresql: pgMetrics,
+        mongodb: {
+          connected: false,
+          error: 'MongoDB metrics unavailable - using PostgreSQL only'
+        },
+        overall: {
+          totalSize: pgMetrics.databaseSize,
+          totalConnections: pgMetrics.connectionCount,
+          averageResponseTime: pgMetrics.responseTime,
+          healthScore: pgMetrics.connected ? 80 : 20,
+          status: pgMetrics.connected ? 'warning' : 'critical',
+          alerts: []
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
   } catch (error) {
     console.error('Error getting database metrics:', error);
     res.status(500).json({ 

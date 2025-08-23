@@ -106,7 +106,7 @@ export class DatabaseMonitor {
   /**
    * Get PostgreSQL metrics
    */
-  private async getPostgreSQLMetrics(): Promise<PostgreSQLMetrics> {
+  async getPostgreSQLMetrics(): Promise<PostgreSQLMetrics> {
     const startTime = Date.now();
     
     try {
@@ -199,6 +199,13 @@ export class DatabaseMonitor {
       let replicationLag: number | undefined;
       
       try {
+        // Wait for db property to be available
+        let retries = 0;
+        while (!mongoose.connection.db && retries < 10) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          retries++;
+        }
+        
         if (mongoose.connection.db) {
           const admin = mongoose.connection.db.admin();
           

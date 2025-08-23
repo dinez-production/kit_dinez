@@ -1064,15 +1064,22 @@ export class HybridStorage implements IStorage {
    */
   async getMongoDBStats() {
     try {
-      // Ensure MongoDB is properly connected
-      if (!mongoose.connection || mongoose.connection.readyState !== 1) {
-        // Try to reconnect if not connected
-        const { connectToMongoDB } = await import('./mongodb');
-        await connectToMongoDB();
+      // Use centralized connection check
+      const { isMongoConnected } = await import('./mongodb');
+      
+      if (!isMongoConnected()) {
+        throw new Error('MongoDB not connected');
+      }
+      
+      // Wait for the db property to be available
+      let retries = 0;
+      while (!mongoose.connection.db && retries < 10) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        retries++;
       }
       
       if (!mongoose.connection.db) {
-        throw new Error('MongoDB connection not available - cannot fetch real-time data');
+        throw new Error('MongoDB database not available');
       }
       
       const admin = mongoose.connection.db.admin();
