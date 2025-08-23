@@ -51,6 +51,7 @@ import HelpSupportPage from "./components/HelpSupportPage";
 import AboutPage from "./components/AboutPage";
 import FavoritesPage from "./components/FavoritesPage";
 import FeedbackPage from "./components/FeedbackPage";
+import NotificationMaintenanceNotice from "./components/NotificationMaintenanceNotice";
 
 import SendEmailPage from "./components/user-management/SendEmailPage";
 import AddLoyaltyPointsPage from "./components/user-management/AddLoyaltyPointsPage";
@@ -98,6 +99,7 @@ const App = () => {
           <Toaster />
           <Sonner />
           <InstallPWA />
+          <NotificationMaintenanceNotice />
           <Router>
         <Switch>
           <Route path="/" component={SplashScreen} />
