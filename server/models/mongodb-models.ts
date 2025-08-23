@@ -152,6 +152,43 @@ NotificationTemplateSchema.pre('save', function(next) {
 
 export const NotificationTemplate = mongoose.model<INotificationTemplate>('NotificationTemplate', NotificationTemplateSchema);
 
+// Custom Notification Template Schema for admin-created broadcast templates
+export interface ICustomNotificationTemplate extends Document {
+  id: string;
+  name: string;
+  title: string;
+  message: string;
+  icon: string;
+  priority: 'normal' | 'high';
+  requireInteraction: boolean;
+  enabled: boolean;
+  createdBy: number; // Admin user ID
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const CustomNotificationTemplateSchema = new Schema<ICustomNotificationTemplate>({
+  id: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  title: { type: String, required: true },
+  message: { type: String, required: true },
+  icon: { type: String, required: true },
+  priority: { type: String, enum: ['normal', 'high'], default: 'normal' },
+  requireInteraction: { type: Boolean, default: false },
+  enabled: { type: Boolean, default: true },
+  createdBy: { type: Number, required: true },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+// Update the updatedAt field before saving
+CustomNotificationTemplateSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+export const CustomNotificationTemplate = mongoose.model<ICustomNotificationTemplate>('CustomNotificationTemplate', CustomNotificationTemplateSchema);
+
 // LoginIssue Model
 export interface ILoginIssue extends Document {
   name: string;

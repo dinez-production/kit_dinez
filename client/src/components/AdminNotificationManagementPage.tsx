@@ -40,6 +40,27 @@ interface OrderStatusTemplate {
   enabled: boolean;
 }
 
+interface CustomTemplate {
+  id: string;
+  name: string;
+  title: string;
+  message: string;
+  icon: string;
+  priority: 'normal' | 'high';
+  requireInteraction: boolean;
+  enabled: boolean;
+  createdBy: number;
+}
+
+interface AdvancedBroadcastForm {
+  targetType: 'all' | 'role' | 'department' | 'year' | 'specific_users' | 'register_numbers' | 'staff_ids';
+  values: string[];
+  title: string;
+  message: string;
+  priority: 'normal' | 'high';
+  requireInteraction: boolean;
+}
+
 
 export default function AdminNotificationManagementPage() {
   const [, setLocation] = useLocation();
@@ -54,6 +75,30 @@ export default function AdminNotificationManagementPage() {
   const [testOrderNumber, setTestOrderNumber] = useState("");
   const [testStatus, setTestStatus] = useState("preparing");
 
+  // Custom template state
+  const [customTemplateDialogOpen, setCustomTemplateDialogOpen] = useState(false);
+  const [selectedCustomTemplate, setSelectedCustomTemplate] = useState<CustomTemplate | null>(null);
+  const [customTemplateForm, setCustomTemplateForm] = useState({
+    name: "",
+    title: "",
+    message: "",
+    icon: "🔔",
+    priority: "normal" as "normal" | "high",
+    requireInteraction: false
+  });
+
+  // Advanced broadcast state
+  const [advancedBroadcastDialogOpen, setAdvancedBroadcastDialogOpen] = useState(false);
+  const [advancedBroadcastForm, setAdvancedBroadcastForm] = useState<AdvancedBroadcastForm>({
+    targetType: "all",
+    values: [],
+    title: "",
+    message: "",
+    priority: "normal",
+    requireInteraction: false
+  });
+  const [targetValues, setTargetValues] = useState("");
+
   // Fetch push notification statistics
   const { data: pushStats, isLoading: statsLoading } = useQuery<PushStats>({
     queryKey: ['/api/push/stats'],
@@ -63,6 +108,12 @@ export default function AdminNotificationManagementPage() {
   // Fetch notification templates
   const { data: orderTemplates = [], isLoading: templatesLoading } = useQuery<OrderStatusTemplate[]>({
     queryKey: ['/api/push/templates'],
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  // Fetch custom notification templates
+  const { data: customTemplates = [], isLoading: customTemplatesLoading } = useQuery<CustomTemplate[]>({
+    queryKey: ['/api/push/custom-templates'],
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
@@ -160,6 +211,118 @@ export default function AdminNotificationManagementPage() {
     }
   });
 
+  // Create custom template mutation
+  const createCustomTemplateMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest('/api/push/custom-templates', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/push/custom-templates'] });
+      toast({
+        title: "Custom Template Created",
+        description: "The custom notification template has been created successfully.",
+      });
+      setCustomTemplateDialogOpen(false);
+      setCustomTemplateForm({
+        name: "",
+        title: "",
+        message: "",
+        icon: "🔔",
+        priority: "normal",
+        requireInteraction: false
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create custom template",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Delete custom template mutation
+  const deleteCustomTemplateMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      return apiRequest(`/api/push/custom-templates/${templateId}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/push/custom-templates'] });
+      toast({
+        title: "Template Deleted",
+        description: "The custom template has been deleted successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete custom template",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Advanced broadcast mutation
+  const advancedBroadcastMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest('/api/push/send-advanced', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: (response: any) => {
+      toast({
+        title: "Advanced Broadcast Sent",
+        description: `Notification sent to ${response.sentCount} out of ${response.targetCount} target users.`,
+      });
+      setAdvancedBroadcastDialogOpen(false);
+      setAdvancedBroadcastForm({
+        targetType: "all",
+        values: [],
+        title: "",
+        message: "",
+        priority: "normal",
+        requireInteraction: false
+      });
+      setTargetValues("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send advanced broadcast",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Send custom template notification mutation
+  const sendCustomTemplateNotificationMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest('/api/push/send-custom-template', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: (response: any) => {
+      toast({
+        title: "Custom Template Sent",
+        description: `Custom template notification sent to ${response.sentCount} out of ${response.targetCount} target users.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send custom template notification",
+        variant: "destructive",
+      });
+    }
+  });
+
   const handleToggleTemplate = (templateId: string) => {
     const template = orderTemplates.find(t => t.id === templateId);
     if (template) {
@@ -171,6 +334,52 @@ export default function AdminNotificationManagementPage() {
   const handleEditTemplate = (template: OrderStatusTemplate) => {
     setSelectedTemplate(template);
     setEditDialogOpen(true);
+  };
+
+  const handleCreateCustomTemplate = () => {
+    if (!customTemplateForm.name || !customTemplateForm.title || !customTemplateForm.message) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createCustomTemplateMutation.mutate({
+      ...customTemplateForm,
+      createdBy: 1 // Should be the current admin user ID
+    });
+  };
+
+  const handleAdvancedBroadcast = () => {
+    if (!advancedBroadcastForm.title || !advancedBroadcastForm.message) {
+      toast({
+        title: "Error",
+        description: "Please fill in title and message",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const values = targetValues ? targetValues.split(',').map(v => v.trim()).filter(v => v) : [];
+    
+    advancedBroadcastMutation.mutate({
+      targetType: advancedBroadcastForm.targetType,
+      values,
+      title: advancedBroadcastForm.title,
+      body: advancedBroadcastForm.message,
+      priority: advancedBroadcastForm.priority,
+      requireInteraction: advancedBroadcastForm.requireInteraction
+    });
+  };
+
+  const handleSendCustomTemplate = (templateId: string, targetType: string, values: string[]) => {
+    sendCustomTemplateNotificationMutation.mutate({
+      templateId,
+      targetType,
+      values
+    });
   };
 
   const handleSaveTemplate = () => {
@@ -311,7 +520,7 @@ export default function AdminNotificationManagementPage() {
 
       {/* Tabs */}
       <div className="flex space-x-2 mb-6">
-        {["overview", "templates", "settings"].map((tab) => (
+        {["overview", "templates", "custom-templates", "broadcast", "settings"].map((tab) => (
           <Button
             key={tab}
             variant={activeTab === tab ? "default" : "outline"}
@@ -321,8 +530,10 @@ export default function AdminNotificationManagementPage() {
           >
             {tab === "overview" && <BarChart3 className="h-4 w-4 mr-2" />}
             {tab === "templates" && <MessageSquare className="h-4 w-4 mr-2" />}
+            {tab === "custom-templates" && <Plus className="h-4 w-4 mr-2" />}
+            {tab === "broadcast" && <Megaphone className="h-4 w-4 mr-2" />}
             {tab === "settings" && <Settings className="h-4 w-4 mr-2" />}
-            {tab}
+            {tab.replace('-', ' ')}
           </Button>
         ))}
       </div>
@@ -501,6 +712,352 @@ export default function AdminNotificationManagementPage() {
                     <Badge variant="default">Active</Badge>
                   </div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Custom Templates Tab */}
+      {activeTab === "custom-templates" && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-semibold">Custom Notification Templates</h2>
+              <p className="text-muted-foreground">Create and manage custom broadcast templates</p>
+            </div>
+            <Dialog open={customTemplateDialogOpen} onOpenChange={setCustomTemplateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-create-custom-template">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Template
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px] bg-background">
+                <DialogHeader>
+                  <DialogTitle>Create Custom Template</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="templateName">Template Name</Label>
+                    <Input
+                      id="templateName"
+                      value={customTemplateForm.name}
+                      onChange={(e) => setCustomTemplateForm({ ...customTemplateForm, name: e.target.value })}
+                      placeholder="e.g., Weekly Update"
+                      data-testid="input-template-name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="templateTitle">Notification Title</Label>
+                    <Input
+                      id="templateTitle"
+                      value={customTemplateForm.title}
+                      onChange={(e) => setCustomTemplateForm({ ...customTemplateForm, title: e.target.value })}
+                      placeholder="e.g., Weekly Newsletter"
+                      data-testid="input-template-title"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="templateMessage">Message</Label>
+                    <Textarea
+                      id="templateMessage"
+                      value={customTemplateForm.message}
+                      onChange={(e) => setCustomTemplateForm({ ...customTemplateForm, message: e.target.value })}
+                      placeholder="e.g., Check out this week's updates..."
+                      className="min-h-[80px]"
+                      data-testid="textarea-template-message"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="templateIcon">Icon</Label>
+                      <Input
+                        id="templateIcon"
+                        value={customTemplateForm.icon}
+                        onChange={(e) => setCustomTemplateForm({ ...customTemplateForm, icon: e.target.value })}
+                        placeholder="🔔"
+                        data-testid="input-template-icon"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="templatePriority">Priority</Label>
+                      <Select 
+                        value={customTemplateForm.priority} 
+                        onValueChange={(value: "normal" | "high") => setCustomTemplateForm({ ...customTemplateForm, priority: value })}
+                      >
+                        <SelectTrigger data-testid="select-template-priority">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="normal">Normal</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch 
+                      checked={customTemplateForm.requireInteraction}
+                      onCheckedChange={(checked) => setCustomTemplateForm({ ...customTemplateForm, requireInteraction: checked })}
+                      data-testid="toggle-template-interaction"
+                    />
+                    <Label>Require user interaction</Label>
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => setCustomTemplateDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleCreateCustomTemplate} disabled={createCustomTemplateMutation.isPending}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Template
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <div className="grid gap-4">
+            {customTemplatesLoading ? (
+              <div className="text-center py-8">Loading custom templates...</div>
+            ) : customTemplates.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No custom templates created yet. Create your first template above.
+              </div>
+            ) : (
+              customTemplates.map((template) => (
+                <Card key={template.id}>
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-lg">{template.icon}</span>
+                          <h3 className="font-semibold">{template.name}</h3>
+                          <Badge variant={template.priority === 'high' ? 'destructive' : 'secondary'}>
+                            {template.priority}
+                          </Badge>
+                        </div>
+                        <p className="font-medium">{template.title}</p>
+                        <p className="text-muted-foreground text-sm">{template.message}</p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setAdvancedBroadcastDialogOpen(true)}
+                          data-testid={`button-send-template-${template.id}`}
+                        >
+                          <Send className="h-4 w-4 mr-1" />
+                          Send
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => deleteCustomTemplateMutation.mutate(template.id)}
+                          disabled={deleteCustomTemplateMutation.isPending}
+                          data-testid={`button-delete-template-${template.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Advanced Broadcast Tab */}
+      {activeTab === "broadcast" && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-semibold">Advanced Broadcast</h2>
+              <p className="text-muted-foreground">Send targeted notifications to specific groups</p>
+            </div>
+            <Dialog open={advancedBroadcastDialogOpen} onOpenChange={setAdvancedBroadcastDialogOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-create-broadcast">
+                  <Megaphone className="h-4 w-4 mr-2" />
+                  Create Broadcast
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px] bg-background">
+                <DialogHeader>
+                  <DialogTitle>Create Advanced Broadcast</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="broadcastTitle">Notification Title</Label>
+                    <Input
+                      id="broadcastTitle"
+                      value={advancedBroadcastForm.title}
+                      onChange={(e) => setAdvancedBroadcastForm({ ...advancedBroadcastForm, title: e.target.value })}
+                      placeholder="e.g., Important Announcement"
+                      data-testid="input-broadcast-title"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="broadcastMessage">Message</Label>
+                    <Textarea
+                      id="broadcastMessage"
+                      value={advancedBroadcastForm.message}
+                      onChange={(e) => setAdvancedBroadcastForm({ ...advancedBroadcastForm, message: e.target.value })}
+                      placeholder="e.g., Please check the latest updates..."
+                      className="min-h-[80px]"
+                      data-testid="textarea-broadcast-message"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="targetType">Target Audience</Label>
+                    <Select 
+                      value={advancedBroadcastForm.targetType} 
+                      onValueChange={(value: any) => setAdvancedBroadcastForm({ ...advancedBroadcastForm, targetType: value })}
+                    >
+                      <SelectTrigger data-testid="select-target-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Users</SelectItem>
+                        <SelectItem value="role">By Role</SelectItem>
+                        <SelectItem value="department">By Department</SelectItem>
+                        <SelectItem value="year">By Study Year</SelectItem>
+                        <SelectItem value="specific_users">Specific User IDs</SelectItem>
+                        <SelectItem value="register_numbers">By Register Numbers</SelectItem>
+                        <SelectItem value="staff_ids">By Staff IDs</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {advancedBroadcastForm.targetType !== "all" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="targetValues">Target Values</Label>
+                      <Input
+                        id="targetValues"
+                        value={targetValues}
+                        onChange={(e) => setTargetValues(e.target.value)}
+                        placeholder={
+                          advancedBroadcastForm.targetType === "role" ? "e.g., student, admin" :
+                          advancedBroadcastForm.targetType === "department" ? "e.g., CSE, ECE, MECH" :
+                          advancedBroadcastForm.targetType === "year" ? "e.g., 1, 2, 3, 4" :
+                          advancedBroadcastForm.targetType === "specific_users" ? "e.g., 1, 2, 3" :
+                          advancedBroadcastForm.targetType === "register_numbers" ? "e.g., 7115CSE001, 7115ECE002" :
+                          "e.g., CSE001, ECE002"
+                        }
+                        data-testid="input-target-values"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Enter comma-separated values for targeting
+                      </p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="broadcastPriority">Priority</Label>
+                      <Select 
+                        value={advancedBroadcastForm.priority} 
+                        onValueChange={(value: "normal" | "high") => setAdvancedBroadcastForm({ ...advancedBroadcastForm, priority: value })}
+                      >
+                        <SelectTrigger data-testid="select-broadcast-priority">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="normal">Normal</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center space-x-2 pt-6">
+                      <Switch 
+                        checked={advancedBroadcastForm.requireInteraction}
+                        onCheckedChange={(checked) => setAdvancedBroadcastForm({ ...advancedBroadcastForm, requireInteraction: checked })}
+                        data-testid="toggle-broadcast-interaction"
+                      />
+                      <Label>Require interaction</Label>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => setAdvancedBroadcastDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAdvancedBroadcast} disabled={advancedBroadcastMutation.isPending}>
+                    <Megaphone className="h-4 w-4 mr-2" />
+                    Send Broadcast
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Broadcast Options</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <Button 
+                  variant="outline" 
+                  className="h-24 flex-col"
+                  onClick={() => {
+                    setAdvancedBroadcastForm({
+                      targetType: "role",
+                      values: ["student"],
+                      title: "",
+                      message: "",
+                      priority: "normal",
+                      requireInteraction: false
+                    });
+                    setTargetValues("student");
+                    setAdvancedBroadcastDialogOpen(true);
+                  }}
+                  data-testid="button-broadcast-students"
+                >
+                  <Users className="h-6 w-6 mb-2" />
+                  All Students
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="h-24 flex-col"
+                  onClick={() => {
+                    setAdvancedBroadcastForm({
+                      targetType: "department",
+                      values: [],
+                      title: "",
+                      message: "",
+                      priority: "normal",
+                      requireInteraction: false
+                    });
+                    setTargetValues("");
+                    setAdvancedBroadcastDialogOpen(true);
+                  }}
+                  data-testid="button-broadcast-department"
+                >
+                  <Shield className="h-6 w-6 mb-2" />
+                  By Department
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="h-24 flex-col"
+                  onClick={() => {
+                    setAdvancedBroadcastForm({
+                      targetType: "year",
+                      values: [],
+                      title: "",
+                      message: "",
+                      priority: "normal",
+                      requireInteraction: false
+                    });
+                    setTargetValues("");
+                    setAdvancedBroadcastDialogOpen(true);
+                  }}
+                  data-testid="button-broadcast-year"
+                >
+                  <Clock className="h-6 w-6 mb-2" />
+                  By Study Year
+                </Button>
               </div>
             </CardContent>
           </Card>
