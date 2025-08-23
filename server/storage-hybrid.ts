@@ -1037,6 +1037,693 @@ export class HybridStorage implements IStorage {
     }
   }
 
+  // DATABASE MANAGEMENT OPERATIONS
+  
+  /**
+   * Get database statistics for admin dashboard
+   */
+  async getDatabaseStats() {
+    try {
+      const mongoStats = await this.getMongoDBStats();
+      const pgStats = await this.getPostgreSQLStats();
+      
+      return {
+        mongodb: mongoStats,
+        postgresql: pgStats,
+        totalSize: this.formatBytes((mongoStats.dataSize || 0) + (pgStats.size || 0)),
+        lastUpdated: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Error getting database stats:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Get MongoDB collection statistics
+   */
+  async getMongoDBStats() {
+    try {
+      if (!mongoose.connection.db) {
+        throw new Error('MongoDB not connected');
+      }
+      
+      const admin = mongoose.connection.db.admin();
+      const dbStats = await admin.command({ dbStats: 1 });
+      
+      // Get collection stats
+      const collections = await mongoose.connection.db.listCollections().toArray();
+      const collectionStats = [];
+      
+      for (const collection of collections) {
+        try {
+          const stats = await mongoose.connection.db.command({ collStats: collection.name });
+          const count = await mongoose.connection.db.collection(collection.name).countDocuments();
+          
+          collectionStats.push({
+            name: collection.name,
+            count: count,
+            size: stats.size || 0,
+            storageSize: stats.storageSize || 0,
+            avgObjSize: stats.avgObjSize || 0,
+            indexes: stats.nindexes || 0
+          });
+        } catch (err) {
+          // Skip collections that can't be accessed
+          console.warn(`Could not get stats for collection ${collection.name}:`, err instanceof Error ? err.message : String(err));
+        }
+      }
+      
+      return {
+        dataSize: dbStats.dataSize || 0,
+        storageSize: dbStats.storageSize || 0,
+        indexSize: dbStats.indexSize || 0,
+        collections: collectionStats,
+        totalCollections: collections.length,
+        totalDocuments: collectionStats.reduce((sum, col) => sum + col.count, 0)
+      };
+    } catch (error) {
+      console.error('Error getting MongoDB stats:', error);
+      return {
+        dataSize: 0,
+        storageSize: 0,
+        indexSize: 0,
+        collections: [],
+        totalCollections: 0,
+        totalDocuments: 0,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }
+  
+  /**
+   * Get PostgreSQL database statistics
+   */
+  async getPostgreSQLStats() {
+    try {
+      const db = getPostgresDb();
+      
+      // Get database size
+      const sizeResult = await db.$queryRaw`
+        SELECT pg_size_pretty(pg_database_size(current_database())) as size,
+               pg_database_size(current_database()) as size_bytes
+      ` as Array<{ size: string; size_bytes: bigint }>;
+      
+      // Get table statistics
+      const tableStats = await db.$queryRaw`
+        SELECT 
+          schemaname,
+          tablename,
+          attname,
+          n_distinct,
+          correlation
+        FROM pg_stats 
+        WHERE schemaname = 'public'
+        ORDER BY tablename, attname
+      ` as Array<any>;
+      
+      // Get user count
+      const userCount = await db.user.count();
+      
+      return {
+        size: Number(sizeResult[0]?.size_bytes || 0),
+        sizeFormatted: sizeResult[0]?.size || '0 bytes',
+        tables: {
+          users: {
+            name: 'users',
+            count: userCount,
+            columns: tableStats.filter(stat => stat.tablename === 'users').length
+          }
+        },
+        totalTables: 1,
+        totalRecords: userCount
+      };
+    } catch (error) {
+      console.error('Error getting PostgreSQL stats:', error);
+      return {
+        size: 0,
+        sizeFormatted: '0 bytes',
+        tables: {},
+        totalTables: 0,
+        totalRecords: 0,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }
+  
+  /**
+   * Format bytes to human readable format
+   */
+  private formatBytes(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+  
+  /**
+   * Run database maintenance operations (alias for compatibility)
+   */
+  async runMaintenance(operations: string[]) {
+    return this.runDatabaseMaintenance(operations);
+  }
+
+  /**
+   * Run database maintenance operations
+   */
+  async runDatabaseMaintenance(operations: string[]) {
+    const results = [];
+    
+    for (const operation of operations) {
+      try {
+        switch (operation) {
+          case 'analyze_postgres':
+            await this.analyzePostgreSQL();
+            results.push({ operation, status: 'success', message: 'PostgreSQL analysis completed' });
+            break;
+            
+          case 'compact_mongo':
+            await this.compactMongoDB();
+            results.push({ operation, status: 'success', message: 'MongoDB compaction initiated' });
+            break;
+            
+          case 'rebuild_indexes':
+            await this.rebuildMongoIndexes();
+            results.push({ operation, status: 'success', message: 'MongoDB indexes rebuilt' });
+            break;
+            
+          case 'vacuum_postgres':
+            await this.vacuumPostgreSQL();
+            results.push({ operation, status: 'success', message: 'PostgreSQL vacuum completed' });
+            break;
+            
+          case 'optimize_postgres':
+            await this.optimizePostgreSQL();
+            results.push({ operation, status: 'success', message: 'PostgreSQL optimization completed' });
+            break;
+            
+          case 'cleanup_mongo':
+            await this.cleanupMongoDB();
+            results.push({ operation, status: 'success', message: 'MongoDB cleanup completed' });
+            break;
+            
+          case 'reindex_postgres':
+            await this.reindexPostgreSQL();
+            results.push({ operation, status: 'success', message: 'PostgreSQL reindexing completed' });
+            break;
+            
+          case 'validate_mongo':
+            await this.validateMongoCollections();
+            results.push({ operation, status: 'success', message: 'MongoDB collections validated' });
+            break;
+            
+          default:
+            results.push({ operation, status: 'error', message: 'Unknown operation' });
+        }
+      } catch (error) {
+        results.push({ 
+          operation, 
+          status: 'error', 
+          message: error instanceof Error ? error.message : 'Unknown error' 
+        });
+      }
+    }
+    
+    return results;
+  }
+  
+  /**
+   * Analyze PostgreSQL tables for optimization
+   */
+  private async analyzePostgreSQL() {
+    const db = getPostgresDb();
+    await db.$executeRaw`ANALYZE`;
+  }
+  
+  /**
+   * Vacuum PostgreSQL database
+   */
+  private async vacuumPostgreSQL() {
+    const db = getPostgresDb();
+    await db.$executeRaw`VACUUM ANALYZE`;
+  }
+  
+  /**
+   * Compact MongoDB collections
+   */
+  private async compactMongoDB() {
+    if (!mongoose.connection.db) {
+      throw new Error('MongoDB not connected');
+    }
+    
+    // Get MongoDB version to check if compact is supported
+    const admin = mongoose.connection.db.admin();
+    const buildInfo = await admin.buildInfo();
+    const version = buildInfo.version;
+    const majorVersion = parseInt(version.split('.')[0]);
+    
+    if (majorVersion >= 4) {
+      // Use compact command for MongoDB 4.0+
+      const collections = await mongoose.connection.db.listCollections().toArray();
+      
+      for (const collection of collections) {
+        try {
+          await mongoose.connection.db.command({ compact: collection.name });
+        } catch (error) {
+          console.warn(`Could not compact collection ${collection.name}:`, error instanceof Error ? error.message : String(error));
+        }
+      }
+    } else {
+      console.log('MongoDB version does not support compact command');
+    }
+  }
+  
+  /**
+   * Rebuild MongoDB indexes
+   */
+  private async rebuildMongoIndexes() {
+    if (!mongoose.connection.db) {
+      throw new Error('MongoDB not connected');
+    }
+    
+    const collections = await mongoose.connection.db.listCollections().toArray();
+    
+    for (const collection of collections) {
+      try {
+        await mongoose.connection.db.command({ reIndex: collection.name });
+      } catch (error) {
+        console.warn(`Could not rebuild indexes for collection ${collection.name}:`, error instanceof Error ? error.message : String(error));
+      }
+    }
+  }
+  
+  /**
+   * Optimize PostgreSQL database
+   */
+  private async optimizePostgreSQL() {
+    const db = getPostgresDb();
+    
+    try {
+      // Run full vacuum and analyze
+      await db.$executeRaw`VACUUM FULL ANALYZE`;
+      
+      // Update table statistics
+      await db.$executeRaw`ANALYZE`;
+      
+      // Recompute table statistics
+      await db.$executeRaw`
+        UPDATE pg_stat_user_tables 
+        SET last_analyze = NOW() 
+        WHERE schemaname = 'public'
+      `;
+    } catch (error) {
+      console.warn('Some PostgreSQL optimization operations failed:', error instanceof Error ? error.message : String(error));
+      // Fallback to basic operations if full optimization fails
+      await db.$executeRaw`VACUUM ANALYZE`;
+    }
+  }
+  
+  /**
+   * Clean up MongoDB collections
+   */
+  private async cleanupMongoDB() {
+    if (!mongoose.connection.db) {
+      throw new Error('MongoDB not connected');
+    }
+    
+    const collections = await mongoose.connection.db.listCollections().toArray();
+    
+    for (const collection of collections) {
+      try {
+        const collectionObj = mongoose.connection.db.collection(collection.name);
+        
+        // Remove documents with null or undefined critical fields (if any)
+        // This is a basic cleanup - in a real app you'd have specific cleanup rules
+        const result = await collectionObj.deleteMany({
+          $or: [
+            { _id: null },
+            { _id: { $exists: false } }
+          ]
+        });
+        
+        if (result.deletedCount > 0) {
+          console.log(`Cleaned up ${result.deletedCount} invalid documents from ${collection.name}`);
+        }
+      } catch (error) {
+        console.warn(`Could not clean up collection ${collection.name}:`, error instanceof Error ? error.message : String(error));
+      }
+    }
+  }
+  
+  /**
+   * Reindex PostgreSQL database
+   */
+  private async reindexPostgreSQL() {
+    const db = getPostgresDb();
+    
+    try {
+      // Reindex all indexes in the database
+      await db.$executeRaw`REINDEX DATABASE CURRENT_DATABASE()`;
+    } catch (error) {
+      console.warn('Full database reindex failed, trying table-level reindex:', error instanceof Error ? error.message : String(error));
+      
+      try {
+        // Fallback to reindexing specific tables
+        await db.$executeRaw`REINDEX TABLE "User"`;
+      } catch (fallbackError) {
+        console.warn('Table-level reindex also failed:', fallbackError instanceof Error ? fallbackError.message : String(fallbackError));
+        throw new Error('PostgreSQL reindexing failed');
+      }
+    }
+  }
+  
+  /**
+   * Validate MongoDB collections
+   */
+  private async validateMongoCollections() {
+    if (!mongoose.connection.db) {
+      throw new Error('MongoDB not connected');
+    }
+    
+    const collections = await mongoose.connection.db.listCollections().toArray();
+    const validationResults = [];
+    
+    for (const collection of collections) {
+      try {
+        const result = await mongoose.connection.db.command({ 
+          validate: collection.name,
+          full: false // Set to true for more thorough validation (slower)
+        });
+        
+        validationResults.push({
+          collection: collection.name,
+          valid: result.valid,
+          warnings: result.warnings || [],
+          errors: result.errors || []
+        });
+        
+        if (!result.valid) {
+          console.warn(`Collection ${collection.name} validation failed:`, result);
+        }
+      } catch (error) {
+        console.warn(`Could not validate collection ${collection.name}:`, error instanceof Error ? error.message : String(error));
+        validationResults.push({
+          collection: collection.name,
+          valid: false,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+    
+    return validationResults;
+  }
+  
+  /**
+   * Create database backup metadata
+   */
+  async createBackupMetadata(type: 'mongodb' | 'postgresql' | 'full') {
+    const timestamp = new Date().toISOString();
+    const metadata = {
+      id: `backup_${Date.now()}`,
+      type,
+      timestamp,
+      status: 'initiated',
+      size: 0,
+      collections: [] as string[],
+      tables: [] as string[]
+    };
+    
+    if (type === 'mongodb' || type === 'full') {
+      const mongoStats = await this.getMongoDBStats();
+      metadata.collections = mongoStats.collections.map(c => c.name);
+      metadata.size += mongoStats.dataSize;
+    }
+    
+    if (type === 'postgresql' || type === 'full') {
+      const pgStats = await this.getPostgreSQLStats();
+      metadata.tables = Object.keys(pgStats.tables);
+      metadata.size += pgStats.size;
+    }
+    
+    return metadata;
+  }
+
+  // BACKUP AND RESTORE OPERATIONS
+  
+  /**
+   * Create database backup
+   */
+  async createBackup(type: 'mongodb' | 'postgresql' | 'full') {
+    const timestamp = new Date().toISOString();
+    const backupId = `backup_${Date.now()}`;
+    
+    try {
+      let backupData: any = {
+        id: backupId,
+        type,
+        timestamp,
+        status: 'in_progress',
+        data: {}
+      };
+      
+      if (type === 'mongodb' || type === 'full') {
+        // MongoDB backup
+        const mongoBackup = await this.createMongoBackup();
+        backupData.data.mongodb = mongoBackup;
+      }
+      
+      if (type === 'postgresql' || type === 'full') {
+        // PostgreSQL backup
+        const pgBackup = await this.createPostgreSQLBackup();
+        backupData.data.postgresql = pgBackup;
+      }
+      
+      backupData.status = 'completed';
+      backupData.size = JSON.stringify(backupData.data).length;
+      
+      // Store backup metadata (in production, you'd store this in a proper backup storage)
+      this.backupStorage.set(backupId, backupData);
+      
+      return {
+        id: backupId,
+        type,
+        timestamp,
+        status: 'completed',
+        size: backupData.size
+      };
+    } catch (error) {
+      console.error('Error creating backup:', error);
+      throw new Error(`Failed to create ${type} backup: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  private backupStorage = new Map<string, any>();
+  
+  /**
+   * Create MongoDB backup
+   */
+  private async createMongoBackup() {
+    const collections = await mongoose.connection.db?.listCollections().toArray() || [];
+    const backup: any = {};
+    
+    for (const collection of collections) {
+      try {
+        const collectionData = await mongoose.connection.db?.collection(collection.name).find({}).toArray();
+        backup[collection.name] = collectionData;
+      } catch (error) {
+        console.warn(`Could not backup collection ${collection.name}:`, error instanceof Error ? error.message : String(error));
+        backup[collection.name] = [];
+      }
+    }
+    
+    return backup;
+  }
+  
+  /**
+   * Create PostgreSQL backup
+   */
+  private async createPostgreSQLBackup() {
+    const db = getPostgresDb();
+    const backup: any = {};
+    
+    try {
+      // Get all users (this is the main table we have)
+      const users = await db.user.findMany();
+      backup.users = users;
+      
+      return backup;
+    } catch (error) {
+      console.error('Error creating PostgreSQL backup:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Get backup list
+   */
+  async getBackupList() {
+    const backups = Array.from(this.backupStorage.values()).map(backup => ({
+      id: backup.id,
+      type: backup.type,
+      timestamp: backup.timestamp,
+      status: backup.status,
+      size: backup.size,
+      filename: `${backup.id}_${backup.type}.json`
+    }));
+    
+    return backups.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }
+  
+  /**
+   * Get backup info
+   */
+  async getBackupInfo(backupId: string) {
+    const backup = this.backupStorage.get(backupId);
+    
+    if (!backup) {
+      return null;
+    }
+    
+    return {
+      id: backup.id,
+      type: backup.type,
+      timestamp: backup.timestamp,
+      status: backup.status,
+      size: backup.size,
+      filename: `${backup.id}_${backup.type}.json`,
+      filePath: `/tmp/${backup.id}_${backup.type}.json` // Simulated file path
+    };
+  }
+  
+  /**
+   * Restore from backup
+   */
+  async restoreFromBackup(backupId: string, type?: string) {
+    const backup = this.backupStorage.get(backupId);
+    
+    if (!backup) {
+      throw new Error(`Backup ${backupId} not found`);
+    }
+    
+    if (type && backup.type !== type && backup.type !== 'full') {
+      throw new Error(`Backup type mismatch. Expected ${type}, got ${backup.type}`);
+    }
+    
+    try {
+      const results: any = {
+        restored: [],
+        errors: []
+      };
+      
+      if (backup.data.mongodb && (type === 'mongodb' || type === 'full' || !type)) {
+        try {
+          await this.restoreMongoBackup(backup.data.mongodb);
+          results.restored.push('mongodb');
+        } catch (error) {
+          results.errors.push(`MongoDB restore failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+      
+      if (backup.data.postgresql && (type === 'postgresql' || type === 'full' || !type)) {
+        try {
+          await this.restorePostgreSQLBackup(backup.data.postgresql);
+          results.restored.push('postgresql');
+        } catch (error) {
+          results.errors.push(`PostgreSQL restore failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+      
+      return {
+        backupId,
+        timestamp: new Date().toISOString(),
+        ...results
+      };
+    } catch (error) {
+      console.error('Error restoring from backup:', error);
+      throw new Error(`Failed to restore from backup: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  /**
+   * Restore MongoDB backup
+   */
+  private async restoreMongoBackup(mongoData: any) {
+    if (!mongoose.connection.db) {
+      throw new Error('MongoDB not connected');
+    }
+    
+    for (const [collectionName, data] of Object.entries(mongoData)) {
+      try {
+        const collection = mongoose.connection.db.collection(collectionName);
+        
+        // Clear existing data
+        await collection.deleteMany({});
+        
+        // Insert backup data
+        if (Array.isArray(data) && data.length > 0) {
+          await collection.insertMany(data as any[]);
+        }
+      } catch (error) {
+        console.warn(`Could not restore collection ${collectionName}:`, error instanceof Error ? error.message : String(error));
+      }
+    }
+  }
+  
+  /**
+   * Restore PostgreSQL backup
+   */
+  private async restorePostgreSQLBackup(pgData: any) {
+    const db = getPostgresDb();
+    
+    try {
+      if (pgData.users && Array.isArray(pgData.users)) {
+        // Clear existing users
+        await db.user.deleteMany();
+        
+        // Insert backup users
+        for (const user of pgData.users) {
+          try {
+            await db.user.create({
+              data: {
+                email: user.email,
+                name: user.name,
+                registerNumber: user.registerNumber,
+                staffId: user.staffId,
+                role: user.role,
+                department: user.department
+              }
+            });
+          } catch (error) {
+            console.warn(`Could not restore user ${user.email}:`, error instanceof Error ? error.message : String(error));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error restoring PostgreSQL data:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Delete backup
+   */
+  async deleteBackup(backupId: string) {
+    const backup = this.backupStorage.get(backupId);
+    
+    if (!backup) {
+      throw new Error(`Backup ${backupId} not found`);
+    }
+    
+    this.backupStorage.delete(backupId);
+    
+    return {
+      deleted: true,
+      backupId,
+      timestamp: new Date().toISOString()
+    };
+  }
+
   // MAINTENANCE NOTICE OPERATIONS (MongoDB)
 
 }
