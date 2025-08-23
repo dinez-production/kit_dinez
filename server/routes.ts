@@ -32,6 +32,7 @@ import { stockService } from "./stock-service";
 import { webPushService } from "./services/webPushService.js";
 import webPushRoutes from "./routes/webPush.js";
 import systemSettingsRoutes from "./routes/systemSettings.js";
+import databaseManagementRoutes from "./routes/database-management.js";
 import { mediaService } from "./services/mediaService.js";
 import multer from "multer";
 import axios from "axios";
@@ -2826,6 +2827,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register System Settings API routes
   app.use('/api/system-settings', systemSettingsRoutes);
+  app.use('/api/database', databaseManagementRoutes);
 
   const httpServer = createServer(app);
 

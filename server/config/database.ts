@@ -47,18 +47,45 @@ export function getDatabaseConfig(): DatabaseConfig {
     postgresUrl = process.env.DATABASE_URL;
   }
 
-  // MongoDB 3.6 compatible options
+  // MongoDB 4.4+ compatible options with fallback for older versions
   const mongoOptions: ConnectOptions = {
     maxPoolSize: 10,
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
-    family: 4 // Use IPv4
+    family: 4, // Use IPv4
+    
+    // MongoDB 4.4+ optimizations
+    maxIdleTimeMS: 30000,
+    minPoolSize: 2,
+    heartbeatFrequencyMS: 10000,
+    
+    // Connection management
+    connectTimeoutMS: 10000,
+    
+    // Authentication and security
+    authSource: 'admin', // Default auth source
+    
+    // Read/Write concern settings for MongoDB 4.4+
+    readConcern: { level: 'majority' },
+    writeConcern: { w: 'majority', j: true, wtimeout: 5000 }
   };
 
   // Add additional options for Atlas connections
   if (mongoUri.includes('mongodb+srv') || mongoUri.includes('mongodb.net')) {
     mongoOptions.retryWrites = true;
     mongoOptions.w = 'majority';
+    
+    // Atlas-specific optimizations for MongoDB 4.4+
+    mongoOptions.compressors = ['snappy', 'zlib'];
+    mongoOptions.zlibCompressionLevel = 6;
+  }
+  
+  // Local development optimizations
+  if (mongoUri.includes('localhost') || mongoUri.includes('127.0.0.1')) {
+    // Disable some features for local development
+    mongoOptions.readConcern = undefined;
+    mongoOptions.writeConcern = { w: 1 }; // Simpler write concern for local dev
+    mongoOptions.heartbeatFrequencyMS = 5000; // More frequent heartbeat for local
   }
 
   return {
@@ -86,6 +113,57 @@ export function getEnvironmentType(): 'local' | 'atlas' | 'custom' {
   return 'custom';
 }
 
+/**
+ * Detects MongoDB version and adjusts configuration accordingly
+ */
+export async function detectAndOptimizeMongoConfig(): Promise<ConnectOptions> {
+  const baseConfig = getDatabaseConfig();
+  
+  // Try to connect briefly to detect version
+  try {
+    const mongoose = await import('mongoose');
+    
+    if (mongoose.connection.readyState === 1) {
+      // Already connected, check version
+      const admin = mongoose.connection.db?.admin();
+      if (admin) {
+        const buildInfo = await admin.buildInfo();
+        const version = buildInfo.version;
+        const [major, minor] = version.split('.').map(Number);
+        
+        console.log(`🔍 Detected MongoDB version: ${version}`);
+        
+        // Adjust options based on version
+        const optimizedOptions = { ...baseConfig.mongodb.options };
+        
+        if (major < 4 || (major === 4 && minor < 4)) {
+          // MongoDB < 4.4: Use legacy settings
+          console.log('📊 Using MongoDB legacy configuration (pre-4.4)');
+          delete optimizedOptions.readConcern;
+          delete optimizedOptions.writeConcern;
+          delete optimizedOptions.compressors;
+          delete optimizedOptions.zlibCompressionLevel;
+          optimizedOptions.serverSelectionTimeoutMS = 2000;
+        } else if (major === 4 && minor === 4) {
+          // MongoDB 4.4: Balanced settings
+          console.log('📊 Using MongoDB 4.4 optimized configuration');
+          optimizedOptions.readConcern = { level: 'local' }; // Less strict for 4.4
+          optimizedOptions.writeConcern = { w: 1, j: true };
+        } else {
+          // MongoDB 5.0+: Full feature set
+          console.log('📊 Using MongoDB 5.0+ advanced configuration');
+        }
+        
+        return optimizedOptions;
+      }
+    }
+  } catch (error) {
+    console.log('⚠️ Could not detect MongoDB version, using default configuration');
+  }
+  
+  return baseConfig.mongodb.options;
+}
+
 export function validateDatabaseConfig(): void {
   const config = getDatabaseConfig();
   
@@ -97,5 +175,75 @@ export function validateDatabaseConfig(): void {
   // Validate PostgreSQL URI format
   if (!config.postgresql.url.startsWith('postgresql://') && !config.postgresql.url.startsWith('postgres://')) {
     throw new Error('Invalid PostgreSQL URI format. Must start with postgresql:// or postgres://');
+  }
+}
+
+/**
+ * Get MongoDB version-specific features availability
+ */
+export async function getMongoFeatures(): Promise<{
+  transactions: boolean;
+  changeStreams: boolean;
+  textSearch: boolean;
+  aggregationPipeline: boolean;
+  gridFS: boolean;
+  version: string;
+}> {
+  try {
+    const mongoose = await import('mongoose');
+    
+    if (mongoose.connection.readyState !== 1) {
+      throw new Error('MongoDB not connected');
+    }
+    
+    const admin = mongoose.connection.db?.admin();
+    if (!admin) {
+      throw new Error('Cannot access MongoDB admin');
+    }
+    
+    const buildInfo = await admin.buildInfo();
+    const version = buildInfo.version;
+    const [major, minor] = version.split('.').map(Number);
+    
+    return {
+      transactions: major >= 4,
+      changeStreams: major >= 3 && minor >= 6,
+      textSearch: major >= 2 && minor >= 6,
+      aggregationPipeline: major >= 2 && minor >= 2,
+      gridFS: true, // Available in all supported versions
+      version
+    };
+  } catch (error) {
+    console.warn('Could not detect MongoDB features:', error instanceof Error ? error.message : String(error));
+    return {
+      transactions: false,
+      changeStreams: false,
+      textSearch: true,
+      aggregationPipeline: true,
+      gridFS: true,
+      version: 'unknown'
+    };
+  }
+}
+
+/**
+ * Check if MongoDB instance supports specific feature
+ */
+export async function supportsFeature(feature: 'transactions' | 'changeStreams' | 'textSearch' | 'aggregation' | 'gridFS'): Promise<boolean> {
+  const features = await getMongoFeatures();
+  
+  switch (feature) {
+    case 'transactions':
+      return features.transactions;
+    case 'changeStreams':
+      return features.changeStreams;
+    case 'textSearch':
+      return features.textSearch;
+    case 'aggregation':
+      return features.aggregationPipeline;
+    case 'gridFS':
+      return features.gridFS;
+    default:
+      return false;
   }
 }
