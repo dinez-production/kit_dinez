@@ -5,11 +5,38 @@ import { useAuth } from "@/hooks/useAuth";
 import { isPWAInstalled, getPWAAuthState } from "@/utils/pwaAuth";
 import { serverRestartDetector } from "@/utils/devUpdateDetector";
 import NotificationPermissionDialog from "@/components/NotificationPermissionDialog";
+import MaintenanceScreen from "@/components/MaintenanceScreen";
 
 export default function SplashScreen() {
   const [, setLocation] = useLocation();
   const { user, isLoading } = useAuth();
   const [showNotificationDialog, setShowNotificationDialog] = useState(false);
+  const [showMaintenanceScreen, setShowMaintenanceScreen] = useState(false);
+  const [maintenanceData, setMaintenanceData] = useState<{
+    title: string;
+    message: string;
+    estimatedTime?: string;
+    contactInfo?: string;
+  } | null>(null);
+
+  // Query for maintenance status
+  const { data: maintenanceStatus } = useQuery({
+    queryKey: ['/api/system-settings/maintenance-status'],
+    refetchInterval: 30000, // Check every 30 seconds
+    staleTime: 0, // Always fresh
+  });
+
+  // Query for notification settings
+  const { data: notificationSettings } = useQuery({
+    queryKey: ['/api/system-settings/notification-status'],
+    staleTime: 60000, // Cache for 1 minute
+  });
+
+  // Query for app version info
+  const { data: appVersionInfo } = useQuery({
+    queryKey: ['/api/system-settings/app-version'],
+    staleTime: 300000, // Cache for 5 minutes
+  });
 
   
   const checkNotificationPermission = () => {
@@ -71,10 +98,34 @@ export default function SplashScreen() {
     });
 
     const timer = setTimeout(() => {
-      
-      // Trigger server restart detection once after splash screen
-      console.log('🚀 Splash screen complete - checking for server restart...');
+      // STEP 1: Check for app updates (server start timestamp)
+      console.log('🚀 Step 1: Checking for server restart...');
       serverRestartDetector.startMonitoring();
+      
+      // STEP 2: Check notification enable/disable status
+      console.log('🔔 Step 2: Checking notification settings...');
+      const isNotificationEnabled = (notificationSettings as any)?.isEnabled !== false; // Default to true if undefined
+      
+      if (!isNotificationEnabled) {
+        console.log('ℹ️ Notifications are disabled system-wide');
+      }
+      
+      // STEP 3: Check for maintenance notice
+      console.log('🔧 Step 3: Checking maintenance status...');
+      
+      if ((maintenanceStatus as any)?.isActive) {
+        console.log('🚨 Maintenance mode is ACTIVE - showing maintenance screen');
+        setMaintenanceData({
+          title: (maintenanceStatus as any)?.title || 'System Maintenance',
+          message: (maintenanceStatus as any)?.message || 'We are currently performing system maintenance. Please check back later.',
+          estimatedTime: (maintenanceStatus as any)?.estimatedTime,
+          contactInfo: (maintenanceStatus as any)?.contactInfo
+        });
+        setShowMaintenanceScreen(true);
+        return; // Stop here - don't proceed to app
+      }
+      
+      console.log('✅ Maintenance mode is INACTIVE - proceeding to app');
       
       // Get comprehensive PWA authentication state
       const pwaAuthState = getPWAAuthState();
@@ -83,11 +134,13 @@ export default function SplashScreen() {
         user,
         isLoading,
         isPWALaunch,
-        pwaAuthState
+        pwaAuthState,
+        notificationEnabled: isNotificationEnabled,
+        maintenanceActive: (maintenanceStatus as any)?.isActive || false
       });
 
-      // Check notification permissions for authenticated users
-      const shouldCheckNotifications = (isPWALaunch && pwaAuthState.isAuthenticated) || user;
+      // Check notification permissions for authenticated users (only if notifications are enabled)
+      const shouldCheckNotificationPermission = isNotificationEnabled && ((isPWALaunch && pwaAuthState.isAuthenticated) || user);
       
       // For PWA launches, use the PWA authentication state directly
       if (isPWALaunch) {
@@ -97,9 +150,9 @@ export default function SplashScreen() {
           console.log("Valid PWA session found, checking notifications and redirecting");
           const userData = pwaAuthState.user;
           
-          // Check notifications before redirecting
-          if (!checkNotificationPermission()) {
-            console.log("Notifications not enabled, showing dialog");
+          // Check notifications before redirecting (only if notifications are enabled system-wide)
+          if (shouldCheckNotificationPermission && !checkNotificationPermission()) {
+            console.log("Notifications are enabled but not granted, showing dialog");
             setShowNotificationDialog(true);
             return; // Don't redirect yet
           }
@@ -125,9 +178,9 @@ export default function SplashScreen() {
       if (user) {
         console.log("User authenticated, checking notifications and redirecting based on role:", user.role);
         
-        // Check notifications before redirecting
-        if (!checkNotificationPermission()) {
-          console.log("Notifications not enabled, showing dialog");
+        // Check notifications before redirecting (only if notifications are enabled system-wide)
+        if (shouldCheckNotificationPermission && !checkNotificationPermission()) {
+          console.log("Notifications are enabled but not granted, showing dialog");
           setShowNotificationDialog(true);
           return; // Don't redirect yet
         }
@@ -148,8 +201,20 @@ export default function SplashScreen() {
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [setLocation, user, isLoading]);
+  }, [setLocation, user, isLoading, maintenanceStatus, notificationSettings]);
 
+
+  // If maintenance mode is active, show maintenance screen
+  if (showMaintenanceScreen && maintenanceData) {
+    return (
+      <MaintenanceScreen
+        title={maintenanceData.title}
+        message={maintenanceData.message}
+        estimatedTime={maintenanceData.estimatedTime}
+        contactInfo={maintenanceData.contactInfo}
+      />
+    );
+  }
 
   return (
     <>

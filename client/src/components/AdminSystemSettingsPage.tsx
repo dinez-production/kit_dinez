@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { useLocation } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,9 +14,11 @@ import {
   ArrowLeft, Save, Shield, Globe, Database, Bell, 
   Mail, Smartphone, CreditCard, FileText, AlertTriangle,
   Server, Wifi, Lock, Key, Palette, Monitor, RefreshCw, 
-  Download, Zap, Info, HardDriveIcon
+  Download, Zap, Info, HardDriveIcon, Settings, 
+  Clock, Phone
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuthSync } from "@/hooks/useDataSync";
 import { CacheManager } from "@/utils/cacheManager";
 import { UpdateManager } from "@/utils/updateManager";
 import { passiveUpdateDetector } from "@/utils/passiveUpdateDetector";
@@ -23,11 +27,71 @@ import { toast } from "sonner";
 export default function AdminSystemSettingsPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { user } = useAuthSync();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [versionInfo, setVersionInfo] = useState<{ version: string; cacheVersion: string }>({
     version: '1.0.0',
     cacheVersion: 'unknown'
+  });
+
+  // Fetch system settings
+  const { data: systemSettings, isLoading: settingsLoading } = useQuery({
+    queryKey: ['/api/system-settings'],
+    staleTime: 5000,
+  });
+
+  // Maintenance mode state
+  const [maintenanceSettings, setMaintenanceSettings] = useState({
+    isActive: false,
+    title: 'System Maintenance',
+    message: 'We are currently performing system maintenance. Please check back later.',
+    estimatedTime: '',
+    contactInfo: ''
+  });
+
+  // Update maintenance settings when data loads
+  React.useEffect(() => {
+    if (systemSettings) {
+      const settings = systemSettings as any;
+      setMaintenanceSettings({
+        isActive: settings.maintenanceMode?.isActive || false,
+        title: settings.maintenanceMode?.title || 'System Maintenance',
+        message: settings.maintenanceMode?.message || 'We are currently performing system maintenance. Please check back later.',
+        estimatedTime: settings.maintenanceMode?.estimatedTime || '',
+        contactInfo: settings.maintenanceMode?.contactInfo || ''
+      });
+    }
+  }, [systemSettings]);
+
+  // Maintenance mode update mutation
+  const updateMaintenanceMutation = useMutation({
+    mutationFn: async (updateData: any) => {
+      return apiRequest('/api/system-settings/maintenance', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          ...updateData,
+          updatedBy: user?.id
+        }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/system-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/system-settings/maintenance-status'] });
+      toast({
+        title: "Maintenance Settings Updated",
+        description: "Maintenance mode settings have been saved successfully",
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating maintenance settings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update maintenance settings",
+        variant: "destructive"
+      });
+    }
   });
 
   const [generalSettings, setGeneralSettings] = useState({
@@ -107,6 +171,37 @@ export default function AdminSystemSettingsPage() {
       ...prev,
       [notification]: !prev[notification as keyof typeof prev]
     }));
+  };
+
+  // Maintenance mode handlers
+  const toggleMaintenanceMode = async () => {
+    const newIsActive = !maintenanceSettings.isActive;
+    
+    // Update local state immediately for responsiveness
+    setMaintenanceSettings(prev => ({ ...prev, isActive: newIsActive }));
+    
+    // Update via API
+    await updateMaintenanceMutation.mutateAsync({
+      isActive: newIsActive,
+      title: maintenanceSettings.title,
+      message: maintenanceSettings.message,
+      estimatedTime: maintenanceSettings.estimatedTime,
+      contactInfo: maintenanceSettings.contactInfo
+    });
+  };
+
+  const updateMaintenanceDetails = async () => {
+    await updateMaintenanceMutation.mutateAsync({
+      isActive: maintenanceSettings.isActive,
+      title: maintenanceSettings.title,
+      message: maintenanceSettings.message,
+      estimatedTime: maintenanceSettings.estimatedTime,
+      contactInfo: maintenanceSettings.contactInfo
+    });
+  };
+
+  const handleMaintenanceFieldChange = (field: string, value: string) => {
+    setMaintenanceSettings(prev => ({ ...prev, [field]: value }));
   };
 
   const handleForceRefresh = async () => {
@@ -258,6 +353,138 @@ export default function AdminSystemSettingsPage() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Maintenance Mode */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Settings className="w-5 h-5" />
+              <span>Maintenance Mode</span>
+              <Badge 
+                variant={maintenanceSettings.isActive ? "destructive" : "secondary"}
+                data-testid="maintenance-status"
+              >
+                {maintenanceSettings.isActive ? "ACTIVE" : "Inactive"}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Main Toggle */}
+            <div className="flex items-center justify-between p-4 border rounded-lg bg-amber-50 dark:bg-amber-950/20">
+              <div className="flex items-center space-x-3">
+                <AlertTriangle className={`w-6 h-6 ${maintenanceSettings.isActive ? 'text-red-600' : 'text-amber-600'}`} />
+                <div>
+                  <h3 className="font-medium">System Maintenance Mode</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {maintenanceSettings.isActive 
+                      ? "⚠️ Application is currently in maintenance mode - users cannot access the app"
+                      : "Toggle to enable maintenance mode and block user access"
+                    }
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={maintenanceSettings.isActive}
+                onCheckedChange={toggleMaintenanceMode}
+                disabled={updateMaintenanceMutation.isPending}
+                data-testid="switch-maintenance-mode"
+              />
+            </div>
+
+            {/* Maintenance Details */}
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="maintenanceTitle">Maintenance Title</Label>
+                <Input
+                  id="maintenanceTitle"
+                  value={maintenanceSettings.title}
+                  onChange={(e) => handleMaintenanceFieldChange('title', e.target.value)}
+                  placeholder="System Maintenance"
+                  data-testid="input-maintenance-title"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="maintenanceMessage">Maintenance Message</Label>
+                <Textarea
+                  id="maintenanceMessage"
+                  value={maintenanceSettings.message}
+                  onChange={(e) => handleMaintenanceFieldChange('message', e.target.value)}
+                  placeholder="We are currently performing system maintenance. Please check back later."
+                  rows={3}
+                  data-testid="textarea-maintenance-message"
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="estimatedTime" className="flex items-center space-x-1">
+                    <Clock className="w-4 h-4" />
+                    <span>Estimated Duration (Optional)</span>
+                  </Label>
+                  <Input
+                    id="estimatedTime"
+                    value={maintenanceSettings.estimatedTime}
+                    onChange={(e) => handleMaintenanceFieldChange('estimatedTime', e.target.value)}
+                    placeholder="e.g., 2 hours, 30 minutes"
+                    data-testid="input-estimated-time"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="contactInfo" className="flex items-center space-x-1">
+                    <Phone className="w-4 h-4" />
+                    <span>Contact Information (Optional)</span>
+                  </Label>
+                  <Input
+                    id="contactInfo"
+                    value={maintenanceSettings.contactInfo}
+                    onChange={(e) => handleMaintenanceFieldChange('contactInfo', e.target.value)}
+                    placeholder="e.g., support@kitcanteen.com or +91-1234567890"
+                    data-testid="input-contact-info"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button 
+                onClick={updateMaintenanceDetails}
+                disabled={updateMaintenanceMutation.isPending}
+                className="flex-1"
+                data-testid="button-save-maintenance"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                {updateMaintenanceMutation.isPending ? "Saving..." : "Save Maintenance Settings"}
+              </Button>
+              
+              {maintenanceSettings.isActive && (
+                <Button 
+                  onClick={() => toggleMaintenanceMode()}
+                  variant="outline"
+                  disabled={updateMaintenanceMutation.isPending}
+                  className="flex-1 border-red-200 text-red-700 hover:bg-red-50"
+                  data-testid="button-disable-maintenance"
+                >
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  Disable Maintenance Mode
+                </Button>
+              )}
+            </div>
+
+            {/* Warning Note */}
+            <div className="text-xs text-gray-600 bg-gray-50 dark:bg-gray-900 rounded p-3">
+              <p className="mb-2"><strong>⚠️ Important:</strong></p>
+              <ul className="space-y-1 text-xs">
+                <li>• When maintenance mode is active, users will see a full-screen maintenance message</li>
+                <li>• Users cannot access any part of the application during maintenance</li>
+                <li>• Admin users can still access the admin panel to toggle maintenance mode off</li>
+                <li>• The maintenance status is checked every 30 seconds automatically</li>
+              </ul>
             </div>
           </CardContent>
         </Card>

@@ -31,6 +31,7 @@ import { SimpleSchemaValidator } from "./migrations/simple-schema-check";
 import { stockService } from "./stock-service";
 import { webPushService } from "./services/webPushService.js";
 import webPushRoutes from "./routes/webPush.js";
+import systemSettingsRoutes from "./routes/systemSettings.js";
 import { mediaService } from "./services/mediaService.js";
 import multer from "multer";
 import axios from "axios";
@@ -2822,6 +2823,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register Web Push API routes
   app.use('/api/push', webPushRoutes);
+  
+  // Register System Settings API routes
+  app.use('/api/system-settings', systemSettingsRoutes);
 
   const httpServer = createServer(app);
 
