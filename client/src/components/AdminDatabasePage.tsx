@@ -156,11 +156,42 @@ export default function AdminDatabasePage() {
       if (!response.ok) throw new Error('Backup operation failed');
       return response.json();
     },
-    onSuccess: () => {
-      toast({
-        title: "Backup Initiated",
-        description: "Database backup has been started successfully!",
-      });
+    onSuccess: async (data, type) => {
+      if (type === 'postgresql' && data.backup?.downloadUrl) {
+        // For PostgreSQL backups, trigger immediate download of SQL file
+        try {
+          const downloadResponse = await fetch(data.backup.downloadUrl);
+          if (downloadResponse.ok) {
+            const blob = await downloadResponse.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = data.backup.filename || `postgresql_backup_${Date.now()}.sql`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            toast({
+              title: "PostgreSQL Backup Downloaded",
+              description: "SQL backup file has been downloaded successfully!",
+            });
+          } else {
+            throw new Error('Failed to download backup file');
+          }
+        } catch (error) {
+          toast({
+            title: "Download Failed",
+            description: "Backup created but download failed. Please try refreshing.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Backup Initiated",
+          description: "Database backup has been started successfully!",
+        });
+      }
     },
     onError: (error) => {
       toast({
