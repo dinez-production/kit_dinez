@@ -167,6 +167,32 @@ export type Coupon = {
   createdAt: Date;
 };
 
+export type SystemSettings = {
+  id: string;
+  maintenanceMode: {
+    isActive: boolean;
+    title: string;
+    message: string;
+    estimatedTime?: string;
+    contactInfo?: string;
+    lastUpdatedBy?: number;
+    lastUpdatedAt?: Date;
+  };
+  notifications: {
+    isEnabled: boolean;
+    lastUpdatedBy?: number;
+    lastUpdatedAt?: Date;
+  };
+  appVersion: {
+    version: string;
+    buildTimestamp: number;
+    lastUpdatedBy?: number;
+    lastUpdatedAt?: Date;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 // Insert types for MongoDB models
 export type InsertCategory = Omit<Category, 'id' | 'createdAt'>;
 export type InsertMenuItem = Omit<MenuItem, 'id' | 'createdAt'>;
@@ -182,6 +208,7 @@ export type InsertCoupon = Omit<Coupon, 'id' | 'createdAt' | 'usedCount' | 'used
   assignmentType?: 'all' | 'specific';
   assignedUsers?: number[];
 };
+export type InsertSystemSettings = Omit<SystemSettings, 'id' | 'createdAt' | 'updatedAt'>;
 
 // Keep validation schemas using Zod for form validation
 import { z } from "zod";
@@ -317,6 +344,29 @@ export const insertPaymentSchema = z.object({
   responseMessage: z.string().optional(),
   checksum: z.string().optional(),
   metadata: z.string().optional(),
+});
+
+export const insertSystemSettingsSchema = z.object({
+  maintenanceMode: z.object({
+    isActive: z.boolean(),
+    title: z.string().min(1, "Maintenance title is required"),
+    message: z.string().min(1, "Maintenance message is required"),
+    estimatedTime: z.string().optional(),
+    contactInfo: z.string().optional(),
+    lastUpdatedBy: z.number().optional(),
+    lastUpdatedAt: z.date().optional(),
+  }),
+  notifications: z.object({
+    isEnabled: z.boolean(),
+    lastUpdatedBy: z.number().optional(),
+    lastUpdatedAt: z.date().optional(),
+  }),
+  appVersion: z.object({
+    version: z.string().min(1, "App version is required"),
+    buildTimestamp: z.number(),
+    lastUpdatedBy: z.number().optional(),
+    lastUpdatedAt: z.date().optional(),
+  }),
 });
 
 
