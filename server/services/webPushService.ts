@@ -191,6 +191,16 @@ export class WebPushService {
           priority: 'normal',
           requireInteraction: false,
           enabled: true
+        },
+        {
+          id: 'delivered',
+          status: 'delivered',
+          title: 'Order Delivered!',
+          message: 'Your order #{orderNumber} has been delivered successfully. Thank you for choosing us!',
+          icon: '🎉',
+          priority: 'normal',
+          requireInteraction: false,
+          enabled: true
         }
       ];
       
@@ -239,6 +249,16 @@ export class WebPushService {
         {
           id: 'completed',
           status: 'completed',
+          title: 'Order Delivered!',
+          message: 'Your order #{orderNumber} has been delivered.',
+          icon: '🎉',
+          priority: 'normal',
+          requireInteraction: false,
+          enabled: true
+        },
+        {
+          id: 'delivered',
+          status: 'delivered',
           title: 'Order Delivered!',
           message: 'Your order #{orderNumber} has been delivered.',
           icon: '🎉',

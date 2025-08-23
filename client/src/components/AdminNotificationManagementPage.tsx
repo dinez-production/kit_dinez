@@ -639,7 +639,8 @@ export default function AdminNotificationManagementPage() {
                   <SelectItem value="pending">Order Placed</SelectItem>
                   <SelectItem value="preparing">Preparing</SelectItem>
                   <SelectItem value="ready">Ready for Pickup</SelectItem>
-                  <SelectItem value="completed">Order Delivered</SelectItem>
+                  <SelectItem value="completed">Order Delivered (Admin)</SelectItem>
+                  <SelectItem value="delivered">Order Delivered (Barcode)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
