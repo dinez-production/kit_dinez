@@ -192,13 +192,20 @@ export async function getMongoFeatures(): Promise<{
   try {
     const mongoose = await import('mongoose');
     
+    // Ensure proper connection before proceeding
     if (!mongoose.connection || mongoose.connection.readyState !== 1) {
-      throw new Error('MongoDB not connected');
+      // Try to reconnect
+      const { connectToMongoDB } = await import('../mongodb');
+      await connectToMongoDB();
+    }
+    
+    if (!mongoose.connection || mongoose.connection.readyState !== 1) {
+      throw new Error('MongoDB not connected - cannot detect real-time features');
     }
     
     const admin = mongoose.connection.db?.admin();
     if (!admin) {
-      throw new Error('Cannot access MongoDB admin');
+      throw new Error('Cannot access MongoDB admin - real-time data unavailable');
     }
     
     const buildInfo = await admin.buildInfo();
@@ -215,14 +222,8 @@ export async function getMongoFeatures(): Promise<{
     };
   } catch (error) {
     console.warn('Could not detect MongoDB features:', error instanceof Error ? error.message : String(error));
-    return {
-      transactions: false,
-      changeStreams: false,
-      textSearch: true,
-      aggregationPipeline: true,
-      gridFS: true,
-      version: 'unknown'
-    };
+    // Don't return dummy data - throw error for real-time requirement
+    throw new Error(`Cannot detect real-time MongoDB features: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

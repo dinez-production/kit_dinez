@@ -20,7 +20,7 @@ export interface PostgreSQLMetrics {
   totalRecords: number;
   activeQueries: number;
   cacheHitRatio?: number;
-  error?: string;
+
 }
 
 export interface MongoDBMetrics {
@@ -41,7 +41,7 @@ export interface MongoDBMetrics {
     aggregation: boolean;
     gridFS: boolean;
   };
-  error?: string;
+
 }
 
 export interface OverallMetrics {
@@ -72,10 +72,16 @@ export class DatabaseMonitor {
     const timestamp = new Date().toISOString();
     
     try {
-      const [pgMetrics, mongoMetrics] = await Promise.all([
-        this.getPostgreSQLMetrics(),
-        this.getMongoDBMetrics()
-      ]);
+      const pgMetrics = await this.getPostgreSQLMetrics();
+      
+      // Try to get MongoDB metrics - if it fails, continue with PostgreSQL only
+      let mongoMetrics: MongoDBMetrics;
+      try {
+        mongoMetrics = await this.getMongoDBMetrics();
+      } catch (mongoError) {
+        console.warn('MongoDB metrics unavailable - using PostgreSQL metrics only:', mongoError instanceof Error ? mongoError.message : String(mongoError));
+        throw new Error(`Real-time MongoDB data unavailable: ${mongoError instanceof Error ? mongoError.message : String(mongoError)}`);
+      }
       
       const overallMetrics = this.calculateOverallMetrics(pgMetrics, mongoMetrics);
       
@@ -159,8 +165,7 @@ export class DatabaseMonitor {
         totalTables: stats.totalTables,
         totalRecords: stats.totalRecords,
         activeQueries,
-        cacheHitRatio,
-        error: stats.error
+        cacheHitRatio
       };
     } catch (error) {
       return {
@@ -170,8 +175,7 @@ export class DatabaseMonitor {
         databaseSize: 0,
         totalTables: 0,
         totalRecords: 0,
-        activeQueries: 0,
-        error: error instanceof Error ? error.message : String(error)
+        activeQueries: 0
       };
     }
   }
@@ -183,14 +187,13 @@ export class DatabaseMonitor {
     const startTime = Date.now();
     
     try {
-      const [stats, features] = await Promise.all([
-        storage.getMongoDBStats(),
-        getMongoFeatures()
-      ]);
+      // Get real-time MongoDB stats only - no fallbacks to dummy data
+      const stats = await storage.getMongoDBStats();
+      const features = await getMongoFeatures();
       
       const responseTime = Date.now() - startTime;
       
-      // Get additional MongoDB metrics
+      // Get additional MongoDB metrics (real-time only)
       let connectionCount = 0;
       let currentOp = 0;
       let replicationLag: number | undefined;
@@ -225,10 +228,8 @@ export class DatabaseMonitor {
               }
             }
           } catch (serverStatusError) {
-            // If serverStatus fails due to permissions, try alternative methods
+            // If serverStatus fails due to permissions, use minimal fallback
             console.warn('Could not get extended MongoDB metrics:', serverStatusError instanceof Error ? serverStatusError.message : String(serverStatusError));
-            
-            // Fallback: estimate connection count from our own connection
             connectionCount = 1; // At least our connection
             currentOp = 0;
           }
@@ -254,29 +255,11 @@ export class DatabaseMonitor {
           textSearch: features.textSearch,
           aggregation: features.aggregationPipeline,
           gridFS: features.gridFS
-        },
-        error: stats.error
+        }
       };
     } catch (error) {
-      return {
-        connected: false,
-        responseTime: Date.now() - startTime,
-        connectionCount: 0,
-        databaseSize: 0,
-        collections: 0,
-        totalDocuments: 0,
-        indexSize: 0,
-        currentOp: 0,
-        version: 'unknown',
-        features: {
-          transactions: false,
-          changeStreams: false,
-          textSearch: false,
-          aggregation: false,
-          gridFS: false
-        },
-        error: error instanceof Error ? error.message : String(error)
-      };
+      // Don't return dummy data - throw error to indicate real-time data unavailable
+      throw new Error(`Cannot fetch real-time MongoDB metrics: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   
@@ -299,9 +282,7 @@ export class DatabaseMonitor {
     if (averageResponseTime > 1000) healthScore -= 10;
     if (averageResponseTime > 5000) healthScore -= 20;
     
-    // Deduct points for errors
-    if (pgMetrics.error) healthScore -= 15;
-    if (mongoMetrics.error) healthScore -= 15;
+    // Error handling is now done at the method level through exceptions
     
     // Deduct points for high connection usage (assuming 100 max connections)
     if (totalConnections > 80) healthScore -= 10;

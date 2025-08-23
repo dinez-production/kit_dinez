@@ -1064,14 +1064,21 @@ export class HybridStorage implements IStorage {
    */
   async getMongoDBStats() {
     try {
+      // Ensure MongoDB is properly connected
+      if (!mongoose.connection || mongoose.connection.readyState !== 1) {
+        // Try to reconnect if not connected
+        const { connectToMongoDB } = await import('./mongodb');
+        await connectToMongoDB();
+      }
+      
       if (!mongoose.connection.db) {
-        throw new Error('MongoDB not connected');
+        throw new Error('MongoDB connection not available - cannot fetch real-time data');
       }
       
       const admin = mongoose.connection.db.admin();
       const dbStats = await admin.command({ dbStats: 1 });
       
-      // Get collection stats
+      // Get collection stats (real-time data only)
       const collections = await mongoose.connection.db.listCollections().toArray();
       const collectionStats = [];
       
@@ -1089,7 +1096,6 @@ export class HybridStorage implements IStorage {
             indexes: stats.nindexes || 0
           });
         } catch (err) {
-          // Skip collections that can't be accessed
           console.warn(`Could not get stats for collection ${collection.name}:`, err instanceof Error ? err.message : String(err));
         }
       }
@@ -1104,15 +1110,8 @@ export class HybridStorage implements IStorage {
       };
     } catch (error) {
       console.error('Error getting MongoDB stats:', error);
-      return {
-        dataSize: 0,
-        storageSize: 0,
-        indexSize: 0,
-        collections: [],
-        totalCollections: 0,
-        totalDocuments: 0,
-        error: error instanceof Error ? error.message : String(error)
-      };
+      // Don't return dummy data - throw error to indicate real data is not available
+      throw new Error(`Cannot fetch real-time MongoDB data: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   
