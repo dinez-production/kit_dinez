@@ -60,10 +60,15 @@ export function useAuth() {
               clearPWAAuth();
               setUser(null);
             }
-          } else {
-            console.log("❌ User validation failed, clearing session");
+          } else if (response.status === 404) {
+            // User definitely doesn't exist, clear session
+            console.log("❌ User not found (404), clearing session");
             clearPWAAuth();
             setUser(null);
+          } else {
+            // For other errors (500, network issues, etc.), keep the session
+            console.warn(`⚠️ User validation failed with status ${response.status}, keeping PWA session`);
+            setUser(authState.user);
           }
         } catch (error) {
           console.warn("⚠️ Database validation failed, keeping localStorage session:", error);
