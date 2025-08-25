@@ -19,11 +19,10 @@ export default function SplashScreen() {
     contactInfo?: string;
   } | null>(null);
 
-  // Query for maintenance status
+  // Query for maintenance status (only once on load)
   const { data: maintenanceStatus } = useQuery({
     queryKey: ['/api/system-settings/maintenance-status'],
-    refetchInterval: 30000, // Check every 30 seconds
-    staleTime: 0, // Always fresh
+    staleTime: 300000, // Cache for 5 minutes since it's only checked once on splash
   });
 
   // Query for notification settings
