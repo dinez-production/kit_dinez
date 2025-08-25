@@ -210,8 +210,8 @@ router.get('/maintenance-status/:userId', async (req, res) => {
 
     const maintenanceMode = settings.maintenanceMode;
     
-    // Check if user is admin or canteen owner (they bypass maintenance)
-    if (user.role === 'admin' || user.role === 'canteen_owner' || user.role === 'canteen-owner') {
+    // Check if user is admin, super admin, or canteen owner (they bypass maintenance)
+    if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'canteen_owner' || user.role === 'canteen-owner') {
       return res.json({ 
         showMaintenance: false,
         reason: 'User has admin/canteen owner privileges'
