@@ -20,10 +20,10 @@ export default function MaintenanceWrapper({
     staleTime: 30000, // Use cached data for 30 seconds
   });
 
-  // Fallback: Query for general maintenance status if user-specific query fails
+  // Fallback: Query for general maintenance status only for unauthenticated users
   const { data: generalMaintenanceStatus } = useQuery({
     queryKey: ['/api/system-settings/maintenance-status'],
-    enabled: !userMaintenanceCheck, // Only query if user-specific check isn't available
+    enabled: !user?.id, // Only query when there's no authenticated user
     staleTime: 60000, // Use cached data for 1 minute
   });
 

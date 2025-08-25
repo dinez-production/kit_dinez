@@ -110,11 +110,26 @@ export default function SplashScreen() {
         console.log('ℹ️ Notifications are disabled system-wide');
       }
       
-      // STEP 3: Check for maintenance notice
+      // Get comprehensive PWA authentication state first
+      const pwaAuthState = getPWAAuthState();
+      
+      // STEP 3: Check for maintenance notice (only for unauthenticated users with 'all' targeting)
       console.log('🔧 Step 3: Checking maintenance status...');
       
-      if ((maintenanceStatus as any)?.isActive) {
-        console.log('🚨 Maintenance mode is ACTIVE - showing maintenance screen');
+      const isMaintenanceActive = (maintenanceStatus as any)?.isActive;
+      const targetingType = (maintenanceStatus as any)?.targetingType || 'all';
+      
+      // Only show maintenance on splash screen if:
+      // 1. Maintenance is active AND
+      // 2. User is not authenticated (PWA or regular) AND 
+      // 3. Targeting is set to 'all' (specific targeting will be handled by MaintenanceWrapper after auth)
+      const shouldShowMaintenanceOnSplash = isMaintenanceActive && 
+        targetingType === 'all' && 
+        !user && 
+        !(isPWALaunch && pwaAuthState.isAuthenticated);
+      
+      if (shouldShowMaintenanceOnSplash) {
+        console.log('🚨 Maintenance mode is ACTIVE for all users - showing maintenance screen');
         setMaintenanceData({
           title: (maintenanceStatus as any)?.title || 'System Maintenance',
           message: (maintenanceStatus as any)?.message || 'We are currently performing system maintenance. Please check back later.',
@@ -126,9 +141,6 @@ export default function SplashScreen() {
       }
       
       console.log('✅ Maintenance mode is INACTIVE - proceeding to app');
-      
-      // Get comprehensive PWA authentication state
-      const pwaAuthState = getPWAAuthState();
       
       console.log("SplashScreen Comprehensive Debug:", {
         user,
