@@ -355,7 +355,19 @@ router.get('/notification-status', async (req, res) => {
  */
 router.patch('/maintenance', async (req, res) => {
   try {
-    const { isActive, title, message, estimatedTime, contactInfo, updatedBy } = req.body;
+    const { 
+      isActive, 
+      title, 
+      message, 
+      estimatedTime, 
+      contactInfo, 
+      targetingType,
+      specificUsers,
+      targetDepartments,
+      targetYears,
+      yearType,
+      updatedBy 
+    } = req.body;
     
     let settings = await SystemSettingsModel.findOne().sort({ createdAt: -1 });
     
@@ -416,6 +428,21 @@ router.patch('/maintenance', async (req, res) => {
     }
     if (contactInfo !== undefined) {
       settings.maintenanceMode.contactInfo = contactInfo;
+    }
+    if (targetingType) {
+      settings.maintenanceMode.targetingType = targetingType;
+    }
+    if (specificUsers !== undefined) {
+      settings.maintenanceMode.specificUsers = specificUsers;
+    }
+    if (targetDepartments !== undefined) {
+      settings.maintenanceMode.targetDepartments = targetDepartments;
+    }
+    if (targetYears !== undefined) {
+      settings.maintenanceMode.targetYears = targetYears;
+    }
+    if (yearType) {
+      settings.maintenanceMode.yearType = yearType;
     }
     
     settings.maintenanceMode.lastUpdatedAt = new Date();
