@@ -528,17 +528,30 @@ export default function AdminSystemSettingsPage() {
                 {(maintenanceSettings.targetingType === 'department' || maintenanceSettings.targetingType === 'year_department') && (
                   <div className="space-y-2">
                     <Label>Select Departments</Label>
-                    <Textarea
-                      value={maintenanceSettings.targetDepartments.join(', ')}
-                      onChange={(e) => handleMaintenanceFieldChange('targetDepartments', 
-                        e.target.value.split(',').map(s => s.trim()).filter(s => s.length > 0)
-                      )}
-                      placeholder="Example: CSE, ECE, MECH, EEE"
-                      rows={2}
-                      data-testid="textarea-departments"
-                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      {['CSE', 'ECE', 'MECH', 'EEE', 'CIVIL', 'IT', 'BME', 'CHEM', 'AERO', 'AUTO'].map(dept => (
+                        <div key={dept} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`dept-${dept}`}
+                            checked={maintenanceSettings.targetDepartments.includes(dept)}
+                            onChange={(e) => {
+                              const currentDepts = maintenanceSettings.targetDepartments;
+                              if (e.target.checked) {
+                                handleMaintenanceFieldChange('targetDepartments', [...currentDepts, dept]);
+                              } else {
+                                handleMaintenanceFieldChange('targetDepartments', currentDepts.filter(d => d !== dept));
+                              }
+                            }}
+                            className="rounded border-gray-300"
+                            data-testid={`checkbox-dept-${dept}`}
+                          />
+                          <Label htmlFor={`dept-${dept}`} className="text-sm cursor-pointer">{dept}</Label>
+                        </div>
+                      ))}
+                    </div>
                     <p className="text-xs text-muted-foreground">
-                      Enter department codes separated by commas (CSE, ECE, MECH, EEE, etc.)
+                      Select one or more departments. Selected: {maintenanceSettings.targetDepartments.join(', ') || 'None'}
                     </p>
                   </div>
                 )}
@@ -568,28 +581,52 @@ export default function AdminSystemSettingsPage() {
                     <div className="space-y-2">
                       <Label className="flex items-center space-x-2">
                         <GraduationCap className="w-4 h-4" />
-                        <span>Select Years (comma-separated)</span>
+                        <span>Select Years</span>
                       </Label>
-                      <Input
-                        value={maintenanceSettings.targetYears.join(', ')}
-                        onChange={(e) => {
-                          const years = e.target.value
-                            .split(',')
-                            .map(s => parseInt(s.trim()))
-                            .filter(n => !isNaN(n));
-                          handleMaintenanceFieldChange('targetYears', years);
-                        }}
-                        placeholder={
-                          maintenanceSettings.yearType === 'current' ? "Example: 1, 2, 3, 4" :
-                          maintenanceSettings.yearType === 'joining' ? "Example: 2021, 2022, 2023" :
-                          "Example: 2024, 2025, 2026"
-                        }
-                        data-testid="input-target-years"
-                      />
+                      <div className="grid grid-cols-4 gap-2">
+                        {(() => {
+                          let availableYears: number[] = [];
+                          if (maintenanceSettings.yearType === 'current') {
+                            availableYears = [1, 2, 3, 4];
+                          } else if (maintenanceSettings.yearType === 'joining') {
+                            availableYears = [2020, 2021, 2022, 2023, 2024, 2025];
+                          } else if (maintenanceSettings.yearType === 'passing') {
+                            availableYears = [2024, 2025, 2026, 2027, 2028, 2029];
+                          }
+                          
+                          return availableYears.map(year => (
+                            <div key={year} className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id={`year-${year}`}
+                                checked={maintenanceSettings.targetYears.includes(year)}
+                                onChange={(e) => {
+                                  const currentYears = maintenanceSettings.targetYears;
+                                  if (e.target.checked) {
+                                    handleMaintenanceFieldChange('targetYears', [...currentYears, year]);
+                                  } else {
+                                    handleMaintenanceFieldChange('targetYears', currentYears.filter(y => y !== year));
+                                  }
+                                }}
+                                className="rounded border-gray-300"
+                                data-testid={`checkbox-year-${year}`}
+                              />
+                              <Label htmlFor={`year-${year}`} className="text-sm cursor-pointer">
+                                {maintenanceSettings.yearType === 'current' ? `${year}${year === 1 ? 'st' : year === 2 ? 'nd' : year === 3 ? 'rd' : 'th'} Year` : year}
+                              </Label>
+                            </div>
+                          ));
+                        })()}
+                      </div>
                       <p className="text-xs text-muted-foreground">
-                        {maintenanceSettings.yearType === 'current' && "Enter current study years: 1 (1st year), 2 (2nd year), 3 (3rd year), 4 (4th year)"}
-                        {maintenanceSettings.yearType === 'joining' && "Enter joining years: 2021, 2022, 2023, 2024, etc."}
-                        {maintenanceSettings.yearType === 'passing' && "Enter passing out years: 2024, 2025, 2026, 2027, etc."}
+                        {maintenanceSettings.yearType === 'current' && "Select academic years (1st, 2nd, 3rd, 4th year students)"}
+                        {maintenanceSettings.yearType === 'joining' && "Select joining years (year students joined the college)"}
+                        {maintenanceSettings.yearType === 'passing' && "Select passing out years (year students graduate)"}
+                        {maintenanceSettings.targetYears.length > 0 && (
+                          <span className="block mt-1 font-medium">
+                            Selected: {maintenanceSettings.targetYears.sort().join(', ')}
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>
