@@ -8,7 +8,7 @@ export const queryClient = new QueryClient({
       gcTime: 1000 * 60 * 10, // 10 minutes
       retry: 1,
       refetchOnWindowFocus: false, // Disable to prevent unnecessary API calls
-      refetchOnMount: true, // Only refetch on component mount
+      refetchOnMount: false, // Disable refetch on mount - using SSE for real-time updates
       refetchInterval: false, // Disable automatic polling - using SSE for real-time updates
       queryFn: async ({ queryKey }) => {
         const [url] = queryKey as [string];
