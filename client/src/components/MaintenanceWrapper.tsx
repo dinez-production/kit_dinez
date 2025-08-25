@@ -17,14 +17,16 @@ export default function MaintenanceWrapper({
   const { data: userMaintenanceCheck } = useQuery({
     queryKey: [`/api/system-settings/maintenance-status/${user?.id}`],
     enabled: !!user?.id, // Only query when user ID is available
-    staleTime: 30000, // Use cached data for 30 seconds
+    staleTime: 300000, // Cache for 5 minutes
+    refetchInterval: false, // Disable automatic polling
   });
 
   // Fallback: Query for general maintenance status only for unauthenticated users
   const { data: generalMaintenanceStatus } = useQuery({
     queryKey: ['/api/system-settings/maintenance-status'],
     enabled: !user?.id, // Only query when there's no authenticated user
-    staleTime: 60000, // Use cached data for 1 minute
+    staleTime: 300000, // Cache for 5 minutes
+    refetchInterval: false, // Disable automatic polling
   });
 
   // If no user is authenticated, don't show maintenance (let auth handle this)

@@ -38,7 +38,7 @@ export default function AdminLoginIssues() {
 
   const { data: issues = [], isLoading, error } = useQuery<LoginIssue[]>({
     queryKey: ["/api/login-issues"],
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: false, // Disabled automatic refresh
   });
 
   const updateIssueMutation = useMutation({
