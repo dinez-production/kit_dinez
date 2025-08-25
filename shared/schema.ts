@@ -175,6 +175,12 @@ export type SystemSettings = {
     message: string;
     estimatedTime?: string;
     contactInfo?: string;
+    // Targeting options - if all are empty/null, applies to everyone
+    targetingType: string; // 'all', 'specific', 'department', 'year', 'year_department'
+    specificUsers: string[]; // Array of registerNumbers or staffIds
+    targetDepartments: string[]; // Array of department names
+    targetYears: number[]; // Array of years (joiningYear, passingOutYear, currentStudyYear)
+    yearType: string; // 'joining', 'passing', 'current'
     lastUpdatedBy?: number;
     lastUpdatedAt?: Date;
   };
@@ -353,6 +359,11 @@ export const insertSystemSettingsSchema = z.object({
     message: z.string().min(1, "Maintenance message is required"),
     estimatedTime: z.string().optional(),
     contactInfo: z.string().optional(),
+    targetingType: z.enum(['all', 'specific', 'department', 'year', 'year_department']).default('all'),
+    specificUsers: z.array(z.string()).default([]),
+    targetDepartments: z.array(z.string()).default([]),
+    targetYears: z.array(z.number()).default([]),
+    yearType: z.enum(['joining', 'passing', 'current']).default('current'),
     lastUpdatedBy: z.number().optional(),
     lastUpdatedAt: z.date().optional(),
   }),

@@ -13,6 +13,12 @@ const SystemSettingsSchema = new mongoose.Schema({
     message: { type: String, default: 'We are currently performing system maintenance. Please check back later.' },
     estimatedTime: { type: String, default: '' },
     contactInfo: { type: String, default: '' },
+    // Targeting options - if all are empty/null, applies to everyone
+    targetingType: { type: String, default: 'all' }, // 'all', 'specific', 'department', 'year', 'year_department'
+    specificUsers: [{ type: String }], // Array of registerNumbers or staffIds
+    targetDepartments: [{ type: String }], // Array of department names
+    targetYears: [{ type: Number }], // Array of years (joiningYear, passingOutYear, currentStudyYear)
+    yearType: { type: String, default: 'current' }, // 'joining', 'passing', 'current'
     lastUpdatedBy: { type: Number },
     lastUpdatedAt: { type: Date }
   },
@@ -48,7 +54,12 @@ router.get('/', async (req, res) => {
           title: 'System Maintenance',
           message: 'We are currently performing system maintenance. Please check back later.',
           estimatedTime: '',
-          contactInfo: ''
+          contactInfo: '',
+          targetingType: 'all',
+          specificUsers: [],
+          targetDepartments: [],
+          targetYears: [],
+          yearType: 'current'
         },
         notifications: {
           isEnabled: true
@@ -158,11 +169,136 @@ router.get('/maintenance-status', async (req, res) => {
       title: settings.maintenanceMode?.title || 'System Maintenance',
       message: settings.maintenanceMode?.message || 'We are currently performing system maintenance. Please check back later.',
       estimatedTime: settings.maintenanceMode?.estimatedTime || '',
-      contactInfo: settings.maintenanceMode?.contactInfo || ''
+      contactInfo: settings.maintenanceMode?.contactInfo || '',
+      targetingType: settings.maintenanceMode?.targetingType || 'all',
+      specificUsers: settings.maintenanceMode?.specificUsers || [],
+      targetDepartments: settings.maintenanceMode?.targetDepartments || [],
+      targetYears: settings.maintenanceMode?.targetYears || [],
+      yearType: settings.maintenanceMode?.yearType || 'current'
     });
   } catch (error) {
     console.error('Error fetching maintenance status:', error);
     res.status(500).json({ error: 'Failed to fetch maintenance status' });
+  }
+});
+
+/**
+ * Check if maintenance mode applies to a specific user
+ */
+router.get('/maintenance-status/:userId', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    if (!userId) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+
+    // Get the user from PostgreSQL
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get maintenance settings
+    const settings = await SystemSettingsModel.findOne().sort({ createdAt: -1 });
+    
+    if (!settings || !settings.maintenanceMode?.isActive) {
+      return res.json({ 
+        showMaintenance: false,
+        reason: 'Maintenance mode is not active'
+      });
+    }
+
+    const maintenanceMode = settings.maintenanceMode;
+    
+    // Check if user is admin or canteen owner (they bypass maintenance)
+    if (user.role === 'admin' || user.role === 'canteen_owner' || user.role === 'canteen-owner') {
+      return res.json({ 
+        showMaintenance: false,
+        reason: 'User has admin/canteen owner privileges'
+      });
+    }
+
+    // Apply targeting logic
+    let shouldShowMaintenance = false;
+    let reason = '';
+
+    switch (maintenanceMode.targetingType) {
+      case 'all':
+        shouldShowMaintenance = true;
+        reason = 'Maintenance applies to all users';
+        break;
+        
+      case 'specific':
+        // Check if user's registerNumber or staffId is in the specific list
+        const userIdentifier = user.role === 'student' ? user.registerNumber : user.staffId;
+        shouldShowMaintenance = maintenanceMode.specificUsers.includes(userIdentifier || '');
+        reason = shouldShowMaintenance 
+          ? `User ${userIdentifier} is specifically targeted`
+          : `User ${userIdentifier} is not specifically targeted`;
+        break;
+        
+      case 'department':
+        shouldShowMaintenance = maintenanceMode.targetDepartments.includes(user.department || '');
+        reason = shouldShowMaintenance 
+          ? `Department '${user.department}' is targeted`
+          : `Department '${user.department}' is not targeted`;
+        break;
+        
+      case 'year':
+        let userYear: number | null = null;
+        if (maintenanceMode.yearType === 'joining') {
+          userYear = user.joiningYear;
+        } else if (maintenanceMode.yearType === 'passing') {
+          userYear = user.passingOutYear;
+        } else if (maintenanceMode.yearType === 'current') {
+          userYear = user.currentStudyYear;
+        }
+        shouldShowMaintenance = userYear ? maintenanceMode.targetYears.includes(userYear) : false;
+        reason = shouldShowMaintenance 
+          ? `User's ${maintenanceMode.yearType} year (${userYear}) is targeted`
+          : `User's ${maintenanceMode.yearType} year (${userYear}) is not targeted`;
+        break;
+        
+      case 'year_department':
+        // Both department AND year must match
+        const deptMatch = maintenanceMode.targetDepartments.includes(user.department || '');
+        let yearMatch = false;
+        let yearValue: number | null = null;
+        
+        if (maintenanceMode.yearType === 'joining') {
+          yearValue = user.joiningYear;
+        } else if (maintenanceMode.yearType === 'passing') {
+          yearValue = user.passingOutYear;
+        } else if (maintenanceMode.yearType === 'current') {
+          yearValue = user.currentStudyYear;
+        }
+        
+        yearMatch = yearValue ? maintenanceMode.targetYears.includes(yearValue) : false;
+        shouldShowMaintenance = deptMatch && yearMatch;
+        reason = shouldShowMaintenance 
+          ? `Both department '${user.department}' and ${maintenanceMode.yearType} year (${yearValue}) match`
+          : `Department match: ${deptMatch}, Year match: ${yearMatch}`;
+        break;
+        
+      default:
+        shouldShowMaintenance = false;
+        reason = 'Unknown targeting type';
+    }
+
+    res.json({
+      showMaintenance: shouldShowMaintenance,
+      reason,
+      maintenanceInfo: shouldShowMaintenance ? {
+        title: maintenanceMode.title,
+        message: maintenanceMode.message,
+        estimatedTime: maintenanceMode.estimatedTime,
+        contactInfo: maintenanceMode.contactInfo
+      } : null
+    });
+    
+  } catch (error) {
+    console.error('Error checking maintenance status for user:', error);
+    res.status(500).json({ error: 'Failed to check maintenance status' });
   }
 });
 
@@ -231,7 +367,12 @@ router.patch('/maintenance', async (req, res) => {
           title: 'System Maintenance',
           message: 'We are currently performing system maintenance. Please check back later.',
           estimatedTime: '',
-          contactInfo: ''
+          contactInfo: '',
+          targetingType: 'all',
+          specificUsers: [],
+          targetDepartments: [],
+          targetYears: [],
+          yearType: 'current'
         },
         notifications: {
           isEnabled: true
@@ -252,7 +393,12 @@ router.patch('/maintenance', async (req, res) => {
         title: 'System Maintenance',
         message: 'We are currently performing system maintenance. Please check back later.',
         estimatedTime: '',
-        contactInfo: ''
+        contactInfo: '',
+        targetingType: 'all',
+        specificUsers: [],
+        targetDepartments: [],
+        targetYears: [],
+        yearType: 'current'
       };
     }
     

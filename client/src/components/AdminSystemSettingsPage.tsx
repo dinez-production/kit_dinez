@@ -15,7 +15,7 @@ import {
   Mail, Smartphone, CreditCard, FileText, AlertTriangle,
   Server, Wifi, Lock, Key, Palette, Monitor, RefreshCw, 
   Download, Zap, Info, HardDriveIcon, Settings, 
-  Clock, Phone
+  Clock, Phone, Target, Users, GraduationCap
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthSync } from "@/hooks/useDataSync";
@@ -47,7 +47,12 @@ export default function AdminSystemSettingsPage() {
     title: 'System Maintenance',
     message: 'We are currently performing system maintenance. Please check back later.',
     estimatedTime: '',
-    contactInfo: ''
+    contactInfo: '',
+    targetingType: 'all' as 'all' | 'specific' | 'department' | 'year' | 'year_department',
+    specificUsers: [] as string[],
+    targetDepartments: [] as string[],
+    targetYears: [] as number[],
+    yearType: 'current' as 'joining' | 'passing' | 'current'
   });
 
   // Update maintenance settings when data loads
@@ -59,7 +64,12 @@ export default function AdminSystemSettingsPage() {
         title: settings.maintenanceMode?.title || 'System Maintenance',
         message: settings.maintenanceMode?.message || 'We are currently performing system maintenance. Please check back later.',
         estimatedTime: settings.maintenanceMode?.estimatedTime || '',
-        contactInfo: settings.maintenanceMode?.contactInfo || ''
+        contactInfo: settings.maintenanceMode?.contactInfo || '',
+        targetingType: settings.maintenanceMode?.targetingType || 'all',
+        specificUsers: settings.maintenanceMode?.specificUsers || [],
+        targetDepartments: settings.maintenanceMode?.targetDepartments || [],
+        targetYears: settings.maintenanceMode?.targetYears || [],
+        yearType: settings.maintenanceMode?.yearType || 'current'
       });
     }
   }, [systemSettings]);
@@ -186,7 +196,12 @@ export default function AdminSystemSettingsPage() {
       title: maintenanceSettings.title,
       message: maintenanceSettings.message,
       estimatedTime: maintenanceSettings.estimatedTime,
-      contactInfo: maintenanceSettings.contactInfo
+      contactInfo: maintenanceSettings.contactInfo,
+      targetingType: maintenanceSettings.targetingType,
+      specificUsers: maintenanceSettings.specificUsers,
+      targetDepartments: maintenanceSettings.targetDepartments,
+      targetYears: maintenanceSettings.targetYears,
+      yearType: maintenanceSettings.yearType
     });
   };
 
@@ -196,11 +211,16 @@ export default function AdminSystemSettingsPage() {
       title: maintenanceSettings.title,
       message: maintenanceSettings.message,
       estimatedTime: maintenanceSettings.estimatedTime,
-      contactInfo: maintenanceSettings.contactInfo
+      contactInfo: maintenanceSettings.contactInfo,
+      targetingType: maintenanceSettings.targetingType,
+      specificUsers: maintenanceSettings.specificUsers,
+      targetDepartments: maintenanceSettings.targetDepartments,
+      targetYears: maintenanceSettings.targetYears,
+      yearType: maintenanceSettings.yearType
     });
   };
 
-  const handleMaintenanceFieldChange = (field: string, value: string) => {
+  const handleMaintenanceFieldChange = (field: string, value: string | string[] | number[]) => {
     setMaintenanceSettings(prev => ({ ...prev, [field]: value }));
   };
 
@@ -446,6 +466,153 @@ export default function AdminSystemSettingsPage() {
                     placeholder="e.g., support@kitcanteen.com or +91-1234567890"
                     data-testid="input-contact-info"
                   />
+                </div>
+              </div>
+            </div>
+
+            {/* Targeting Options */}
+            <div className="space-y-4 border-t pt-6">
+              <div className="flex items-center space-x-2">
+                <Target className="w-5 h-5 text-blue-600" />
+                <h4 className="font-medium">Maintenance Targeting</h4>
+                <Badge variant="outline" className="text-xs">
+                  {maintenanceSettings.targetingType === 'all' ? 'All Users' : 'Customized'}
+                </Badge>
+              </div>
+
+              <div className="space-y-4 bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg">
+                <div className="space-y-2">
+                  <Label htmlFor="targetingType">Who should see the maintenance notice?</Label>
+                  <Select 
+                    value={maintenanceSettings.targetingType} 
+                    onValueChange={(value: typeof maintenanceSettings.targetingType) => 
+                      handleMaintenanceFieldChange('targetingType', value)
+                    }
+                  >
+                    <SelectTrigger data-testid="select-targeting-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Users (Students & Staff)</SelectItem>
+                      <SelectItem value="specific">Specific Users (Reg No / Staff ID)</SelectItem>
+                      <SelectItem value="department">By Department</SelectItem>
+                      <SelectItem value="year">By Academic Year</SelectItem>
+                      <SelectItem value="year_department">By Year + Department</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Specific Users Input */}
+                {maintenanceSettings.targetingType === 'specific' && (
+                  <div className="space-y-2">
+                    <Label className="flex items-center space-x-2">
+                      <Users className="w-4 h-4" />
+                      <span>Registration Numbers or Staff IDs (comma-separated)</span>
+                    </Label>
+                    <Textarea
+                      value={maintenanceSettings.specificUsers.join(', ')}
+                      onChange={(e) => handleMaintenanceFieldChange('specificUsers', 
+                        e.target.value.split(',').map(s => s.trim()).filter(s => s.length > 0)
+                      )}
+                      placeholder="Example: 7115123ABC456, STF001, 7115124XYZ789, STF002"
+                      rows={3}
+                      data-testid="textarea-specific-users"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Mix student registration numbers (7115XXABC123) and staff IDs (ABC123) separated by commas
+                    </p>
+                  </div>
+                )}
+
+                {/* Department Selection */}
+                {(maintenanceSettings.targetingType === 'department' || maintenanceSettings.targetingType === 'year_department') && (
+                  <div className="space-y-2">
+                    <Label>Select Departments</Label>
+                    <Textarea
+                      value={maintenanceSettings.targetDepartments.join(', ')}
+                      onChange={(e) => handleMaintenanceFieldChange('targetDepartments', 
+                        e.target.value.split(',').map(s => s.trim()).filter(s => s.length > 0)
+                      )}
+                      placeholder="Example: CSE, ECE, MECH, EEE"
+                      rows={2}
+                      data-testid="textarea-departments"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Enter department codes separated by commas (CSE, ECE, MECH, EEE, etc.)
+                    </p>
+                  </div>
+                )}
+
+                {/* Year Selection */}
+                {(maintenanceSettings.targetingType === 'year' || maintenanceSettings.targetingType === 'year_department') && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Year Type</Label>
+                      <Select 
+                        value={maintenanceSettings.yearType} 
+                        onValueChange={(value: typeof maintenanceSettings.yearType) => 
+                          handleMaintenanceFieldChange('yearType', value)
+                        }
+                      >
+                        <SelectTrigger data-testid="select-year-type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="current">Current Study Year (1, 2, 3, 4)</SelectItem>
+                          <SelectItem value="joining">Joining Year (2021, 2022, 2023, 2024)</SelectItem>
+                          <SelectItem value="passing">Passing Out Year (2024, 2025, 2026, 2027)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="flex items-center space-x-2">
+                        <GraduationCap className="w-4 h-4" />
+                        <span>Select Years (comma-separated)</span>
+                      </Label>
+                      <Input
+                        value={maintenanceSettings.targetYears.join(', ')}
+                        onChange={(e) => {
+                          const years = e.target.value
+                            .split(',')
+                            .map(s => parseInt(s.trim()))
+                            .filter(n => !isNaN(n));
+                          handleMaintenanceFieldChange('targetYears', years);
+                        }}
+                        placeholder={
+                          maintenanceSettings.yearType === 'current' ? "Example: 1, 2, 3, 4" :
+                          maintenanceSettings.yearType === 'joining' ? "Example: 2021, 2022, 2023" :
+                          "Example: 2024, 2025, 2026"
+                        }
+                        data-testid="input-target-years"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {maintenanceSettings.yearType === 'current' && "Enter current study years: 1 (1st year), 2 (2nd year), 3 (3rd year), 4 (4th year)"}
+                        {maintenanceSettings.yearType === 'joining' && "Enter joining years: 2021, 2022, 2023, 2024, etc."}
+                        {maintenanceSettings.yearType === 'passing' && "Enter passing out years: 2024, 2025, 2026, 2027, etc."}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Preview of targeting */}
+                <div className="bg-white dark:bg-gray-800 p-3 rounded border">
+                  <p className="text-sm font-medium mb-2">Targeting Summary:</p>
+                  <p className="text-xs text-muted-foreground">
+                    {maintenanceSettings.targetingType === 'all' && "Maintenance notice will be shown to ALL users (students and staff)"}
+                    {maintenanceSettings.targetingType === 'specific' && 
+                      `Maintenance notice will be shown to ${maintenanceSettings.specificUsers.length} specific users`
+                    }
+                    {maintenanceSettings.targetingType === 'department' && 
+                      `Maintenance notice will be shown to users in departments: ${maintenanceSettings.targetDepartments.join(', ') || 'None selected'}`
+                    }
+                    {maintenanceSettings.targetingType === 'year' && 
+                      `Maintenance notice will be shown to users with ${maintenanceSettings.yearType} year: ${maintenanceSettings.targetYears.join(', ') || 'None selected'}`
+                    }
+                    {maintenanceSettings.targetingType === 'year_department' && 
+                      `Maintenance notice will be shown to users in departments [${maintenanceSettings.targetDepartments.join(', ') || 'None'}] with ${maintenanceSettings.yearType} year [${maintenanceSettings.targetYears.join(', ') || 'None'}]`
+                    }
+                  </p>
                 </div>
               </div>
             </div>
