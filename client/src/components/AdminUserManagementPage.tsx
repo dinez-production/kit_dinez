@@ -63,7 +63,7 @@ export default function AdminUserManagementPage() {
       }
       return response.json();
     },
-    refetchInterval: 60000, // Auto-refresh every minute
+    refetchInterval: false, // Disabled automatic refresh
     staleTime: 30000, // Data is fresh for 30 seconds
   });
 
@@ -71,14 +71,14 @@ export default function AdminUserManagementPage() {
   const { data: analyticsData, isLoading: analyticsLoading, refetch: refetchAnalytics } = useQuery({
     queryKey: ['/api/admin/analytics'],
     queryFn: () => fetch('/api/admin/analytics').then(res => res.json()),
-    refetchInterval: 60000,
+    refetchInterval: false,
   });
 
   // Fetch orders for user behavior analytics
   const { data: ordersData = [], isLoading: ordersLoading, refetch: refetchOrders } = useQuery<any[]>({
     queryKey: ['/api/orders'],
     queryFn: () => fetch('/api/orders').then(res => res.json()),
-    refetchInterval: 60000,
+    refetchInterval: false,
   });
 
   // Fetch all payments data for spending analysis
@@ -89,13 +89,13 @@ export default function AdminUserManagementPage() {
       if (!response.ok) return [];
       return response.json();
     },
-    refetchInterval: 60000,
+    refetchInterval: false,
   });
 
   // Real complaints data from API
   const { data: complaintsData = [], isLoading: complaintsLoading, refetch: refetchComplaints } = useQuery<any[]>({
     queryKey: ["/api/complaints"],
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: false, // Refresh every minute
   });
 
   const [complaints, setComplaints] = useState<any[]>(complaintsData);

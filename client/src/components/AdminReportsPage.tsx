@@ -27,25 +27,25 @@ export default function AdminReportsPage() {
   const { data: analyticsData, isLoading: analyticsLoading, refetch: refetchAnalytics } = useQuery({
     queryKey: ['/api/admin/analytics'],
     queryFn: () => fetch('/api/admin/analytics').then(res => res.json()),
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: false, // Disabled automatic refresh
   });
 
   const { data: ordersData, isLoading: ordersLoading, refetch: refetchOrders } = useQuery({
     queryKey: ['/api/orders'],
     queryFn: () => fetch('/api/orders').then(res => res.json()),
-    refetchInterval: 30000,
+    refetchInterval: false,
   });
 
   const { data: usersData, isLoading: usersLoading, refetch: refetchUsers } = useQuery({
     queryKey: ['/api/users'],
     queryFn: () => fetch('/api/users').then(res => res.json()),
-    refetchInterval: 60000, // Less frequent for user data
+    refetchInterval: false, // Disabled automatic refresh
   });
 
   const { data: menuData, isLoading: menuLoading, refetch: refetchMenu } = useQuery({
     queryKey: ['/api/menu'],
     queryFn: () => fetch('/api/menu').then(res => res.json()),
-    refetchInterval: 60000,
+    refetchInterval: false,
   });
 
   const isDataLoading = analyticsLoading || ordersLoading || usersLoading || menuLoading;

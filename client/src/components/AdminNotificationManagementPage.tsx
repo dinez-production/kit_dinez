@@ -102,19 +102,19 @@ export default function AdminNotificationManagementPage() {
   // Fetch push notification statistics
   const { data: pushStats, isLoading: statsLoading } = useQuery<PushStats>({
     queryKey: ['/api/push/stats'],
-    refetchInterval: 10000, // Refresh every 10 seconds
+    refetchInterval: false, // Disabled automatic refresh
   });
 
   // Fetch notification templates
   const { data: orderTemplates = [], isLoading: templatesLoading } = useQuery<OrderStatusTemplate[]>({
     queryKey: ['/api/push/templates'],
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: false, // Disabled automatic refresh
   });
 
   // Fetch custom notification templates
   const { data: customTemplates = [], isLoading: customTemplatesLoading } = useQuery<CustomTemplate[]>({
     queryKey: ['/api/push/custom-templates'],
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: false, // Disabled automatic refresh
   });
 
   // Send test notification mutation

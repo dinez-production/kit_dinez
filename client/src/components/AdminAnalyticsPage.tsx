@@ -29,7 +29,7 @@ export default function AdminAnalyticsPage() {
       if (!res.ok) throw new Error('Failed to fetch analytics');
       return res.json();
     }),
-    refetchInterval: 30000, // Auto-refresh every 30 seconds
+    refetchInterval: false, // Disabled automatic refresh
     staleTime: 10000, // Data is fresh for 10 seconds
   });
 
@@ -40,7 +40,7 @@ export default function AdminAnalyticsPage() {
       if (!res.ok) throw new Error('Failed to fetch users');
       return res.json();
     }),
-    refetchInterval: 60000,
+    refetchInterval: false,
     staleTime: 30000,
   });
 
@@ -51,7 +51,7 @@ export default function AdminAnalyticsPage() {
       if (!res.ok) throw new Error('Failed to fetch orders');
       return res.json();
     }),
-    refetchInterval: 30000,
+    refetchInterval: false,
     staleTime: 10000,
   });
 
@@ -62,7 +62,7 @@ export default function AdminAnalyticsPage() {
       if (!res.ok) throw new Error('Failed to fetch menu');
       return res.json();
     }),
-    refetchInterval: 60000,
+    refetchInterval: false,
     staleTime: 30000,
   });
 
