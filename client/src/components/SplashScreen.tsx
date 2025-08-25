@@ -156,13 +156,15 @@ export default function SplashScreen() {
       // Check notification permissions for authenticated users (only if notifications are enabled)
       const shouldCheckNotificationPermission = isNotificationEnabled && ((isPWALaunch && pwaAuthState.isAuthenticated) || user);
       
-      // For PWA launches, use the PWA authentication state directly
+      // For PWA launches, prioritize PWA authentication state but also check regular auth as fallback
       if (isPWALaunch) {
-        console.log("PWA launch detected - using PWA authentication state");
+        console.log("PWA launch detected - checking authentication state");
         
-        if (pwaAuthState.isAuthenticated && pwaAuthState.user) {
-          console.log("Valid PWA session found, checking notifications and redirecting");
-          const userData = pwaAuthState.user;
+        // Check PWA auth state first, then fallback to regular user state
+        const authUser = pwaAuthState.isAuthenticated && pwaAuthState.user ? pwaAuthState.user : user;
+        
+        if (authUser) {
+          console.log("Valid session found in PWA, checking notifications and redirecting");
           
           // Check notifications before redirecting (only if notifications are enabled system-wide)
           if (shouldCheckNotificationPermission && !checkNotificationPermission()) {
@@ -172,18 +174,22 @@ export default function SplashScreen() {
           }
           
           // Valid session for PWA - redirect to appropriate page
-          if (userData.role === 'super_admin') {
+          if (authUser.role === 'super_admin') {
             setLocation("/admin");
-          } else if (userData.role === 'canteen_owner' || userData.role === 'canteen-owner') {
+          } else if (authUser.role === 'canteen_owner' || authUser.role === 'canteen-owner') {
             setLocation("/canteen-owner-dashboard");
           } else {
             setLocation("/home");
           }
           return;
         } else {
-          // No valid session for PWA - go to login
-          console.log("No valid PWA session, redirecting to login");
-          setLocation("/login");
+          // No valid session for PWA - go to login only if we're sure auth is complete
+          if (!isLoading) {
+            console.log("No valid session in PWA and auth loading complete, redirecting to login");
+            setLocation("/login");
+          } else {
+            console.log("Auth still loading in PWA, waiting...");
+          }
           return;
         }
       }
@@ -208,14 +214,18 @@ export default function SplashScreen() {
           setLocation("/home");
         }
       } else {
-        console.log("No authenticated user, redirecting to login");
-        // No authenticated user, go to login
-        setLocation("/login");
+        // Only redirect to login if auth loading is complete
+        if (!isLoading) {
+          console.log("No authenticated user and auth loading complete, redirecting to login");
+          setLocation("/login");
+        } else {
+          console.log("Auth still loading, waiting...");
+        }
       }
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [setLocation, user, isLoading, maintenanceStatus, notificationSettings]);
+  }, [setLocation, isLoading, maintenanceStatus, notificationSettings]); // Removed 'user' to prevent loops
 
 
   // If maintenance mode is active, show maintenance screen
