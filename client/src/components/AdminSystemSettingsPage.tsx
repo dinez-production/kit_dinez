@@ -162,11 +162,36 @@ export default function AdminSystemSettingsPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleSave = () => {
-    toast({
-      title: "Settings Saved",
-      description: "System settings have been updated successfully",
-    });
+  const handleSave = async () => {
+    try {
+      // Save maintenance settings if any changes were made
+      await updateMaintenanceMutation.mutateAsync({
+        isActive: maintenanceSettings.isActive,
+        title: maintenanceSettings.title,
+        message: maintenanceSettings.message,
+        estimatedTime: maintenanceSettings.estimatedTime,
+        contactInfo: maintenanceSettings.contactInfo,
+        targetingType: maintenanceSettings.targetingType,
+        specificUsers: maintenanceSettings.specificUsers,
+        targetDepartments: maintenanceSettings.targetDepartments,
+        targetYears: maintenanceSettings.targetYears,
+        yearType: maintenanceSettings.yearType
+      });
+      
+      // Invalidate cache to refresh data
+      queryClient.invalidateQueries({ queryKey: ['/api/system-settings'] });
+      
+      toast({
+        title: "Settings Saved",
+        description: "All system settings have been updated successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error Saving Settings",
+        description: "Failed to save settings. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const toggleFeature = (feature: string) => {
@@ -530,7 +555,7 @@ export default function AdminSystemSettingsPage() {
                     <Label>Select Departments</Label>
                     <div className="grid grid-cols-2 gap-2">
                       {['CSE', 'ECE', 'MECH', 'EEE', 'CIVIL', 'IT', 'BME', 'CHEM', 'AERO', 'AUTO'].map(dept => (
-                        <div key={dept} className="flex items-center space-x-2">
+                        <div key={dept} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                           <input
                             type="checkbox"
                             id={`dept-${dept}`}
@@ -543,10 +568,12 @@ export default function AdminSystemSettingsPage() {
                                 handleMaintenanceFieldChange('targetDepartments', currentDepts.filter(d => d !== dept));
                               }
                             }}
-                            className="rounded border-gray-300"
+                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
                             data-testid={`checkbox-dept-${dept}`}
                           />
-                          <Label htmlFor={`dept-${dept}`} className="text-sm cursor-pointer">{dept}</Label>
+                          <Label htmlFor={`dept-${dept}`} className="text-sm font-medium cursor-pointer select-none">
+                            {dept}
+                          </Label>
                         </div>
                       ))}
                     </div>
@@ -595,7 +622,7 @@ export default function AdminSystemSettingsPage() {
                           }
                           
                           return availableYears.map(year => (
-                            <div key={year} className="flex items-center space-x-2">
+                            <div key={year} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                               <input
                                 type="checkbox"
                                 id={`year-${year}`}
@@ -608,10 +635,10 @@ export default function AdminSystemSettingsPage() {
                                     handleMaintenanceFieldChange('targetYears', currentYears.filter(y => y !== year));
                                   }
                                 }}
-                                className="rounded border-gray-300"
+                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
                                 data-testid={`checkbox-year-${year}`}
                               />
-                              <Label htmlFor={`year-${year}`} className="text-sm cursor-pointer">
+                              <Label htmlFor={`year-${year}`} className="text-sm font-medium cursor-pointer select-none">
                                 {maintenanceSettings.yearType === 'current' ? `${year}${year === 1 ? 'st' : year === 2 ? 'nd' : year === 3 ? 'rd' : 'th'} Year` : year}
                               </Label>
                             </div>
