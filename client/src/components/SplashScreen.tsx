@@ -23,6 +23,9 @@ export default function SplashScreen() {
   const { data: maintenanceStatus } = useQuery({
     queryKey: ['/api/system-settings/maintenance-status'],
     staleTime: 300000, // Cache for 5 minutes since it's only checked once on splash
+    refetchInterval: false, // Disable automatic polling
+    refetchOnMount: false, // Disable refetch on component mount
+    refetchOnWindowFocus: false, // Disable refetch on window focus
   });
 
   // Query for notification settings

@@ -19,6 +19,8 @@ export default function MaintenanceWrapper({
     enabled: !!user?.id, // Only query when user ID is available
     staleTime: 300000, // Cache for 5 minutes
     refetchInterval: false, // Disable automatic polling
+    refetchOnMount: false, // Disable refetch on component mount
+    refetchOnWindowFocus: false, // Disable refetch on window focus
   });
 
   // Fallback: Query for general maintenance status only for unauthenticated users
@@ -27,6 +29,8 @@ export default function MaintenanceWrapper({
     enabled: !user?.id, // Only query when there's no authenticated user
     staleTime: 300000, // Cache for 5 minutes
     refetchInterval: false, // Disable automatic polling
+    refetchOnMount: false, // Disable refetch on component mount
+    refetchOnWindowFocus: false, // Disable refetch on window focus
   });
 
   // If no user is authenticated, don't show maintenance (let auth handle this)
